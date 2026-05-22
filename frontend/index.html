@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/icon-solid.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/dist/browser.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/css/emoji-mart.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Liquid glass SVG filter -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <filter id="liquid-glass-filter" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- ── LOGIN SCREEN ── -->
+  <div id="login-screen">
+    <div class="login-bg-glow"></div>
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <img id="login-icon" src="assets/icon-dark.svg" alt="Task Tracker" width="44" height="44" style="border-radius:10px;">
+        </div>
+        <span class="login-logo-text">Task Tracker</span>
+      </div>
+      <h1 class="login-title" data-i18n="welcome_back">Welcome back</h1>
+      <p class="login-sub" data-i18n="sign_in_subtitle">Sign in to continue to your workspace</p>
+      <div id="g-signin-btn"></div>
+      <div id="recent-logins" class="hidden">
+        <div class="recent-label" data-i18n="continue_as">Continue as</div>
+        <div id="recent-list"></div>
+      </div>
+      <p class="login-footer" data-i18n="secured_by">Secured with Google OAuth 2.0</p>
+    </div>
+  </div>
+
+  <!-- ── APP SHELL ── -->
+  <div id="app" class="hidden">
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="nav-logo">
+        <img id="sidebar-logo" src="assets/logo-dark.svg" alt="Task Tracker" height="36" style="max-width:160px;object-fit:contain;">
+      </div>
+      <ul>
+        <li class="nav-item active" data-view="dashboard">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          <span data-i18n="dashboard">Dashboard</span>
+        </li>
+        <li class="nav-item" data-view="tasks">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+          <span data-i18n="tasks">Tasks</span>
+        </li>
+        <li class="nav-item" data-view="pos">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+          <span data-i18n="purchase_orders">Purchase Orders</span>
+        </li>
+        <li class="nav-item" data-view="milestones">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+          </svg>
+          <span data-i18n="milestones">Milestones</span>
+        </li>
+        <li class="nav-item" data-view="expenses">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          </svg>
+          <span data-i18n="expenses">Expenses</span>
+        </li>
+        <li class="nav-item" data-view="chat">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span data-i18n="team_chat">Team Chat</span>
+        </li>
+        <li class="nav-item" data-view="settings">
+          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+            <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
+          </svg>
+          <span data-i18n="settings">Settings</span>
+        </li>
+      </ul>
+      <div class="nav-footer">
+        <div class="user-row">
+          <div class="user-avatar-sm" id="user-avatar">?</div>
+          <div class="user-info-text">
+            <div class="user-name-sm" id="user-name"></div>
+            <div class="user-email-sm" id="user-email"></div>
+          </div>
+        </div>
+        <button id="signout-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          <span data-i18n="sign_out">Sign out</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Right column: topbar + main -->
+    <div id="app-right">
+
+      <!-- Topbar -->
+      <div id="topbar">
+        <div id="topbar-title">Dashboard</div>
+        <div id="topbar-right" class="topbar-right">
+          <button id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+            <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <button id="profile-btn" class="profile-btn">
+            <img id="profile-img" src="" alt="" />
+            <span id="profile-name"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <main id="main">
+
+        <!-- Dashboard -->
+        <div id="view-dashboard" class="view active">
+          <div class="dashboard-greeting">
+            <div class="greeting-left">
+              <h2 id="dashboard-greeting-text">Good morning 👋</h2>
+              <p class="greeting-sub">Here's what's happening with your projects today.</p>
+            </div>
+            <button class="btn-sheets" onclick="openSheet()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10,9 9,9 8,9"/>
+              </svg>
+              Open Google Sheet
+            </button>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-clock" style="background:rgba(99,102,241,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline class="clock-hand" points="12,6 12,12 16,14"/>
+                </svg>
+              </div>
+              <div class="stat-label" data-i18n="open_tasks">Open Tasks</div>
+              <div class="stat-value" id="stat-open">—</div>
+              <div class="stat-subtitle">Tasks in progress</div>
+              <div class="stat-badge green">Active</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-alert" style="background:rgba(239,68,68,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div class="stat-label" data-i18n="overdue">Overdue</div>
+              <div class="stat-value danger" id="stat-overdue">—</div>
+              <div class="stat-subtitle">Needs attention</div>
+              <div class="stat-badge red">Attention</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-card" style="background:rgba(139,92,246,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round">
+                  <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                </svg>
+              </div>
+              <div class="stat-label" data-i18n="po_spend">PO Spend</div>
+              <div class="stat-value" id="stat-spend">—</div>
+              <div class="stat-subtitle">Total committed</div>
+              <div class="stat-badge purple">Committed</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-bars" style="background:rgba(16,185,129,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              </div>
+              <div class="stat-label" data-i18n="avg_progress">Avg Progress</div>
+              <div class="stat-value" id="stat-progress">—</div>
+              <div class="stat-subtitle">Across milestones</div>
+              <div class="stat-badge green">Milestones</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-dollar" style="background:rgba(245,158,11,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+              </div>
+              <div class="stat-label" data-i18n="total_expenses">Total Expenses</div>
+              <div class="stat-value" id="stat-expenses">—</div>
+              <div class="stat-subtitle">All time spend</div>
+              <div class="stat-badge amber">All time</div>
+            </div>
+          </div>
+
+          <div class="charts-row">
+            <div class="chart-box glass">
+              <h3 data-i18n="task_status">Task Status</h3>
+              <canvas id="chart-tasks"></canvas>
+            </div>
+            <div class="chart-box glass">
+              <h3 data-i18n="po_status">PO Status</h3>
+              <canvas id="chart-pos"></canvas>
+            </div>
+          </div>
+
+          <div class="dashboard-bottom">
+            <div class="dash-panel glass">
+              <div class="panel-header">
+                <h3 data-i18n="recent_tasks">Recent Tasks</h3>
+                <button class="panel-link" onclick="navigateTo('tasks')" data-i18n="view_all">View all →</button>
+              </div>
+              <div id="recent-tasks-list"></div>
+            </div>
+            <div class="dash-panel glass">
+              <div class="panel-header">
+                <h3 data-i18n="milestones">Milestones</h3>
+                <button class="panel-link" onclick="navigateTo('milestones')" data-i18n="view_all">View all →</button>
+              </div>
+              <div id="milestone-progress-list"></div>
+            </div>
+            <div class="dash-panel glass">
+              <div class="panel-header">
+                <h3 data-i18n="recent_expenses">Recent Expenses</h3>
+                <button class="panel-link" onclick="navigateTo('expenses')" data-i18n="view_all">View all →</button>
+              </div>
+              <div id="recent-expenses-list"></div>
+            </div>
+          </div>
+
+          <div class="dash-panel glass" style="margin-top:14px;">
+            <div class="panel-header">
+              <h3>Recent Activity</h3>
+            </div>
+            <div id="activity-feed"></div>
+          </div>
+        </div>
+
+        <!-- Tasks -->
+        <div id="view-tasks" class="view">
+          <div class="view-header">
+            <h2 data-i18n="tasks">Tasks</h2>
+            <button class="btn-add" data-sheet="Tasks" data-i18n="add_task">Add Task</button>
+          </div>
+          <div id="table-tasks" class="table-wrap glass"></div>
+        </div>
+
+        <!-- POs -->
+        <div id="view-pos" class="view">
+          <div class="view-header">
+            <h2 data-i18n="purchase_orders">Purchase Orders</h2>
+            <button class="btn-add" data-sheet="POs" data-i18n="add_po">Add PO</button>
+          </div>
+          <div id="table-pos" class="table-wrap glass"></div>
+        </div>
+
+        <!-- Milestones -->
+        <div id="view-milestones" class="view">
+          <div class="view-header">
+            <h2 data-i18n="milestones">Milestones</h2>
+            <button class="btn-add" data-sheet="Milestones" data-i18n="add_milestone">Add Milestone</button>
+          </div>
+          <div id="table-milestones" class="table-wrap glass"></div>
+        </div>
+
+        <!-- Expenses -->
+        <div id="view-expenses" class="view">
+          <div class="view-header">
+            <h2 data-i18n="expenses">Expenses</h2>
+            <button class="btn-add" data-sheet="Expenses" data-i18n="add_expense">Add Expense</button>
+          </div>
+          <div id="table-expenses" class="table-wrap glass"></div>
+        </div>
+
+        <!-- Chat -->
+        <div id="view-chat" class="view">
+          <div class="chat-wrapper">
+            <!-- Topic sidebar -->
+            <div class="chat-sidebar glass">
+              <div class="chat-sidebar-header">Topics</div>
+              <div id="topic-list"></div>
+            </div>
+            <!-- Main chat area -->
+            <div class="chat-container glass">
+              <div class="chat-header">
+                <div class="chat-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                  </svg>
+                  <span id="chat-topic-name">💬 General</span>
+                </div>
+                <span id="chat-status" class="chat-status">● <span data-i18n="live">Live</span></span>
+              </div>
+              <div id="chat-messages"></div>
+              <div class="chat-input-bar">
+                <img id="chat-avatar" src="" class="chat-input-avatar" alt="" />
+                <label class="chat-attach-btn" title="Attach file">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                  <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.xlsx,.txt" style="display:none" />
+                </label>
+                <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" />
+                <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
+                <div id="emoji-picker" class="emoji-picker hidden"></div>
+                <button id="chat-send">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div id="view-settings" class="view">
+
+          <!-- Page header -->
+          <div class="settings-page-hd">
+            <div class="settings-hd-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+                <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="settings-hd-title" data-i18n="settings">Settings</h2>
+              <p class="settings-hd-sub">Manage your workspace, team, and preferences</p>
+            </div>
+          </div>
+
+          <div class="settings-layout">
+
+            <!-- LEFT COLUMN -->
+            <div class="settings-col">
+
+              <!-- Team Members -->
+              <div class="settings-card glass">
+                <div class="settings-card-hd">
+                  <div class="settings-card-icon" style="background:rgba(99,102,241,0.15)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="settings-card-title" data-i18n="team_members">Team Members</div>
+                    <div class="settings-card-sub">Control workspace access</div>
+                  </div>
+                </div>
+                <div id="team-list"></div>
+                <div class="add-member-row">
+                  <input id="new-member-email" type="email" placeholder="colleague@gmail.com" />
+                  <select id="new-member-role">
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button id="add-member-btn" class="btn-primary" data-i18n="add_member">Add</button>
+                </div>
+              </div>
+
+              <!-- Data Management -->
+              <div class="settings-card glass">
+                <div class="settings-card-hd">
+                  <div class="settings-card-icon" style="background:rgba(245,158,11,0.15)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7,10 12,15 17,10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="settings-card-title">Data Management</div>
+                    <div class="settings-card-sub">Export and clear local data</div>
+                  </div>
+                </div>
+                <div class="export-grid">
+                  <button class="export-btn" onclick="exportCSV('Tasks')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    Tasks CSV
+                  </button>
+                  <button class="export-btn" onclick="exportCSV('POs')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                    POs CSV
+                  </button>
+                  <button class="export-btn" onclick="exportCSV('Expenses')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    Expenses CSV
+                  </button>
+                  <button class="export-btn" onclick="exportCSV('Milestones')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+                    Milestones CSV
+                  </button>
+                </div>
+                <button class="export-btn export-btn-danger" style="width:100%;margin-top:4px;" onclick="clearLocalCache()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                  Clear local cache
+                </button>
+              </div>
+
+            </div><!-- /settings-left -->
+
+            <!-- RIGHT COLUMN -->
+            <div class="settings-col">
+
+              <!-- Preferences -->
+              <div class="settings-card glass">
+                <div class="settings-card-hd">
+                  <div class="settings-card-icon" style="background:rgba(16,185,129,0.15)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round">
+                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="settings-card-title" data-i18n="preferences">Preferences</div>
+                    <div class="settings-card-sub">Stored locally on your device</div>
+                  </div>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label" data-i18n="currency">Currency</div><div class="pref-sub">Default for expenses and POs</div></div>
+                  <select id="pref-currency" class="pref-select">
+                    <option value="USD">USD ($)</option><option value="IQD">IQD</option><option value="EUR">EUR (€)</option>
+                  </select>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label" data-i18n="date_format">Date format</div><div class="pref-sub">How dates are displayed</div></div>
+                  <select id="pref-dateformat" class="pref-select">
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                  </select>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label">Dashboard refresh</div><div class="pref-sub">Auto-refresh interval</div></div>
+                  <select id="pref-refresh" class="pref-select">
+                    <option value="0">Manual only</option>
+                    <option value="30">Every 30s</option>
+                    <option value="60">Every 1 min</option>
+                    <option value="300">Every 5 min</option>
+                  </select>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label">Default assignee</div><div class="pref-sub">Pre-filled in new tasks</div></div>
+                  <input id="pref-assignee" type="text" class="pref-select" placeholder="Your name" />
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label">Default project</div><div class="pref-sub">Pre-filled in new tasks</div></div>
+                  <input id="pref-project" type="text" class="pref-select" placeholder="Project name" />
+                </div>
+                <div class="pref-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                  <div><div class="pref-label">Google Sheet URL</div><div class="pref-sub">Link for the "Open Google Sheet" button</div></div>
+                  <input id="pref-sheet-url" type="url" class="pref-input" placeholder="https://docs.google.com/spreadsheets/d/…/edit" />
+                </div>
+                <div class="pref-item">
+                  <div>
+                    <div class="pref-label" data-i18n="language">Language</div>
+                    <div class="pref-sub">Interface language / لغة الواجهة</div>
+                  </div>
+                  <select id="pref-language" class="pref-select" onchange="setLanguage(this.value)">
+                    <option value="en">English</option>
+                    <option value="ar">العربية</option>
+                  </select>
+                </div>
+                <button id="save-prefs-btn" class="btn-primary" data-i18n="save_preferences" style="margin-top:1rem;width:100%">Save preferences</button>
+              </div>
+
+              <!-- Automation -->
+              <div class="settings-card glass">
+                <div class="settings-card-hd">
+                  <div class="settings-card-icon" style="background:rgba(139,92,246,0.15)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round">
+                      <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="settings-card-title">Automation</div>
+                    <div class="settings-card-sub">Smart triggers in the backend</div>
+                  </div>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label">Auto-create milestones</div><div class="pref-sub">When a task with a new project is saved</div></div>
+                  <label class="toggle-switch"><input type="checkbox" id="pref-auto-milestone" checked /><span></span></label>
+                </div>
+                <div class="pref-item">
+                  <div><div class="pref-label">Auto-create expenses</div><div class="pref-sub">When a PO is marked as received</div></div>
+                  <label class="toggle-switch"><input type="checkbox" id="pref-auto-expense" checked /><span></span></label>
+                </div>
+                <p class="settings-note">Redeploy Code.gs for automation changes to take effect.</p>
+              </div>
+
+              <!-- Notifications + About row -->
+              <div class="settings-row-2">
+                <div class="settings-card glass">
+                  <div class="settings-card-hd">
+                    <div class="settings-card-icon" style="background:rgba(59,130,246,0.15)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round">
+                        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="settings-card-title">Notifications</div>
+                      <div class="settings-card-sub">Push alerts enabled</div>
+                    </div>
+                  </div>
+                  <div class="settings-notif-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+                    Active on this device
+                  </div>
+                </div>
+                <div class="settings-card glass">
+                  <div class="settings-card-hd">
+                    <div class="settings-card-icon" style="background:rgba(15,15,30,0.10)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" stroke-width="2" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="settings-card-title" data-i18n="about">About</div>
+                      <div class="settings-card-sub">v2.0.0</div>
+                    </div>
+                  </div>
+                  <div class="about-grid">
+                    <div class="about-row"><span>Backend</span><span>Google Apps Script</span></div>
+                    <div class="about-row"><span>Database</span><span>Google Sheets</span></div>
+                    <div class="about-row"><span>Auth</span><span>Google OAuth 2.0</span></div>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /settings-right -->
+          </div><!-- /settings-layout -->
+        </div>
+
+      </main>
+    </div><!-- end #app-right -->
+  </div><!-- end #app -->
+
+  <!-- ── PROFILE DROPDOWN ── -->
+  <div id="profile-dropdown" class="hidden">
+    <div class="profile-dropdown-header">
+      <img id="dropdown-avatar" src="" alt="" />
+      <div>
+        <div id="dropdown-name"></div>
+        <div id="dropdown-email"></div>
+      </div>
+    </div>
+    <div class="dropdown-divider"></div>
+    <button class="dropdown-item" onclick="navigateTo('settings')">⚙ <span data-i18n="settings">Settings</span></button>
+    <button class="dropdown-item danger" id="dropdown-signout">⎋ <span data-i18n="sign_out">Sign out</span></button>
+  </div>
+
+  <!-- ── MODAL ── -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div id="modal-header">
+        <h3 id="modal-title">Add Row</h3>
+        <button id="modal-close">✕</button>
+      </div>
+      <div id="modal-body"></div>
+      <div id="modal-footer">
+        <button id="modal-cancel" data-i18n="cancel">Cancel</button>
+        <button id="modal-save" class="btn-primary" data-i18n="save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IMAGE VIEWER ── -->
+  <div id="image-viewer" class="hidden">
+    <div class="image-viewer-backdrop" onclick="closeImageViewer()"></div>
+    <div class="image-viewer-content">
+      <button class="image-viewer-close" onclick="closeImageViewer()">✕</button>
+      <img id="image-viewer-img" src="" alt="" />
+      <div id="image-viewer-caption"></div>
+      <a id="image-viewer-download" href="" target="_blank" class="image-viewer-download">Open in Drive ↗</a>
+    </div>
+  </div>
+
+  <!-- ── SCRIPTS ── -->
+  <script src="i18n.js"></script>
+  <script src="config.js"></script>
+  <script src="cache.js"></script>
+  <script src="api.js"></script>
+  <script src="tables.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="chat.js"></script>
+  <script>
+    var idToken = null;
+
+    // ── JWT decode (base64url-safe) ──────────────────────────────────
+    function decodeJwt(token) {
+      const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const pad = (4 - b64.length % 4) % 4;
+      return JSON.parse(atob(b64 + '='.repeat(pad)));
+    }
+
+    // ── Session persistence ──────────────────────────────────────────
+    function saveSession(token, payload) {
+      localStorage.setItem('tt_session', JSON.stringify({
+        token, exp: payload.exp,
+        email: payload.email, name: payload.name || '', picture: payload.picture || ''
+      }));
+    }
+
+    function clearSession() { localStorage.removeItem('tt_session'); }
+
+    function tryRestoreSession() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('tt_session') || 'null');
+        if (saved && saved.token && saved.exp) {
+          if (Math.floor(Date.now() / 1000) < saved.exp - 30) {
+            handleCredentialResponse({ credential: saved.token });
+            return true;
+          }
+          localStorage.removeItem('tt_session');
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    // ── Silent token refresh (every 45 min, before 1hr expiry) ──────
+    function setupTokenRefresh() {
+      setInterval(silentRefresh, 45 * 60 * 1000);
+    }
+
+    function silentRefresh() {
+      if (!idToken) return;
+      try {
+        google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: (response) => {
+            if (response.credential) {
+              idToken = response.credential;
+              const payload = decodeJwt(idToken);
+              saveSession(idToken, payload);
+            }
+          },
+          auto_select: true,
+          use_fedcm_for_prompt: false
+        });
+        google.accounts.id.prompt(() => {});
+      } catch (e) {
+        console.warn('Silent token refresh failed:', e);
+      }
+    }
+
+    // ── Notifications (auto-request on sign-in) ──────────────────────
+    function setupNotifications() {
+      if (!('Notification' in window)) return;
+      if (localStorage.getItem('tt_notif_granted') === 'true') return;
+      if (Notification.permission === 'granted') {
+        localStorage.setItem('tt_notif_granted', 'true');
+        return;
+      }
+      if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            localStorage.setItem('tt_notif_granted', 'true');
+            new Notification('Task Tracker', { body: 'Notifications enabled ✓' });
+          }
+        });
+      }
+    }
+
+    // ── Recent users ─────────────────────────────────────────────────
+    function saveRecentUser(email, name, picture) {
+      let recent = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
+      recent = recent.filter(u => u.email !== email);
+      recent.unshift({ email, name: name || email.split('@')[0], picture: picture || '' });
+      if (recent.length > 3) recent = recent.slice(0, 3);
+      localStorage.setItem('tt_recent_users', JSON.stringify(recent));
+    }
+
+    function loadRecentUsers() {
+      const recent    = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
+      const container = document.getElementById('recent-logins');
+      const list      = document.getElementById('recent-list');
+      if (!recent.length || !container || !list) return;
+      list.innerHTML = recent.map((u, i) => `
+        <div class="recent-user-card" onclick="quickSignIn(${i})">
+          <div class="recent-avatar">${(u.email || '?').charAt(0).toUpperCase()}</div>
+          <div class="recent-user-info">
+            <div class="recent-name">${escapeHtml(u.name || u.email.split('@')[0])}</div>
+            <div class="recent-email">${escapeHtml(u.email)}</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:rgba(255,255,255,0.3);flex-shrink:0"><polyline points="9,18 15,12 9,6"/></svg>
+        </div>`).join('');
+      container.classList.remove('hidden');
+    }
+
+    function quickSignIn(index) {
+      const recent = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
+      const user   = recent[index];
+      if (!user) return;
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID, callback: handleCredentialResponse,
+        auto_select: true, hint: user.email, use_fedcm_for_prompt: false,
+        cancel_on_tap_outside: false
+      });
+      const btnContainer = document.getElementById('g-signin-btn');
+      if (btnContainer) {
+        google.accounts.id.renderButton(btnContainer, {
+          theme: 'outline', size: 'large', type: 'standard', text: 'signin_with'
+        });
+        setTimeout(() => {
+          const btn = btnContainer.querySelector('[role="button"], button, div[tabindex]');
+          if (btn) btn.click();
+        }, 100);
+      }
+    }
+
+    // ── Google Auth init ─────────────────────────────────────────────
+    function initGoogleAuth() {
+      const recent    = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
+      const lastEmail = recent.length ? recent[0].email : '';
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID, callback: handleCredentialResponse,
+        auto_select: false, cancel_on_tap_outside: true,
+        ...(lastEmail ? { hint: lastEmail } : {})
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('g-signin-btn'),
+        { theme: 'outline', size: 'large', width: 300 }
+      );
+    }
+
+    // ── Open Google Sheet ─────────────────────────────────────────────
+    function openSheet() {
+      const prefs = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
+      const url   = prefs.sheetUrl || (typeof SHEET_URL !== 'undefined' ? SHEET_URL : '');
+      if (url) window.open(url, '_blank');
+    }
+
+    // ── THEME SYSTEM ─────────────────────────────────────────────────
+    function initTheme() {
+      const saved  = localStorage.getItem('tt_theme');
+      const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      applyTheme(saved || system);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+      localStorage.setItem('tt_theme', theme);
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+
+      const sidebarLogo = document.getElementById('sidebar-logo');
+      const loginIcon   = document.getElementById('login-icon');
+      if (sidebarLogo) sidebarLogo.src = theme === 'light' ? 'assets/logo-light.svg' : 'assets/logo-dark.svg';
+      if (loginIcon)   loginIcon.src   = theme === 'light' ? 'assets/icon-light.svg' : 'assets/icon-dark.svg';
+    }
+
+    function toggleTheme() {
+      const current = localStorage.getItem('tt_theme') || 'dark';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    // ── Twemoji rendering ─────────────────────────────────────────────
+    function renderTwemoji(element) {
+      if (window.twemoji && element) {
+        twemoji.parse(element, {
+          folder: 'svg', ext: '.svg',
+          base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/'
+        });
+      }
+    }
+
+    // ── Image viewer ──────────────────────────────────────────────────
+    function openImageViewer(url, name) {
+      document.getElementById('image-viewer-img').src = url;
+      document.getElementById('image-viewer-caption').textContent = name || '';
+      document.getElementById('image-viewer-download').href = url;
+      document.getElementById('image-viewer').classList.remove('hidden');
+    }
+    function closeImageViewer() {
+      document.getElementById('image-viewer').classList.add('hidden');
+      document.getElementById('image-viewer-img').src = '';
+    }
+
+    // ── Count-up animation ───────────────────────────────────────────
+    function animateCountUp(elementId, targetValue, prefix = '', suffix = '') {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const num = parseFloat(targetValue);
+      if (isNaN(num)) { el.textContent = prefix + targetValue + suffix; return; }
+      const duration = 1000, start = performance.now();
+      function step(now) {
+        const p = Math.min((now - start) / duration, 1);
+        el.textContent = prefix + Math.round((1 - Math.pow(1 - p, 3)) * num).toLocaleString() + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ── Greeting ─────────────────────────────────────────────────────
+    function setGreeting() {
+      const hour = new Date().getHours();
+      const key  = hour < 12 ? 'good_morning' : hour < 17 ? 'good_afternoon' : 'good_evening';
+      const el   = document.getElementById('dashboard-greeting-text');
+      if (el) el.textContent = t(key) + ' 👋';
+    }
+
+    // ── Handle sign-in response ──────────────────────────────────────
+    function handleCredentialResponse(response) {
+      idToken = response.credential;
+      const payload = decodeJwt(idToken);
+      const name    = payload.name    || payload.email.split('@')[0];
+      const picture = payload.picture || '';
+
+      saveRecentUser(payload.email, name, picture);
+      saveSession(idToken, payload);
+      setupTokenRefresh();
+      setupNotifications();
+
+      document.getElementById('user-email').textContent = payload.email;
+      const userNameEl = document.getElementById('user-name');
+      if (userNameEl) userNameEl.textContent = name;
+      const avatarEl = document.getElementById('user-avatar');
+      if (avatarEl) avatarEl.textContent = payload.email[0].toUpperCase();
+
+      const profileImg  = document.getElementById('profile-img');
+      const profileName = document.getElementById('profile-name');
+      if (profileImg)  profileImg.src         = picture;
+      if (profileName) profileName.textContent = name.split(' ')[0];
+
+      const ddAvatar = document.getElementById('dropdown-avatar');
+      const ddName   = document.getElementById('dropdown-name');
+      const ddEmail  = document.getElementById('dropdown-email');
+      if (ddAvatar) ddAvatar.src        = picture;
+      if (ddName)   ddName.textContent  = name;
+      if (ddEmail)  ddEmail.textContent = payload.email;
+
+      initChat(payload.email, name, picture);
+      setGreeting();
+      renderTwemoji(document.body);
+      prefetchAll();
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      navigateTo('dashboard');
+    }
+
+    // ── Navigate ─────────────────────────────────────────────────────
+    function navigateTo(view) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      const viewEl = document.getElementById('view-' + view);
+      if (viewEl) viewEl.classList.add('active');
+      const navEl = document.querySelector(`[data-view="${view}"]`);
+      if (navEl) navEl.classList.add('active');
+
+      const titles = {
+        dashboard: t('dashboard'),  tasks:     t('tasks'),
+        pos:       t('purchase_orders'), milestones: t('milestones'),
+        expenses:  t('expenses'),   chat:      t('team_chat'),
+        settings:  t('settings')
+      };
+      const titleEl = document.getElementById('topbar-title');
+      if (titleEl) titleEl.textContent = titles[view] || view;
+
+      document.getElementById('profile-dropdown').classList.add('hidden');
+
+      const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
+
+      if (view === 'dashboard')     { stopDashboardRefresh(); loadDashboard(); }
+      else if (view === 'chat')     { stopDashboardRefresh(); loadChat(); }
+      else if (view === 'settings') { stopDashboardRefresh(); loadSettings(); }
+      else if (sheetMap[view])      { stopDashboardRefresh(); stopChatPolling(); loadTable(sheetMap[view]); }
+      else                          { stopDashboardRefresh(); stopChatPolling(); }
+    }
+
+    // ── Settings ─────────────────────────────────────────────────────
+    async function loadSettings() {
+      stopChatPolling();
+      try {
+        const result = await getAll('Users');
+        const users  = result.rows || [];
+        const list   = document.getElementById('team-list');
+        if (list) {
+          list.innerHTML = users.map(u => `
+            <div class="team-member-row">
+              <div class="team-avatar">${(u.email || '?').charAt(0).toUpperCase()}</div>
+              <div class="team-info">
+                <div class="team-email">${u.email}</div>
+                <div class="team-role">${u.role || 'editor'}</div>
+              </div>
+              ${u.email !== currentUserEmail
+                ? `<button class="btn-delete" onclick="removeMember('${u.email}')">${t('remove')}</button>`
+                : `<span class="team-you">${t('you')}</span>`}
+            </div>`).join('');
+        }
+      } catch (e) { console.error('Settings load error:', e); }
+
+      const prefs  = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
+      const fields = ['pref-currency','pref-dateformat','pref-sheet-url','pref-refresh','pref-assignee','pref-project'];
+      const keys   = ['currency','dateformat','sheetUrl','refreshInterval','defaultAssignee','defaultProject'];
+      fields.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el && prefs[keys[i]]) el.value = prefs[keys[i]];
+      });
+      const milesEl = document.getElementById('pref-auto-milestone');
+      const expEl   = document.getElementById('pref-auto-expense');
+      if (milesEl) milesEl.checked = prefs.autoMilestone !== false;
+      if (expEl)   expEl.checked   = prefs.autoExpense   !== false;
+
+      const langEl = document.getElementById('pref-language');
+      if (langEl) langEl.value = currentLang;
+
+      const addBtn  = document.getElementById('add-member-btn');
+      const saveBtn = document.getElementById('save-prefs-btn');
+      if (addBtn)  addBtn.onclick  = addMember;
+      if (saveBtn) saveBtn.onclick = savePrefs;
+    }
+
+    async function addMember() {
+      const email = document.getElementById('new-member-email')?.value.trim();
+      const role  = document.getElementById('new-member-role')?.value || 'editor';
+      if (!email) return;
+      try {
+        await addRow('Users', { email, name: email.split('@')[0], role, added_at: new Date().toISOString() });
+        document.getElementById('new-member-email').value = '';
+        loadSettings();
+      } catch (e) { showToast('Failed to add member: ' + e.message, 'error'); }
+    }
+
+    async function removeMember(email) {
+      if (!confirm('Remove ' + email + ' from the team?')) return;
+      try {
+        const result = await getAll('Users');
+        const user   = (result.rows || []).find(u => u.email === email);
+        if (user?.id) await deleteRow('Users', user.id);
+        loadSettings();
+      } catch (e) { showToast('Failed to remove: ' + e.message, 'error'); }
+    }
+
+    function savePrefs() {
+      const prefs = {
+        currency:        document.getElementById('pref-currency')?.value         || 'USD',
+        dateformat:      document.getElementById('pref-dateformat')?.value        || 'YYYY-MM-DD',
+        sheetUrl:        document.getElementById('pref-sheet-url')?.value.trim()  || '',
+        refreshInterval: document.getElementById('pref-refresh')?.value           || '0',
+        defaultAssignee: document.getElementById('pref-assignee')?.value.trim()   || '',
+        defaultProject:  document.getElementById('pref-project')?.value.trim()    || '',
+        autoMilestone:   document.getElementById('pref-auto-milestone')?.checked  !== false,
+        autoExpense:     document.getElementById('pref-auto-expense')?.checked    !== false,
+      };
+      localStorage.setItem('tt_prefs', JSON.stringify(prefs));
+      const btn = document.getElementById('save-prefs-btn');
+      if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = t('save_preferences'); }, 2000); }
+    }
+
+    // ── CSV Export ───────────────────────────────────────────────────
+    function exportCSV(sheetName) {
+      const rows = (window.tableData && window.tableData[sheetName]) || [];
+      if (!rows.length) { showToast('No data loaded for ' + sheetName + ' — visit that tab first.', 'error'); return; }
+      const keys = Object.keys(rows[0]).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at');
+      const csv  = [keys.join(',')]
+        .concat(rows.map(r => keys.map(k => '"' + String(r[k] || '').replace(/"/g, '""') + '"').join(',')))
+        .join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+        download: sheetName + '.csv'
+      });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    function clearLocalCache() {
+      if (!confirm('Clear all local cache? You will remain logged in.')) return;
+      localStorage.removeItem('tt_prefs');
+      window.tableData = {};
+      showToast('Cache cleared.', 'info');
+    }
+
+    // ── Toast ────────────────────────────────────────────────────────
+    function showToast(msg, type) {
+      const existing = document.getElementById('app-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'app-toast';
+      toast.className = 'app-toast app-toast-' + (type || 'info');
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    // ── escapeHtml (used by loadRecentUsers and chat.js) ────────────
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Sign out ─────────────────────────────────────────────────────
+    function doSignOut() {
+      idToken = null;
+      clearSession();
+      stopChatPolling();
+      if (typeof stopDashboardRefresh === 'function') stopDashboardRefresh();
+      google.accounts.id.disableAutoSelect();
+      document.getElementById('profile-dropdown').classList.add('hidden');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+      initGoogleAuth();
+      loadRecentUsers();
+    }
+
+    // ── Event wiring (runs synchronously at parse time) ──────────────
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => navigateTo(item.dataset.view));
+    });
+    document.querySelectorAll('.btn-add').forEach(btn => {
+      btn.addEventListener('click', () => openAddModal(btn.dataset.sheet));
+    });
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('modal-save').addEventListener('click', saveModal);
+    document.getElementById('modal-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    document.getElementById('profile-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.getElementById('profile-dropdown').classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => document.getElementById('profile-dropdown').classList.add('hidden'));
+    document.getElementById('profile-dropdown').addEventListener('click', e => e.stopPropagation());
+    document.getElementById('signout-btn').addEventListener('click', doSignOut);
+    document.getElementById('dropdown-signout').addEventListener('click', doSignOut);
+
+    // ── Init on load ──────────────────────────────────────────────────
+    window.onload = function() {
+      initTheme();
+      window.tableData = tableData;
+      initLanguage();
+      if (!tryRestoreSession()) {
+        initGoogleAuth();
+        loadRecentUsers();
+      }
+    };
+
+  </script>
+</body>
+</html>
