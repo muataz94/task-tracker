@@ -2383,3 +2383,172 @@ body.rtl * {
 .topic-anim-check { animation: topicCheck 3s ease-in-out infinite; }
 .topic-anim-float { animation: topicFloat 2s ease-in-out infinite; }
 .topic-anim-shake { animation: topicShake 3.5s ease-in-out infinite; }
+
+/* ══════════════════════════════════════════════════════════════════
+   HIGHLY RESPONSIVE & PREMIUM OVERRIDES FOR ALL DEVICES
+══════════════════════════════════════════════════════════════════ */
+
+/* --- FLUID TYPOGRAPHY --- */
+h1.login-title {
+  font-size: clamp(22px, 5vw, 32px) !important;
+}
+.settings-hd-title {
+  font-size: clamp(18px, 4vw, 24px) !important;
+}
+.tab-header h2 {
+  font-size: clamp(15px, 3.5vw, 20px) !important;
+}
+
+/* --- STATS GRID MOBILE STACKING (<400px) --- */
+@media (max-width: 400px) {
+  .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- SMART MOBILE FILTERS GRID (<600px) --- */
+@media (max-width: 600px) {
+  .filter-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 0.75rem !important;
+    overflow-x: visible !important;
+    flex-wrap: nowrap !important;
+  }
+  .filter-input {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .filter-select {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+  .filter-date {
+    width: 100% !important;
+  }
+  .filter-bar span {
+    display: none !important; /* Hide arrows/dividers */
+  }
+  .filter-clear-btn {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+  .row-count {
+    grid-column: 1 / -1 !important;
+    text-align: center !important;
+  }
+}
+
+/* --- TABLE SCROLLING & SQUEEZING FIXES (<768px) --- */
+@media (max-width: 768px) {
+  .table-scroll table,
+  .table-wrap table {
+    min-width: 580px !important;
+  }
+
+  /* Custom Webkit scrollbar for premium touch scrolling feel */
+  .table-scroll::-webkit-scrollbar,
+  .table-wrap::-webkit-scrollbar {
+    height: 6px !important;
+  }
+  .table-scroll::-webkit-scrollbar-track,
+  .table-wrap::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 3px !important;
+  }
+  .table-scroll::-webkit-scrollbar-thumb,
+  .table-wrap::-webkit-scrollbar-thumb {
+    background: var(--border) !important;
+    border-radius: 3px !important;
+  }
+  .table-scroll::-webkit-scrollbar-thumb:hover,
+  .table-wrap::-webkit-scrollbar-thumb:hover {
+    background: var(--text-4) !important;
+  }
+
+  /* --- TOUCH-FRIENDLY ACTION BUTTONS --- */
+  .btn-edit,
+  .btn-delete {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 32px !important;
+  }
+  .actions-cell {
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+  }
+
+  /* --- iOS SAFARI VIEWPORT AUTO-ZOOM PREVENTION --- */
+  .form-group input,
+  .form-group select,
+  .filter-input,
+  .filter-select,
+  .filter-date,
+  .add-member-row input,
+  .add-member-row select,
+  .pref-select,
+  .pref-input {
+    font-size: 16px !important; /* Forces standard 16px on mobile to avoid browser auto-zoom */
+  }
+
+  /* --- iOS-STYLE DRAG HANDLE FOR BOTTOM SHEET MODAL --- */
+  #modal {
+    position: relative !important;
+    padding-top: 24px !important; /* Leave space for drag grabber */
+  }
+  #modal::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 36px !important;
+    height: 4px !important;
+    background: var(--border) !important;
+    border-radius: 2px !important;
+    display: block !important;
+  }
+}
+
+/* --- SETTINGS MEMBER ROW WRAPPING (<480px) --- */
+@media (max-width: 480px) {
+  .add-member-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .add-member-row input,
+  .add-member-row select,
+  #add-member-btn {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+}
+
+/* --- RTL CHAT BUBBLE & PANEL OVERLAY PREVENTION --- */
+body.rtl .chat-bubble {
+  right: 1.5rem !important;
+  left: auto !important;
+}
+body.rtl .chat-panel {
+  right: 1.5rem !important;
+  left: auto !important;
+}
+
+@media (max-width: 768px) {
+  body.rtl .chat-bubble {
+    right: auto !important;
+    left: 1.25rem !important;
+  }
+  body.rtl .chat-panel {
+    right: 1rem !important;
+    left: 1rem !important;
+    width: calc(100vw - 2rem) !important;
+  }
+}
