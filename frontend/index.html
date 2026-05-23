@@ -163,74 +163,130 @@
             </div>
           </div>
 
-          <!-- Task stat cards (primary focus) -->
-          <div class="task-stat-grid">
+          <!-- Unified stat cards -->
+          <div class="stat-grid">
             <div class="stat-card glass">
-              <div class="stat-icon-wrap si-clock" style="background:rgba(99,102,241,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline class="clock-hand" points="12,6 12,12 16,14"/>
+              <div class="stat-icon-wrap" style="background:rgba(99,102,241,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/><polyline points="12,6 12,12 16,14"/>
                 </svg>
               </div>
-              <div class="stat-label" data-i18n="open_tasks">Open Tasks</div>
-              <div class="stat-value" id="stat-open">—</div>
-              <div class="stat-badge blue">Pending</div>
-            </div>
-            <div class="stat-card glass">
-              <div class="stat-icon-wrap" style="background:rgba(245,158,11,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12,6 12,12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
+              <div class="stat-body">
+                <div class="stat-label" data-i18n="open_tasks">Open Tasks</div>
+                <div class="stat-value" id="stat-open">—</div>
               </div>
-              <div class="stat-label">In Progress</div>
-              <div class="stat-value" id="stat-inprogress">—</div>
-              <div class="stat-badge amber">Active</div>
+              <span class="stat-pill blue" data-i18n="active">Active</span>
             </div>
+
             <div class="stat-card glass">
-              <div class="stat-icon-wrap si-check" style="background:rgba(16,185,129,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round">
-                  <polyline points="20,6 9,17 4,12"/>
-                </svg>
-              </div>
-              <div class="stat-label">Done</div>
-              <div class="stat-value" id="stat-done">—</div>
-              <div class="stat-badge green">Completed</div>
-            </div>
-            <div class="stat-card glass">
-              <div class="stat-icon-wrap si-alert" style="background:rgba(239,68,68,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round">
+              <div class="stat-icon-wrap" style="background:rgba(239,68,68,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2">
                   <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
                   <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
               </div>
-              <div class="stat-label" data-i18n="overdue">Overdue</div>
-              <div class="stat-value danger" id="stat-overdue">—</div>
-              <div class="stat-badge red">Attention</div>
+              <div class="stat-body">
+                <div class="stat-label" data-i18n="overdue">Overdue</div>
+                <div class="stat-value danger" id="stat-overdue">—</div>
+              </div>
+              <span class="stat-pill red" data-i18n="attention">Attention</span>
+            </div>
+
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap" style="background:rgba(139,92,246,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2">
+                  <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                </svg>
+              </div>
+              <div class="stat-body">
+                <div class="stat-label" data-i18n="po_spend">PO Spend</div>
+                <div class="stat-value" id="stat-spend">—</div>
+              </div>
+              <span class="stat-pill purple" data-i18n="committed">Committed</span>
+            </div>
+
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap" style="background:rgba(16,185,129,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6"  y1="20" x2="6"  y2="14"/>
+                </svg>
+              </div>
+              <div class="stat-body">
+                <div class="stat-label" data-i18n="avg_progress">Avg Progress</div>
+                <div class="stat-value" id="stat-progress">—</div>
+              </div>
+              <span class="stat-pill green" data-i18n="milestones">Milestones</span>
+            </div>
+
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap" style="background:rgba(245,158,11,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+              </div>
+              <div class="stat-body">
+                <div class="stat-label" data-i18n="total_expenses">Total Expenses</div>
+                <div class="stat-value" id="stat-expenses">—</div>
+              </div>
+              <span class="stat-pill amber" data-i18n="all_time">All time</span>
             </div>
           </div>
 
-          <!-- Recent Tasks Pivot Table — directly below stat cards -->
-          <div class="pivot-section glass" style="border-radius:var(--r-md);padding:1.1rem;margin-bottom:1.25rem;">
-            <div class="panel-header" style="margin-bottom:0.875rem;">
-              <h3 style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;" data-i18n="recent_tasks">Recent Tasks</h3>
-              <button class="panel-link" onclick="navigateTo('tasks')" data-i18n="view_all">View all →</button>
+          <!-- Tabbed pivot table -->
+          <div class="pivot-section glass" style="border-radius:var(--r-md);margin-bottom:1rem;overflow:hidden;">
+            <div class="pivot-tabs">
+              <button class="pivot-tab active" onclick="switchPivotTab('tasks', this)" data-i18n="tasks_tab">Tasks</button>
+              <button class="pivot-tab" onclick="switchPivotTab('expenses', this)" data-i18n="expenses_tab">Expenses</button>
+              <button class="pivot-tab" onclick="switchPivotTab('activity', this)" data-i18n="activity_tab">Activity</button>
+              <span class="pivot-count" id="pivot-count"></span>
             </div>
-            <div class="table-scroll">
-              <table id="pivot-tasks-table" style="font-size:12px;">
-                <thead>
-                  <tr>
+            <div id="pivot-tasks" class="pivot-content active">
+              <div class="table-scroll">
+                <table id="pivot-tasks-table" style="font-size:12px;">
+                  <thead><tr>
                     <th data-i18n="title">Title</th>
                     <th data-i18n="status">Status</th>
                     <th data-i18n="priority">Priority</th>
                     <th data-i18n="assignee">Assignee</th>
                     <th data-i18n="due_date">Due Date</th>
-                  </tr>
-                </thead>
-                <tbody id="pivot-tasks-body">
-                  <tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:1rem;">Loading...</td></tr>
-                </tbody>
-              </table>
+                  </tr></thead>
+                  <tbody id="pivot-tasks-body">
+                    <tr><td colspan="5" class="loading" data-i18n="loading">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div id="pivot-expenses" class="pivot-content hidden">
+              <div class="table-scroll">
+                <table style="font-size:12px;">
+                  <thead><tr>
+                    <th data-i18n="category">Category</th>
+                    <th data-i18n="description">Description</th>
+                    <th data-i18n="amount">Amount</th>
+                    <th data-i18n="date">Date</th>
+                  </tr></thead>
+                  <tbody id="pivot-expenses-body">
+                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div id="pivot-activity" class="pivot-content hidden">
+              <div class="table-scroll">
+                <table style="font-size:12px;">
+                  <thead><tr>
+                    <th data-i18n="who">Who</th>
+                    <th data-i18n="what">What</th>
+                    <th data-i18n="when">When</th>
+                  </tr></thead>
+                  <tbody id="pivot-activity-body">
+                    <tr><td colspan="3" class="loading">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -249,49 +305,19 @@
             </div>
           </div>
 
-          <!-- Financial stats -->
-          <div class="fin-stat-grid">
-            <div class="stat-card glass">
-              <div class="stat-icon-wrap si-card" style="background:rgba(139,92,246,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round">
-                  <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-                </svg>
-              </div>
-              <div class="stat-label" data-i18n="po_spend">PO Spend</div>
-              <div class="stat-value" id="stat-spend">—</div>
-              <div class="stat-badge purple">Committed</div>
-            </div>
-            <div class="stat-card glass">
-              <div class="stat-icon-wrap si-bars" style="background:rgba(16,185,129,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round">
-                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-              </div>
-              <div class="stat-label" data-i18n="avg_progress">Avg Progress</div>
-              <div class="stat-value" id="stat-progress">—</div>
-              <div class="stat-badge green">Milestones</div>
-            </div>
-            <div class="stat-card glass">
-              <div class="stat-icon-wrap si-dollar" style="background:rgba(245,158,11,0.15)">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-                </svg>
-              </div>
-              <div class="stat-label" data-i18n="total_expenses">Total Expenses</div>
-              <div class="stat-value" id="stat-expenses">—</div>
-              <div class="stat-badge amber">All time</div>
-            </div>
-          </div>
-
           <!-- Charts -->
           <div class="charts-row">
             <div class="chart-box glass">
               <h3 data-i18n="task_status">Task Status</h3>
-              <canvas id="chart-tasks"></canvas>
+              <div style="position:relative;height:140px;">
+                <canvas id="chart-tasks"></canvas>
+              </div>
             </div>
             <div class="chart-box glass">
               <h3 data-i18n="po_status">PO Status</h3>
-              <canvas id="chart-pos"></canvas>
+              <div style="position:relative;height:140px;">
+                <canvas id="chart-pos"></canvas>
+              </div>
             </div>
           </div>
 
@@ -608,7 +634,7 @@
                   <input id="pref-project" type="text" class="pref-select" placeholder="Project name" />
                 </div>
                 <div class="pref-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
-                  <div><div class="pref-label">Google Sheet URL</div><div class="pref-sub">Link for the "Open Google Sheet" button</div></div>
+                  <div><div class="pref-label">Google Sheet URL</div><div class="pref-sub">Your spreadsheet link (for reference)</div></div>
                   <input id="pref-sheet-url" type="url" class="pref-input" placeholder="https://docs.google.com/spreadsheets/d/…/edit" />
                 </div>
                 <div class="pref-item">
@@ -892,13 +918,6 @@
       );
     }
 
-    // ── Open Google Sheet ─────────────────────────────────────────────
-    function openSheet() {
-      const prefs = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
-      const url   = prefs.sheetUrl || (typeof SHEET_URL !== 'undefined' ? SHEET_URL : '');
-      if (url) window.open(url, '_blank');
-    }
-
     // ── Toggle floating chat panel ────────────────────────────────────
     function toggleChatPanel() {
       const panel = document.getElementById('chat-panel');
@@ -1015,6 +1034,7 @@
 
       initChat(payload.email, name, picture);
       setGreeting();
+      applyLanguage();
       renderTwemoji(document.body);
       prefetchAll();
       document.getElementById('login-screen').classList.add('hidden');
@@ -1027,27 +1047,30 @@
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-      const viewEl = document.getElementById('view-' + view);
-      if (viewEl) viewEl.classList.add('active');
-      const navEl = document.querySelector(`[data-view="${view}"]`);
-      if (navEl) navEl.classList.add('active');
+      const viewEl  = document.getElementById('view-' + view);
+      const navItem = document.querySelector(`[data-view="${view}"]`);
+      if (viewEl)  viewEl.classList.add('active');
+      if (navItem) navItem.classList.add('active');
 
-      const titles = {
-        dashboard: t('dashboard'),  tasks:     t('tasks'),
-        pos:       t('purchase_orders'), milestones: t('milestones'),
-        expenses:  t('expenses'),   settings:  t('settings')
+      const titleMap = {
+        dashboard: 'dashboard', tasks: 'tasks', pos: 'purchase_orders',
+        milestones: 'milestones', expenses: 'expenses',
+        chat: 'team_chat', settings: 'settings'
       };
       const titleEl = document.getElementById('topbar-title');
-      if (titleEl) titleEl.textContent = titles[view] || view;
+      if (titleEl && titleMap[view]) titleEl.textContent = t(titleMap[view]);
 
       document.getElementById('profile-dropdown').classList.add('hidden');
 
       const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
 
-      if (view === 'dashboard')     { stopDashboardRefresh(); loadDashboard(); }
+      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
+      else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
       else if (view === 'settings') { stopDashboardRefresh(); loadSettings(); }
-      else if (sheetMap[view])      { stopDashboardRefresh(); loadTable(sheetMap[view]); }
-      else                          { stopDashboardRefresh(); }
+      else                       { stopDashboardRefresh(); }
+
+      // Re-apply translations to the newly shown view
+      applyLanguage();
     }
 
     // ── Settings ─────────────────────────────────────────────────────
@@ -1232,18 +1255,37 @@
     });
     document.getElementById('profile-btn').addEventListener('click', function(e) {
       e.stopPropagation();
-      document.getElementById('profile-dropdown').classList.toggle('hidden');
+      const dropdown = document.getElementById('profile-dropdown');
+      const isHidden = dropdown.classList.contains('hidden');
+      if (!isHidden) { dropdown.classList.add('hidden'); return; }
+      dropdown.classList.remove('hidden');
+      const btn   = this.getBoundingClientRect();
+      const dd    = dropdown.getBoundingClientRect();
+      const vw    = window.innerWidth;
+      const isRTL = document.body.classList.contains('rtl');
+      let left = isRTL ? btn.left : btn.right - dd.width;
+      let top  = btn.bottom + 8;
+      left = Math.max(8, Math.min(left, vw - dd.width - 8));
+      dropdown.style.top   = top  + 'px';
+      dropdown.style.left  = left + 'px';
+      dropdown.style.right = 'auto';
     });
-    document.addEventListener('click', () => document.getElementById('profile-dropdown').classList.add('hidden'));
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('profile-dropdown');
+      const btn      = document.getElementById('profile-btn');
+      if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
     document.getElementById('profile-dropdown').addEventListener('click', e => e.stopPropagation());
     document.getElementById('signout-btn').addEventListener('click', doSignOut);
     document.getElementById('dropdown-signout').addEventListener('click', doSignOut);
 
     // ── Init on load ──────────────────────────────────────────────────
     window.onload = function() {
+      initLanguage();
       initTheme();
       window.tableData = tableData;
-      initLanguage();
       if (!tryRestoreSession()) {
         initGoogleAuth();
         loadRecentUsers();

@@ -71,6 +71,10 @@
   --bg-surface:  #f8f9ff;
   --bg-elevated: #ffffff;
   --bg-hover:    #eef0ff;
+  --text-1: rgba(8,8,20,0.95);
+  --text-2: rgba(8,8,20,0.65);
+  --text-3: rgba(8,8,20,0.42);
+  --text-4: rgba(8,8,20,0.25);
 
   --glass-bg:           rgba(255,255,255,0.60);
   --glass-bg-hover:     rgba(255,255,255,0.75);
@@ -112,6 +116,27 @@
   --grad-cyan:    linear-gradient(135deg, #06b6d4, #3b82f6);
   --grad-violet:  linear-gradient(135deg, #8b5cf6, #6366f1);
 }
+
+/* Force explicit text colors in light mode */
+[data-theme="light"] .stat-label,
+[data-theme="light"] .stat-value,
+[data-theme="light"] th,
+[data-theme="light"] td,
+[data-theme="light"] .nav-item,
+[data-theme="light"] .view h2,
+[data-theme="light"] .panel-header h3,
+[data-theme="light"] .chart-box h3,
+[data-theme="light"] .tab-header h2,
+[data-theme="light"] .form-group label,
+[data-theme="light"] .pivot-tab,
+[data-theme="light"] .kanban-card-title,
+[data-theme="light"] #topbar-title,
+[data-theme="light"] .login-title,
+[data-theme="light"] .msg-bubble { color: var(--text-1); }
+
+[data-theme="light"] .stat-label,
+[data-theme="light"] .tab-subtitle,
+[data-theme="light"] td { color: var(--text-2); }
 
 /* ══════════════════════════════════════════════════════════════════
    RESET
@@ -434,50 +459,88 @@ body::before {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px; margin-bottom: 1.5rem;
+  gap: 10px;
+  margin-bottom: 1rem;
 }
 
 .stat-card {
   border-radius: var(--r-md);
-  padding: 1.1rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 0;
   cursor: default;
-  position: relative; overflow: hidden;
 }
 
 .stat-card::after {
   content: '';
-  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  position: absolute;
+  top: 0; left: 10%; right: 10%; height: 1px;
   background: linear-gradient(90deg, transparent, var(--glass-specular), transparent);
 }
 
-.stat-card:hover { transform: translateY(-3px); }
+.stat-card:hover { transform: translateY(-2px); }
 
 .stat-icon-wrap {
-  width: 40px; height: 40px; border-radius: var(--r-sm);
+  width: 36px; height: 36px;
+  border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 12px;
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.stat-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .stat-label {
-  font-size: 10px; font-weight: 600; color: var(--text-3);
-  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-value {
-  font-size: 30px; font-weight: 800;
-  color: var(--text-1); letter-spacing: -0.05em; line-height: 1;
-  margin-bottom: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
+
 .stat-value.danger { color: var(--accent-red); }
 
-.stat-subtitle { font-size: 11px; color: var(--text-4); margin-bottom: 6px; }
+.stat-subtitle { font-size: 11px; color: var(--text-4); }
 
-.stat-badge, .stat-pill {
+.stat-pill {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.stat-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; font-weight: 600;
   padding: 3px 8px; border-radius: 20px;
 }
+
 .stat-badge.green,  .stat-pill.green  { background: rgba(16,185,129,0.15); color: #34d399; }
 .stat-badge.red,    .stat-pill.red    { background: rgba(239,68,68,0.15);  color: #f87171; }
 .stat-badge.purple, .stat-pill.purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
@@ -489,12 +552,14 @@ body::before {
 ══════════════════════════════════════════════════════════════════ */
 .charts-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px; margin-bottom: 1.5rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 1rem;
 }
 
 .chart-box {
-  border-radius: var(--r-md); padding: 1.25rem;
+  border-radius: var(--r-md);
+  padding: 0.875rem;
   position: relative; overflow: hidden;
 }
 .chart-box::after {
@@ -503,9 +568,10 @@ body::before {
   background: linear-gradient(90deg, transparent, var(--glass-specular), transparent);
 }
 .chart-box h3 {
-  font-size: 11px; font-weight: 600; color: var(--text-3);
-  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem;
+  font-size: 10px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.625rem;
 }
+.chart-box canvas { max-height: 140px !important; }
 
 /* ══════════════════════════════════════════════════════════════════
    DASHBOARD BOTTOM PANELS
@@ -839,7 +905,8 @@ tr:hover td { background: var(--glass-bg); color: var(--text-1); }
    PROFILE DROPDOWN
 ══════════════════════════════════════════════════════════════════ */
 #profile-dropdown {
-  position: fixed; top: 64px; right: 1.25rem;
+  position: fixed;
+  /* top and left set dynamically by JS */
   width: 260px;
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
@@ -1505,55 +1572,86 @@ img.emoji {
 .image-viewer-download:hover { background: var(--glass-bg-hover); }
 
 /* ══════════════════════════════════════════════════════════════════
-   RTL LAYOUT
+   FULL RTL LAYOUT
+   Applied when body.rtl is set
 ══════════════════════════════════════════════════════════════════ */
-.rtl #sidebar {
+body.rtl { direction: rtl; }
+
+body.rtl #app { flex-direction: row-reverse; }
+
+body.rtl #sidebar {
   border-right: none;
   border-left: 1px solid var(--border);
-  order: 2;
 }
-.rtl .main-col { order: 1; }
 
-.rtl .nav-item { flex-direction: row-reverse; }
-.rtl .nav-item.active::before {
+body.rtl .nav-logo { flex-direction: row-reverse; }
+body.rtl .nav-item {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+body.rtl .nav-item.active::before {
   left: auto; right: 0;
   border-radius: 2px 0 0 2px;
 }
+body.rtl .nav-badge { margin-left: 0; margin-right: auto; }
+body.rtl .user-row  { flex-direction: row-reverse; }
+body.rtl .user-info-text { text-align: right; }
 
-.rtl .topbar-right { flex-direction: row-reverse; }
+body.rtl #topbar { flex-direction: row-reverse; }
+body.rtl .topbar-right { flex-direction: row-reverse; }
 
-.rtl table { direction: rtl; }
-.rtl th, .rtl td { text-align: right; }
+body.rtl #main { direction: rtl; }
+body.rtl .view { direction: rtl; }
+body.rtl .view-header  { flex-direction: row-reverse; }
+body.rtl .tab-header   { flex-direction: row-reverse; }
+body.rtl .tab-header-left  { flex-direction: row-reverse; }
+body.rtl .tab-header-right { flex-direction: row-reverse; }
+body.rtl .tab-header h2 { text-align: right; }
 
-.rtl .filter-input { direction: rtl; }
+body.rtl .dashboard-header { text-align: right; }
+body.rtl .stat-card { flex-direction: row-reverse; }
+body.rtl .stat-body { text-align: right; }
+body.rtl .panel-header { flex-direction: row-reverse; }
+body.rtl .panel-header h3 { text-align: right; }
+body.rtl .recent-item      { flex-direction: row-reverse; }
+body.rtl .recent-item-left { flex-direction: row-reverse; }
+body.rtl .milestone-header { flex-direction: row-reverse; }
 
-.rtl .chat-message.mine   { flex-direction: row; }
-.rtl .chat-message.theirs { flex-direction: row-reverse; }
-.rtl .mine .msg-content { align-items: flex-start; }
-.rtl .mine .msg-bubble {
-  border-radius: 16px;
-  border-bottom-right-radius: 16px;
-  border-bottom-left-radius: 4px;
-}
-.rtl .theirs .msg-bubble {
-  border-radius: 16px;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 4px;
-}
+body.rtl table { direction: rtl; }
+body.rtl th, body.rtl td { text-align: right; }
+body.rtl .table-toolbar { flex-direction: row-reverse; }
+body.rtl .filter-input  { direction: rtl; text-align: right; }
+body.rtl .filter-bar    { flex-direction: row-reverse; }
+body.rtl .actions-cell  { text-align: left; }
 
-.rtl .chat-input-bar { flex-direction: row-reverse; }
-.rtl #chat-input { direction: rtl; text-align: right; }
+body.rtl #modal        { direction: rtl; }
+body.rtl #modal-header { flex-direction: row-reverse; }
+body.rtl #modal-footer { flex-direction: row-reverse; }
+body.rtl .form-group   { direction: rtl; }
+body.rtl .form-group label { text-align: right; }
+body.rtl .form-group input,
+body.rtl .form-group select { direction: rtl; text-align: right; }
 
-.rtl .modal-footer { flex-direction: row-reverse; }
-.rtl .form-group label { text-align: right; }
+body.rtl .chat-message.mine   { flex-direction: row; }
+body.rtl .chat-message.theirs { flex-direction: row-reverse; }
+body.rtl .mine .msg-content   { align-items: flex-start; }
+body.rtl .mine .msg-bubble    { border-radius: 16px 16px 16px 4px; }
+body.rtl .theirs .msg-bubble  { border-radius: 16px 16px 4px 16px; }
+body.rtl .chat-input-bar { flex-direction: row-reverse; }
+body.rtl #chat-input     { direction: rtl; text-align: right; }
+body.rtl .chat-panel  { right: auto; left: 1.5rem; }
+body.rtl .chat-bubble { right: auto; left: 1.5rem; }
 
-.rtl .stat-card { text-align: right; }
-.rtl .view-header { flex-direction: row-reverse; }
+body.rtl .settings-section { direction: rtl; text-align: right; }
+body.rtl .pref-item        { flex-direction: row-reverse; }
+body.rtl .team-member-row  { flex-direction: row-reverse; }
+body.rtl .add-member-row   { flex-direction: row-reverse; }
 
-.rtl .recent-item      { flex-direction: row-reverse; }
-.rtl .recent-item-left { flex-direction: row-reverse; }
+body.rtl .pivot-tabs { flex-direction: row-reverse; }
+body.rtl .pivot-count { margin-left: 0; margin-right: auto; }
 
-.rtl, .rtl * {
+body.rtl,
+body.rtl * {
   font-family: 'Segoe UI', 'Tahoma', 'Arial', system-ui, sans-serif;
   letter-spacing: 0;
 }
@@ -1561,34 +1659,19 @@ img.emoji {
 /* ══════════════════════════════════════════════════════════════════
    DASHBOARD LAYOUT (TASK-FOCUSED)
 ══════════════════════════════════════════════════════════════════ */
-.task-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px; margin-bottom: 1.25rem;
-}
 .dash-tasks-panel { margin-bottom: 1.25rem; }
 .dash-mid-row {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 12px; margin-bottom: 1.25rem;
 }
-.fin-stat-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; margin-bottom: 1.25rem;
-}
-.fin-stat-grid .stat-card { padding: 0.9rem; }
-.fin-stat-grid .stat-value { font-size: 24px; }
-.fin-stat-grid .stat-icon-wrap { width: 34px; height: 34px; margin-bottom: 8px; }
 .dash-expenses-row { margin-bottom: 1rem; }
 
-@media (max-width: 1200px) { .task-stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) {
-  .task-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-mid-row { grid-template-columns: 1fr; }
-  .fin-stat-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 600px) {
-  .task-stat-grid { grid-template-columns: 1fr 1fr; }
-  .fin-stat-grid { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1721,29 +1804,73 @@ img.emoji {
   transform: scale(1.18);
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   RTL FIXES
-══════════════════════════════════════════════════════════════════ */
-.rtl .dashboard-greeting { text-align: right; direction: rtl; }
-.rtl .dashboard-greeting p { direction: rtl; }
-.rtl #topbar { flex-direction: row-reverse; }
-.rtl .topbar-right { flex-direction: row-reverse; }
-
-/* Profile dropdown: in RTL the profile btn moves to left side of topbar */
-.rtl #profile-dropdown { right: auto; left: 1.25rem; }
 
 /* ══════════════════════════════════════════════════════════════════
-   ANIMATED NAV ICON OVERRIDES
+   ANIMATED NAV ICON HOVER
 ══════════════════════════════════════════════════════════════════ */
-.nav-item:hover .nav-svg { transform: scale(1.2) rotate(-5deg); }
-.nav-item.active .nav-svg { transform: scale(1.1); color: #fff; }
-.nav-item[data-view="dashboard"]:hover .nav-svg { transform: scale(1.15); animation: dashPulse 0.4s ease; }
-.nav-item[data-view="tasks"]:hover .nav-svg { transform: translateX(2px) scale(1.1); }
-.nav-item[data-view="milestones"]:hover .nav-svg { transform: scale(1.2) rotate(15deg); animation: starSpin 0.4s ease; }
-.nav-item[data-view="settings"]:hover .nav-svg { transform: rotate(45deg) scale(1.1); transition: transform 0.4s ease; }
-@keyframes dashPulse { 0%,100% { transform: scale(1.15); } 50% { transform: scale(1.25); } }
-@keyframes starSpin  { 0% { transform: scale(1.2) rotate(0deg); } 100% { transform: scale(1.2) rotate(72deg); } }
-@keyframes chatBounce { 0%,100% { transform: scale(1.1) translateY(0); } 50% { transform: scale(1.1) translateY(-3px); } }
+.nav-svg {
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), color 0.15s ease;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.nav-item[data-view="dashboard"]:hover .nav-svg {
+  animation: iconGridPulse 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes iconGridPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.3) rotate(5deg); }
+  70%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1.1); }
+}
+
+.nav-item[data-view="tasks"]:hover .nav-svg {
+  animation: iconCheckBounce 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes iconCheckBounce {
+  0%   { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.2) translateY(-3px); }
+  75%  { transform: scale(1.05) translateY(1px); }
+  100% { transform: scale(1.1) translateY(0); }
+}
+
+.nav-item[data-view="pos"]:hover .nav-svg {
+  animation: iconBagSwing 0.5s ease forwards;
+}
+@keyframes iconBagSwing {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-12deg); }
+  50%  { transform: rotate(10deg); }
+  75%  { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg) scale(1.1); }
+}
+
+.nav-item[data-view="milestones"]:hover .nav-svg {
+  animation: iconStarSpin 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes iconStarSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  60%  { transform: rotate(72deg) scale(1.25); }
+  100% { transform: rotate(72deg) scale(1.1); }
+}
+
+.nav-item[data-view="expenses"]:hover .nav-svg {
+  animation: iconCoinBounce 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes iconCoinBounce {
+  0%   { transform: scale(1) translateY(0); }
+  30%  { transform: scale(1.3) translateY(-4px); }
+  60%  { transform: scale(0.95) translateY(1px); }
+  100% { transform: scale(1.1) translateY(0); }
+}
+
+.nav-item[data-view="settings"]:hover .nav-svg {
+  animation: iconGearSpin 0.6s linear forwards;
+}
+@keyframes iconGearSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(90deg); }
+}
 
 /* ══════════════════════════════════════════════════════════════════
    FLOATING CHAT BUBBLE + PANEL
@@ -1901,17 +2028,46 @@ img.emoji {
 @keyframes decoFloat2 { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(15px) rotate(-8deg); } }
 @keyframes decoFloat3 { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-12px) scale(1.05); } }
 
-/* ══════════════════════════════════════════════════════════════════
-   COMPACT CHARTS
-══════════════════════════════════════════════════════════════════ */
-.charts-row { display: grid; grid-template-columns: 220px 1fr; gap: 12px; margin-bottom: 1.25rem; }
-.chart-box { padding: 1rem !important; }
-.chart-box canvas { height: 160px !important; min-height: 160px; max-height: 160px !important; }
 
 /* ══════════════════════════════════════════════════════════════════
-   PIVOT TASKS TABLE
+   PIVOT TABBED TABLE
 ══════════════════════════════════════════════════════════════════ */
-.pivot-section { margin-bottom: 1.25rem; }
+.pivot-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0.625rem 0.875rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pivot-tab {
+  background: none; border: none;
+  padding: 6px 14px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.pivot-tab:hover { color: var(--text-1); }
+.pivot-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: rgba(99,102,241,0.06);
+}
+
+.pivot-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 0 4px;
+}
+
+.pivot-content { display: none; padding: 0.5rem 0; }
+.pivot-content.active { display: block; }
 
 /* ══════════════════════════════════════════════════════════════════
    CHAT TOPIC SVG ANIMATED ICONS

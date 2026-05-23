@@ -16,7 +16,7 @@ function stopDashboardRefresh() {
 }
 
 async function loadDashboard() {
-  const statIds = ['stat-open','stat-overdue','stat-spend','stat-progress','stat-expenses','stat-inprogress','stat-done'];
+  const statIds = ['stat-open','stat-overdue','stat-spend','stat-progress','stat-expenses'];
   statIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '...';
@@ -36,10 +36,8 @@ async function loadDashboard() {
     const cPre  = _cPre[prefs.currency] !== undefined ? _cPre[prefs.currency] : ((prefs.currency || 'USD') + ' ');
     const cSuf  = _cSuf[prefs.currency] || '';
 
-    animateCountUp('stat-open',       dashData.taskSummary.open);
-    animateCountUp('stat-inprogress', dashData.taskSummary.in_progress || 0);
-    animateCountUp('stat-done',       dashData.taskSummary.done || 0);
-    animateCountUp('stat-overdue',    dashData.taskSummary.overdue);
+    animateCountUp('stat-open',    dashData.taskSummary.open);
+    animateCountUp('stat-overdue', dashData.taskSummary.overdue);
     animateCountUp('stat-spend',      dashData.poSpend || 0,       cPre, cSuf);
     animateCountUp('stat-progress',   dashData.avgProgress || 0,   '',   '%');
     animateCountUp('stat-expenses',   dashData.totalExpenses || 0, cPre, cSuf);
@@ -49,25 +47,24 @@ async function loadDashboard() {
     renderPOChart(dashData.poByStatus);
     startDashboardRefresh();
 
-    const tasks    = dashData.tasks    || [];
-    const expenses = dashData.expenses || [];
+    const tasks      = dashData.tasks      || [];
+    const expenses   = dashData.expenses   || [];
+    const milestones = dashData.milestones || [];
 
-    const recentTasks = tasks
-      .slice()
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      .slice(0, 8);
+    const recentTasks = tasks.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 8);
     renderRecentTasks(recentTasks);
 
-    const recentExpenses = expenses
-      .slice()
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      .slice(0, 5);
+    const recentExpenses = expenses.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 5);
     renderRecentExpenses(recentExpenses);
 
-    const milestones = (dashData.milestones || []).slice(0, 5);
-    renderMilestoneProgress(milestones);
+    renderMilestoneProgress(milestones.slice(0, 5));
     renderPivotTasks(tasks);
+    renderPivotExpenses(expenses);
+    renderPivotActivity(tasks, expenses, milestones);
     updateOverdueBadge(tasks);
+
+    const countEl = document.getElementById('pivot-count');
+    if (countEl) countEl.textContent = Math.min(tasks.length, 7) + ' ' + t('records');
 
     const tasksSub = document.getElementById('tasks-subtitle');
     if (tasksSub) tasksSub.textContent = (tasks.length || 0) + ' total tasks';
@@ -300,31 +297,94 @@ function renderPOChart(byStatus) {
   });
 }
 
+let pivotTasksData    = [];
+let pivotExpensesData = [];
+let pivotActivityLog  = [];
+
+function switchPivotTab(tab, btn) {
+  document.querySelectorAll('.pivot-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.pivot-content').forEach(c => { c.classList.remove('active'); c.classList.add('hidden'); });
+  btn.classList.add('active');
+  const content = document.getElementById('pivot-' + tab);
+  if (content) { content.classList.remove('hidden'); content.classList.add('active'); }
+  const counts = { tasks: pivotTasksData.length, expenses: pivotExpensesData.length, activity: pivotActivityLog.length };
+  const countEl = document.getElementById('pivot-count');
+  if (countEl) countEl.textContent = (counts[tab] || 0) + ' ' + t('records');
+}
+
 function renderPivotTasks(tasks) {
-  const tbody = document.getElementById('pivot-tasks-body');
-  if (!tbody) return;
-  const recent = (tasks || [])
+  pivotTasksData = (tasks || [])
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 7);
-  if (!recent.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:1rem;">No tasks yet</td></tr>';
+  const tbody = document.getElementById('pivot-tasks-body');
+  if (!tbody) return;
+  if (!pivotTasksData.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty" style="text-align:center;padding:1rem;">No tasks yet</td></tr>';
     return;
   }
   const today = new Date();
-  const STATUS_MAP = { overdue: 'overdue_status' };
-  tbody.innerHTML = recent.map(task => {
+  tbody.innerHTML = pivotTasksData.map(task => {
     const due    = task.due_date ? new Date(task.due_date) : null;
     const isLate = due && due < today && task.status !== 'done';
-    const dueStr = due ? due.toLocaleDateString() : '—';
-    const statusKey   = STATUS_MAP[task.status] || task.status || '';
-    const statusLabel = typeof window.t === 'function' ? window.t(statusKey) || statusKey.replace(/_/g,' ') : statusKey.replace(/_/g,' ');
-    const priorityLabel = typeof window.t === 'function' ? window.t(task.priority || '') || (task.priority || '—') : (task.priority || '—');
-    return `<tr style="${isLate ? 'background:rgba(239,68,68,0.05);' : ''}">
-      <td style="font-weight:500;color:var(--text-1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${task.title || '—'}</td>
+    const statusKey   = task.status === 'overdue' ? 'overdue_status' : (task.status || '');
+    const statusLabel = t(statusKey) || (task.status || '').replace(/_/g, ' ');
+    const priorityLabel = t(task.priority || '') || (task.priority || '—');
+    return `<tr style="${isLate ? 'background:rgba(239,68,68,0.04);' : ''}">
+      <td style="font-weight:500;color:var(--text-1);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${task.title || '—'}</td>
       <td><span class="badge badge-${task.status}">${statusLabel}</span></td>
       <td><span class="badge badge-${task.priority}">${priorityLabel}</span></td>
       <td style="color:var(--text-2);">${task.assignee || '—'}</td>
-      <td style="color:${isLate ? 'var(--accent-red)' : 'var(--text-2)'};">${dueStr}</td>
+      <td style="color:${isLate ? 'var(--accent-red)' : 'var(--text-2)'};">${due ? due.toLocaleDateString() : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPivotExpenses(expenses) {
+  pivotExpensesData = (expenses || [])
+    .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+    .slice(0, 7);
+  const tbody = document.getElementById('pivot-expenses-body');
+  if (!tbody) return;
+  if (!pivotExpensesData.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty" style="text-align:center;padding:1rem;">No expenses yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = pivotExpensesData.map(e => `
+    <tr>
+      <td style="color:var(--text-1);font-weight:500;">${e.category || '—'}</td>
+      <td style="color:var(--text-2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.description || '—'}</td>
+      <td style="color:var(--accent-amber);font-weight:600;">${e.currency || ''} ${Number(e.amount || 0).toLocaleString()}</td>
+      <td style="color:var(--text-3);">${e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
+    </tr>`).join('');
+}
+
+function renderPivotActivity(tasks, expenses, milestones) {
+  const items = [];
+  (tasks || []).forEach(r => {
+    if (r.created_by && r.created_at) items.push({ who: r.created_by, what: '✓ ' + (r.title || 'Task'), when: r.created_at });
+    if (r.updated_at && r.updated_at !== r.created_at) items.push({ who: r.created_by || '—', what: '✎ ' + (r.title || 'Task'), when: r.updated_at });
+  });
+  (expenses || []).forEach(r => {
+    if (r.created_by && r.created_at) items.push({ who: r.created_by, what: '$ ' + (r.description || r.category || 'Expense'), when: r.created_at });
+  });
+  (milestones || []).forEach(r => {
+    if (r.created_by && r.created_at) items.push({ who: r.created_by, what: '◆ ' + (r.milestone_name || 'Milestone'), when: r.created_at });
+  });
+  pivotActivityLog = items.sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, 10);
+  const tbody = document.getElementById('pivot-activity-body');
+  if (!tbody) return;
+  if (!pivotActivityLog.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty" style="text-align:center;padding:1rem;">No activity yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = pivotActivityLog.map(a => {
+    const when    = a.when ? new Date(a.when) : null;
+    const timeStr = when ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + when.toLocaleDateString() : '—';
+    const emailShort = (a.who || '').split('@')[0];
+    return `<tr>
+      <td style="color:var(--accent);font-weight:500;font-size:11px;">${emailShort}</td>
+      <td style="color:var(--text-2);">${a.what}</td>
+      <td style="color:var(--text-3);white-space:nowrap;font-size:11px;">${timeStr}</td>
     </tr>`;
   }).join('');
 }

@@ -82,6 +82,22 @@ const TRANSLATIONS = {
     good_morning:   'Good morning',
     good_afternoon: 'Good afternoon',
     good_evening:   'Good evening',
+
+    active:          'Active',
+    attention:       'Attention',
+    committed:       'Committed',
+    all_time:        'All time',
+    recent_activity: 'Recent Activity',
+    tasks_tab:       'Tasks',
+    expenses_tab:    'Expenses',
+    activity_tab:    'Activity',
+    records:         'records',
+    loading:         'Loading...',
+    category:        'Category',
+    description:     'Description',
+    who:             'Who',
+    what:            'What',
+    when:            'When',
   },
 
   ar: {
@@ -167,6 +183,22 @@ const TRANSLATIONS = {
     good_morning:   'صباح الخير',
     good_afternoon: 'مساء الخير',
     good_evening:   'مساء النور',
+
+    active:          'نشط',
+    attention:       'تنبيه',
+    committed:       'ملتزم',
+    all_time:        'الإجمالي',
+    recent_activity: 'النشاط الأخير',
+    tasks_tab:       'المهام',
+    expenses_tab:    'المصروفات',
+    activity_tab:    'النشاط',
+    records:         'سجل',
+    loading:         'جار التحميل...',
+    category:        'التصنيف',
+    description:     'الوصف',
+    who:             'من',
+    what:            'ماذا',
+    when:            'متى',
   }
 };
 
@@ -187,33 +219,80 @@ function setLanguage(lang) {
 function applyLanguage() {
   const isRTL = currentLang === 'ar';
 
-  document.documentElement.dir  = isRTL ? 'rtl' : 'ltr';
+  // 1. Set HTML attributes
   document.documentElement.lang = currentLang;
+  document.documentElement.dir  = isRTL ? 'rtl' : 'ltr';
   document.body.classList.toggle('rtl', isRTL);
 
+  // 2. Translate ALL data-i18n elements — preserve child SVGs/badges
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     const val = t(key);
+    if (!val) return;
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
       el.placeholder = val;
     } else if (el.tagName === 'OPTION') {
       // keep option values as-is
     } else {
-      el.textContent = val;
+      const childNodes = Array.from(el.childNodes);
+      const textNodes  = childNodes.filter(n => n.nodeType === Node.TEXT_NODE);
+      if (textNodes.length > 0) {
+        textNodes.forEach(n => { if (n.textContent.trim()) n.textContent = ' ' + val; });
+      } else if (el.children.length === 0) {
+        el.textContent = val;
+      }
     }
   });
 
+  // 3. Translate placeholders
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
   });
 
+  // 4. Update topbar title
+  const activeNav = document.querySelector('.nav-item.active');
+  if (activeNav) {
+    const view = activeNav.dataset.view;
+    const titleEl = document.getElementById('topbar-title');
+    const titleMap = {
+      dashboard: 'dashboard', tasks: 'tasks', pos: 'purchase_orders',
+      milestones: 'milestones', expenses: 'expenses',
+      chat: 'team_chat', settings: 'settings'
+    };
+    if (titleEl && titleMap[view]) titleEl.textContent = t(titleMap[view]);
+  }
+
+  // 5. Update Add buttons
+  const btnMap = { Tasks: 'add_task', POs: 'add_po', Milestones: 'add_milestone', Expenses: 'add_expense' };
+  document.querySelectorAll('.btn-add[data-sheet]').forEach(btn => {
+    const key = btnMap[btn.dataset.sheet];
+    if (key) btn.textContent = t(key);
+  });
+
+  // 6. Update modal buttons
+  const saveBtn   = document.getElementById('modal-save');
+  const cancelBtn = document.getElementById('modal-cancel');
+  if (saveBtn)   saveBtn.textContent   = t('save');
+  if (cancelBtn) cancelBtn.textContent = t('cancel');
+
+  // 7. Update sign out button (preserve SVG)
+  const signoutBtn = document.getElementById('signout-btn');
+  if (signoutBtn) {
+    const svgEl = signoutBtn.querySelector('svg');
+    signoutBtn.textContent = t('sign_out');
+    if (svgEl) signoutBtn.prepend(svgEl);
+  }
+
+  // 8. Chat input placeholder
   const chatInput = document.getElementById('chat-input');
   if (chatInput) chatInput.placeholder = t('message_placeholder');
 
-  // Re-render active view to apply translations (only if app is visible)
-  const activeNav = document.querySelector('.nav-item.active');
-  const appVisible = document.getElementById('app') && !document.getElementById('app').classList.contains('hidden');
-  if (activeNav && appVisible) navigateTo(activeNav.dataset.view);
+  // 9. Language selector
+  const langSelect = document.getElementById('pref-language');
+  if (langSelect) langSelect.value = currentLang;
+
+  // 10. Greeting
+  if (typeof setGreeting === 'function') setGreeting();
 }
 
 function initLanguage() {
