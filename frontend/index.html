@@ -50,6 +50,19 @@
     </div>
   </div>
 
+  <!-- Loading screen — shown during silent re-auth attempt -->
+  <div id="loading-screen" class="hidden">
+    <div class="loading-card">
+      <img id="loading-avatar" src="" class="loading-avatar" alt="" />
+      <div class="loading-name" id="loading-name">Welcome back</div>
+      <div class="loading-email" id="loading-email"></div>
+      <div class="loading-spinner">
+        <div class="spinner-ring"></div>
+      </div>
+      <p class="loading-sub">Signing you in...</p>
+    </div>
+  </div>
+
   <!-- ── APP SHELL ── -->
   <div id="app" class="hidden">
 
@@ -1005,41 +1018,84 @@
     // ── Handle sign-in response ──────────────────────────────────────
     function handleCredentialResponse(response) {
       idToken = response.credential;
-      const payload = decodeJwt(idToken);
-      const name    = payload.name    || payload.email.split('@')[0];
-      const picture = payload.picture || '';
 
-      saveRecentUser(payload.email, name, picture);
+      const payload = decodeJwt(idToken);
+
+      // Store profile in localStorage (NOT the token — profile only)
+      const profile = {
+        email:   payload.email,
+        name:    payload.name    || payload.email.split('@')[0],
+        picture: payload.picture || '',
+        sub:     payload.sub
+      };
+      localStorage.setItem('tt_user_profile', JSON.stringify(profile));
+
+      // Apply profile to UI
+      applyUserProfile(profile);
+
+      // Save to recent users
+      saveRecentUser(profile.email, profile.name, profile.picture);
       saveSession(idToken, payload);
+
+      // Setup token refresh every 45 minutes
       setupTokenRefresh();
+
+      // Setup notifications
       setupNotifications();
 
-      document.getElementById('user-email').textContent = payload.email;
-      const userNameEl = document.getElementById('user-name');
-      if (userNameEl) userNameEl.textContent = name;
-      const avatarEl = document.getElementById('user-avatar');
-      if (avatarEl) avatarEl.textContent = payload.email[0].toUpperCase();
+      // Init chat with profile
+      initChat(profile.email, profile.name, profile.picture);
 
+      // Hide login and loading screens, show app
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+
+      // Prefetch all data
+      prefetchAll();
+      renderTwemoji(document.body);
+
+      // Set greeting and navigate
+      setGreeting();
+      navigateTo('dashboard');
+      applyLanguage();
+    }
+
+    function applyUserProfile(profile) {
+      // Topbar profile
       const profileImg  = document.getElementById('profile-img');
       const profileName = document.getElementById('profile-name');
-      if (profileImg)  profileImg.src         = picture;
-      if (profileName) profileName.textContent = name.split(' ')[0];
+      if (profileImg) {
+        profileImg.src = profile.picture || '';
+        profileImg.onerror = () => { profileImg.style.display = 'none'; };
+      }
+      if (profileName) profileName.textContent = profile.name || profile.email.split('@')[0];
 
+      // Profile dropdown
       const ddAvatar = document.getElementById('dropdown-avatar');
       const ddName   = document.getElementById('dropdown-name');
       const ddEmail  = document.getElementById('dropdown-email');
-      if (ddAvatar) ddAvatar.src        = picture;
-      if (ddName)   ddName.textContent  = name;
-      if (ddEmail)  ddEmail.textContent = payload.email;
+      if (ddAvatar) ddAvatar.src = profile.picture || '';
+      if (ddName)   ddName.textContent  = profile.name  || '';
+      if (ddEmail)  ddEmail.textContent = profile.email || '';
 
-      initChat(payload.email, name, picture);
-      setGreeting();
-      applyLanguage();
-      renderTwemoji(document.body);
-      prefetchAll();
-      document.getElementById('login-screen').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      navigateTo('dashboard');
+      // Sidebar user info
+      const sidebarAvatar = document.getElementById('user-avatar');
+      const sidebarName   = document.getElementById('user-name');
+      const sidebarEmail  = document.getElementById('user-email');
+      if (sidebarAvatar) {
+        if (profile.picture) {
+          sidebarAvatar.innerHTML = `<img src="${profile.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+        } else {
+          sidebarAvatar.textContent = profile.name.charAt(0).toUpperCase();
+        }
+      }
+      if (sidebarName)  sidebarName.textContent  = profile.name  || '';
+      if (sidebarEmail) sidebarEmail.textContent = profile.email || '';
+
+      // Chat avatar
+      const chatAvatar = document.getElementById('chat-avatar');
+      if (chatAvatar) chatAvatar.src = profile.picture || '';
     }
 
     // ── Navigate ─────────────────────────────────────────────────────
@@ -1230,14 +1286,13 @@
     function doSignOut() {
       idToken = null;
       clearSession();
+      localStorage.removeItem('tt_user_profile');
       stopChatPolling();
       if (typeof stopDashboardRefresh === 'function') stopDashboardRefresh();
       google.accounts.id.disableAutoSelect();
       document.getElementById('profile-dropdown').classList.add('hidden');
       document.getElementById('app').classList.add('hidden');
-      document.getElementById('login-screen').classList.remove('hidden');
-      initGoogleAuth();
-      loadRecentUsers();
+      showLoginScreen();
     }
 
     // ── Event wiring (runs synchronously at parse time) ──────────────
@@ -1281,15 +1336,98 @@
     document.getElementById('signout-btn').addEventListener('click', doSignOut);
     document.getElementById('dropdown-signout').addEventListener('click', doSignOut);
 
+    // ── Silent login ─────────────────────────────────────────────────
+    function attemptSilentLogin() {
+      const stored = localStorage.getItem('tt_user_profile');
+      if (!stored) {
+        showLoginScreen();
+        return;
+      }
+
+      // Profile found — show loading screen with user info
+      const profile = JSON.parse(stored);
+      const loadingScreen = document.getElementById('loading-screen');
+      const loginScreen   = document.getElementById('login-screen');
+
+      const loadAvatar = document.getElementById('loading-avatar');
+      const loadName   = document.getElementById('loading-name');
+      const loadEmail  = document.getElementById('loading-email');
+      if (loadAvatar) loadAvatar.src = profile.picture || '';
+      if (loadName)   loadName.textContent  = 'Welcome back, ' + (profile.name || profile.email.split('@')[0]);
+      if (loadEmail)  loadEmail.textContent = profile.email;
+
+      loginScreen.classList.add('hidden');
+      loadingScreen.classList.remove('hidden');
+
+      // Attempt silent re-auth with GIS
+      let authResolved = false;
+
+      google.accounts.id.initialize({
+        client_id:             CLIENT_ID,
+        callback:              (response) => {
+          authResolved = true;
+          handleCredentialResponse(response);
+        },
+        auto_select:           true,
+        hint:                  profile.email,
+        use_fedcm_for_prompt:  false,
+        cancel_on_tap_outside: false
+      });
+
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          if (!authResolved) {
+            authResolved = true;
+            showLoginScreen();
+          }
+        }
+      });
+
+      // Fallback timeout — if no response in 4 seconds, show login
+      setTimeout(() => {
+        if (!authResolved) {
+          authResolved = true;
+          showLoginScreen();
+        }
+      }, 4000);
+    }
+
+    function showLoginScreen() {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('app').classList.add('hidden');
+      initGoogleAuth();
+      loadRecentUsers();
+    }
+
+    function checkForUpdates() { /* placeholder for future SW update checks */ }
+
     // ── Init on load ──────────────────────────────────────────────────
     window.onload = function() {
-      initLanguage();
       initTheme();
+      initLanguage();
+
+      // Initialize Google Auth
+      google.accounts.id.initialize({
+        client_id:            CLIENT_ID,
+        callback:             handleCredentialResponse,
+        auto_select:          false,
+        use_fedcm_for_prompt: false
+      });
+
+      // Render sign-in button (needed even if we try silent auth)
+      google.accounts.id.renderButton(
+        document.getElementById('g-signin-btn'),
+        { theme: 'outline', size: 'large', type: 'standard' }
+      );
+
       window.tableData = tableData;
-      if (!tryRestoreSession()) {
-        initGoogleAuth();
-        loadRecentUsers();
-      }
+
+      // Try silent login first
+      attemptSilentLogin();
+
+      // Check for app updates
+      checkForUpdates();
     };
 
   </script>
