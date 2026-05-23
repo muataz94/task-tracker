@@ -16,7 +16,7 @@ function stopDashboardRefresh() {
 }
 
 async function loadDashboard() {
-  const statIds = ['stat-open','stat-overdue','stat-spend','stat-progress','stat-expenses'];
+  const statIds = ['stat-open','stat-overdue','stat-spend','stat-progress','stat-expenses','stat-inprogress','stat-done'];
   statIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '...';
@@ -36,12 +36,15 @@ async function loadDashboard() {
     const cPre  = _cPre[prefs.currency] !== undefined ? _cPre[prefs.currency] : ((prefs.currency || 'USD') + ' ');
     const cSuf  = _cSuf[prefs.currency] || '';
 
-    animateCountUp('stat-open',     dashData.taskSummary.open);
-    animateCountUp('stat-overdue',  dashData.taskSummary.overdue);
-    animateCountUp('stat-spend',    dashData.poSpend || 0,       cPre, cSuf);
-    animateCountUp('stat-progress', dashData.avgProgress || 0,   '',   '%');
-    animateCountUp('stat-expenses', dashData.totalExpenses || 0, cPre, cSuf);
+    animateCountUp('stat-open',       dashData.taskSummary.open);
+    animateCountUp('stat-inprogress', dashData.taskSummary.in_progress || 0);
+    animateCountUp('stat-done',       dashData.taskSummary.done || 0);
+    animateCountUp('stat-overdue',    dashData.taskSummary.overdue);
+    animateCountUp('stat-spend',      dashData.poSpend || 0,       cPre, cSuf);
+    animateCountUp('stat-progress',   dashData.avgProgress || 0,   '',   '%');
+    animateCountUp('stat-expenses',   dashData.totalExpenses || 0, cPre, cSuf);
 
+    window._lastDashData = dashData;
     renderTaskChart(dashData.taskSummary);
     renderPOChart(dashData.poByStatus);
     startDashboardRefresh();
@@ -52,7 +55,7 @@ async function loadDashboard() {
     const recentTasks = tasks
       .slice()
       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      .slice(0, 5);
+      .slice(0, 8);
     renderRecentTasks(recentTasks);
 
     const recentExpenses = expenses
@@ -63,6 +66,11 @@ async function loadDashboard() {
 
     const milestones = (dashData.milestones || []).slice(0, 5);
     renderMilestoneProgress(milestones);
+    renderPivotTasks(tasks);
+    updateOverdueBadge(tasks);
+
+    const tasksSub = document.getElementById('tasks-subtitle');
+    if (tasksSub) tasksSub.textContent = (tasks.length || 0) + ' total tasks';
 
     renderActivityFeed(tasks, expenses);
 
@@ -90,19 +98,23 @@ function renderRecentTasks(tasks) {
   const el = document.getElementById('recent-tasks-list');
   if (!el) return;
   if (!tasks.length) { el.innerHTML = '<p class="empty">No tasks yet</p>'; return; }
-  el.innerHTML = tasks.map(t => {
-    const priority = t.priority || '';
-    const dueDate  = t.due_date ? String(t.due_date).split('T')[0] : '';
+  const SM = { overdue: 'overdue_status' };
+  el.innerHTML = tasks.map(task => {
+    const priority = task.priority || '';
+    const dueDate  = task.due_date ? String(task.due_date).split('T')[0] : '';
+    const sk = SM[task.status || 'open'] || (task.status || 'open');
+    const sLabel = typeof window.t === 'function' ? window.t(sk) || sk.replace(/_/g,' ') : sk.replace(/_/g,' ');
+    const pLabel = priority && typeof window.t === 'function' ? window.t(priority) || priority : priority;
     return `
     <div class="recent-item">
       <div class="recent-item-left">
-        <span class="badge badge-${t.status || 'open'}">${(t.status || 'open').replace(/_/g,' ')}</span>
-        ${priority ? `<span class="badge badge-${priority}" style="font-size:10px;">${priority}</span>` : ''}
-        <span class="recent-item-title">${t.title || '—'}</span>
+        <span class="badge badge-${task.status || 'open'}">${sLabel}</span>
+        ${priority ? `<span class="badge badge-${priority}" style="font-size:10px;">${pLabel}</span>` : ''}
+        <span class="recent-item-title">${task.title || '—'}</span>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;margin-left:8px;">
-        ${t.assignee ? `<span class="recent-item-meta">${t.assignee}</span>` : ''}
-        ${dueDate    ? `<span class="recent-item-meta" style="font-size:11px;">${dueDate}</span>` : ''}
+        ${task.assignee ? `<span class="recent-item-meta">${task.assignee}</span>` : ''}
+        ${dueDate       ? `<span class="recent-item-meta" style="font-size:11px;">${dueDate}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -151,15 +163,35 @@ function renderMilestoneProgress(milestones) {
   }).join('');
 }
 
+function getChartColors() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    text:  isLight ? 'rgba(10,10,30,0.55)'    : 'rgba(255,255,255,0.55)',
+    tick:  isLight ? 'rgba(10,10,30,0.45)'    : 'rgba(255,255,255,0.4)',
+    grid:  isLight ? 'rgba(99,102,241,0.10)'  : 'rgba(255,255,255,0.06)',
+    ttBg:  isLight ? 'rgba(245,246,255,0.98)' : 'rgba(15,10,30,0.92)',
+    ttBdr: isLight ? 'rgba(99,102,241,0.20)'  : 'rgba(255,255,255,0.15)',
+    ttTtl: isLight ? 'rgba(10,10,30,0.9)'     : 'rgba(255,255,255,0.9)',
+    ttBdy: isLight ? 'rgba(10,10,30,0.65)'    : 'rgba(255,255,255,0.65)',
+  };
+}
+
+function refreshChartsFromCache() {
+  if (!window._lastDashData) return;
+  renderTaskChart(window._lastDashData.taskSummary);
+  renderPOChart(window._lastDashData.poByStatus);
+}
+
 function renderTaskChart(summary) {
   const canvas = document.getElementById('chart-tasks');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  const c = getChartColors();
   if (taskChart) taskChart.destroy();
   taskChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Open', 'In Progress', 'Done', 'Overdue'],
+      labels: [t('open'), t('in_progress'), t('done'), t('overdue_status')],
       datasets: [{
         data: [
           summary.open        || 0,
@@ -174,25 +206,25 @@ function renderTaskChart(summary) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           display: true,
           position: 'bottom',
           labels: {
-            font: { size: 11, family: 'Inter, sans-serif' },
-            color: 'rgba(255,255,255,0.55)',
-            padding: 14,
+            font: { size: 10, family: 'Inter, sans-serif' },
+            color: c.text,
+            padding: 10,
             usePointStyle: true,
-            pointStyleWidth: 8
+            pointStyleWidth: 7
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(15,10,30,0.92)',
-          borderColor: 'rgba(255,255,255,0.15)',
+          backgroundColor: c.ttBg,
+          borderColor: c.ttBdr,
           borderWidth: 1,
-          titleColor: 'rgba(255,255,255,0.9)',
-          bodyColor: 'rgba(255,255,255,0.65)',
+          titleColor: c.ttTtl,
+          bodyColor: c.ttBdy,
           padding: 10
         }
       },
@@ -205,11 +237,12 @@ function renderPOChart(byStatus) {
   const canvas = document.getElementById('chart-pos');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  const c = getChartColors();
   if (poChart) poChart.destroy();
   poChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: ['Draft', 'Submitted', 'Received', 'Cancelled'],
+      labels: [t('draft'), t('submitted'), t('received'), t('cancelled')],
       datasets: [{
         label: 'POs',
         data: [
@@ -230,40 +263,79 @@ function renderPOChart(byStatus) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           display: true,
           position: 'bottom',
           labels: {
-            font: { size: 11, family: 'Inter, sans-serif' },
-            color: 'rgba(255,255,255,0.55)',
-            padding: 14,
+            font: { size: 10, family: 'Inter, sans-serif' },
+            color: c.text,
+            padding: 10,
             usePointStyle: true,
-            pointStyleWidth: 8
+            pointStyleWidth: 7
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(15,10,30,0.92)',
-          borderColor: 'rgba(255,255,255,0.15)',
+          backgroundColor: c.ttBg,
+          borderColor: c.ttBdr,
           borderWidth: 1,
-          titleColor: 'rgba(255,255,255,0.9)',
-          bodyColor: 'rgba(255,255,255,0.65)',
+          titleColor: c.ttTtl,
+          bodyColor: c.ttBdy,
           padding: 10
         }
       },
       scales: {
         x: {
-          ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
-          grid:  { color: 'rgba(255,255,255,0.04)', drawBorder: false }
+          ticks: { color: c.tick, font: { size: 11 } },
+          grid:  { color: c.grid, drawBorder: false }
         },
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
-          grid:  { color: 'rgba(255,255,255,0.06)', drawBorder: false }
+          ticks: { stepSize: 1, color: c.tick, font: { size: 11 } },
+          grid:  { color: c.grid, drawBorder: false }
         }
       }
     }
+  });
+}
+
+function renderPivotTasks(tasks) {
+  const tbody = document.getElementById('pivot-tasks-body');
+  if (!tbody) return;
+  const recent = (tasks || [])
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 7);
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:1rem;">No tasks yet</td></tr>';
+    return;
+  }
+  const today = new Date();
+  const STATUS_MAP = { overdue: 'overdue_status' };
+  tbody.innerHTML = recent.map(task => {
+    const due    = task.due_date ? new Date(task.due_date) : null;
+    const isLate = due && due < today && task.status !== 'done';
+    const dueStr = due ? due.toLocaleDateString() : '—';
+    const statusKey   = STATUS_MAP[task.status] || task.status || '';
+    const statusLabel = typeof window.t === 'function' ? window.t(statusKey) || statusKey.replace(/_/g,' ') : statusKey.replace(/_/g,' ');
+    const priorityLabel = typeof window.t === 'function' ? window.t(task.priority || '') || (task.priority || '—') : (task.priority || '—');
+    return `<tr style="${isLate ? 'background:rgba(239,68,68,0.05);' : ''}">
+      <td style="font-weight:500;color:var(--text-1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${task.title || '—'}</td>
+      <td><span class="badge badge-${task.status}">${statusLabel}</span></td>
+      <td><span class="badge badge-${task.priority}">${priorityLabel}</span></td>
+      <td style="color:var(--text-2);">${task.assignee || '—'}</td>
+      <td style="color:${isLate ? 'var(--accent-red)' : 'var(--text-2)'};">${dueStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateOverdueBadge(tasks) {
+  const count = (tasks || []).filter(t => t.status === 'overdue').length;
+  ['overdue-badge', 'tasks-overdue-badge'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = count;
+    el.style.display = count > 0 ? 'flex' : 'none';
   });
 }
 

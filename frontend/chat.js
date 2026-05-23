@@ -7,13 +7,27 @@ let lastMessageId       = null;
 let currentTopic        = 'general';
 let _chatInitialized    = false;
 let chatMessages        = [];
+let sessionFileMap      = {}; // Maps topic ID to array of files
 
 const DEFAULT_TOPICS = [
-  { id: 'general',       label: 'General',      icon: '💬' },
-  { id: 'tasks',         label: 'Tasks',         icon: '✅' },
-  { id: 'finance',       label: 'Finance',       icon: '💰' },
-  { id: 'announcements', label: 'Announcements', icon: '📢' },
+  { id: 'general', label: 'General',
+    icon: `<svg class="topic-svg topic-anim-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    description: 'Team discussions' },
+  { id: 'tasks', label: 'Tasks',
+    icon: `<svg class="topic-svg topic-anim-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+    description: 'Task coordination' },
+  { id: 'finance', label: 'Finance',
+    icon: `<svg class="topic-svg topic-anim-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+    description: 'Financial updates' },
+  { id: 'announcements', label: 'Announcements',
+    icon: `<svg class="topic-svg topic-anim-shake" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+    description: 'Announcements' },
 ];
+
+// Initialize session file map
+DEFAULT_TOPICS.forEach(t => {
+  sessionFileMap[t.id] = [];
+});
 
 function initChat(email, name, avatar) {
   currentUserEmail  = email;
@@ -41,11 +55,17 @@ function initChat(email, name, avatar) {
 function renderTopicSidebar() {
   const list = document.getElementById('topic-list');
   if (!list) return;
-  list.innerHTML = DEFAULT_TOPICS.map(t => `
-    <div class="topic-item ${t.id === currentTopic ? 'active' : ''}" data-topic="${t.id}">
-      <span class="topic-icon">${t.icon}</span>
-      <span>${t.label}</span>
-    </div>`).join('');
+  list.innerHTML = DEFAULT_TOPICS.map(t => {
+    const fileCount = (sessionFileMap[t.id] || []).length;
+    return `
+    <div class="topic-item ${t.id === currentTopic ? 'active' : ''}" data-topic="${t.id}" title="${t.description}">
+      <div class="topic-item-top">
+        <span class="topic-icon">${t.icon}</span>
+        <span class="topic-label">${t.label}</span>
+        ${fileCount > 0 ? `<span class="topic-file-badge">${fileCount}</span>` : ''}
+      </div>
+      ${t.description ? `<div class="topic-description">${t.description}</div>` : ''}
+    </div>`}).join('');
   list.querySelectorAll('.topic-item').forEach(item => {
     item.addEventListener('click', () => switchTopic(item.dataset.topic));
   });
@@ -54,9 +74,9 @@ function renderTopicSidebar() {
 function switchTopic(topicId) {
   currentTopic = topicId;
   renderTopicSidebar();
-  const topicObj = DEFAULT_TOPICS.find(t => t.id === topicId) || { label: topicId, icon: '💬' };
+  const topicObj = DEFAULT_TOPICS.find(t => t.id === topicId) || { label: topicId, icon: '' };
   const nameEl = document.getElementById('chat-topic-name');
-  if (nameEl) nameEl.textContent = topicObj.icon + ' ' + topicObj.label;
+  if (nameEl) nameEl.innerHTML = (topicObj.icon ? topicObj.icon + ' ' : '') + escapeHtml(topicObj.label);
   loadChat();
 }
 
@@ -104,12 +124,67 @@ function stopChatPolling() {
   if (chatPollingInterval) { clearInterval(chatPollingInterval); chatPollingInterval = null; }
 }
 
+// ── Session File Management ────────────────────────────────────────
+
+function addFileToSession(topicId, file) {
+  if (!sessionFileMap[topicId]) sessionFileMap[topicId] = [];
+  const fileExists = sessionFileMap[topicId].some(f => f.name === file.name);
+  if (!fileExists) {
+    sessionFileMap[topicId].push(file);
+    renderTopicSidebar();
+    renderSessionFiles();
+  }
+}
+
+function removeFileFromSession(topicId, fileName) {
+  if (sessionFileMap[topicId]) {
+    sessionFileMap[topicId] = sessionFileMap[topicId].filter(f => f.name !== fileName);
+    renderTopicSidebar();
+    renderSessionFiles();
+  }
+}
+
+function renderSessionFiles() {
+  const fileContainer = document.getElementById('session-files-container');
+  if (!fileContainer) return;
+  
+  const files = sessionFileMap[currentTopic] || [];
+  if (files.length === 0) {
+    fileContainer.innerHTML = '';
+    return;
+  }
+  
+  fileContainer.innerHTML = `
+    <div class="session-files-header">
+      <span class="session-files-title">📎 Files in this session</span>
+    </div>
+    <div class="session-files-list">
+      ${files.map(f => `
+        <div class="session-file-item">
+          <span class="session-file-icon">${getFileIcon(f.name)}</span>
+          <span class="session-file-name" title="${f.name}">${f.name}</span>
+          <button class="session-file-remove" onclick="removeFileFromSession('${currentTopic}', '${escapeHtml(f.name)}')" title="Remove">✕</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function getFileIcon(fileName) {
+  if (fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return '🖼️';
+  if (fileName.match(/\.(pdf)$/i)) return '📄';
+  if (fileName.match(/\.(doc|docx)$/i)) return '📝';
+  if (fileName.match(/\.(xlsx|xls|csv)$/i)) return '📊';
+  if (fileName.match(/\.(txt)$/i)) return '📃';
+  return '📎';
+}
+
 // ── Message rendering ──────────────────────────────────────────────
 
 function formatMessageContent(message, fileUrl, fileName, fileType) {
   let content;
   if (message && message.startsWith('data:image')) {
-    content = `<img src="${message}" style="max-width:200px;max-height:160px;border-radius:12px;display:block;" />`;
+    content = `<div class="msg-image-wrap"><img src="${message}" class="msg-image" alt="image" /></div>`;
   } else {
     content = escapeHtml(message || '').replace(/\n/g, '<br>');
   }
@@ -139,7 +214,7 @@ function formatMessageContent(message, fileUrl, fileName, fileType) {
   return content;
 }
 
-function createMessageElement(msg) {
+function createMessageElement(msg, isGrouped = false) {
   const isMe    = msg.sender_email === currentUserEmail;
   const time    = msg.timestamp
     ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -147,7 +222,7 @@ function createMessageElement(msg) {
   const initial = (msg.sender_name || msg.sender_email || '?').charAt(0).toUpperCase();
 
   const wrapper = document.createElement('div');
-  wrapper.className = `chat-message ${isMe ? 'mine' : 'theirs'}${msg._pending ? ' pending' : ''}`;
+  wrapper.className = `chat-message ${isMe ? 'mine' : 'theirs'}${msg._pending ? ' pending' : ''}${isGrouped ? ' grouped' : ''}`;
   wrapper.id = 'msg-' + msg.id;
   wrapper.dataset.msgId   = msg.id;
   wrapper.dataset.msgText = msg.message || '';
@@ -159,14 +234,26 @@ function createMessageElement(msg) {
   wrapper.innerHTML = `
     ${!isMe ? `<div class="msg-avatar">${avatarHTML}</div>` : ''}
     <div class="msg-content">
-      ${!isMe ? `<div class="msg-sender">${escapeHtml(msg.sender_name || msg.sender_email)}</div>` : ''}
+      ${!isMe && !isGrouped ? `<div class="msg-sender">${escapeHtml(msg.sender_name || msg.sender_email)}</div>` : ''}
       <div class="msg-bubble-wrap">
         <div class="msg-bubble">${formatMessageContent(msg.message, msg.file_url, msg.file_name, msg.file_type)}${msg.edited_at ? '<span class="msg-edited">(edited)</span>' : ''}</div>
-        ${isMe ? `<div class="msg-actions">
-          <button class="msg-action-btn" onclick="startEditMessage('${msg.id}', this)" title="Edit">✎</button>
-          <button class="msg-action-btn danger" onclick="confirmDeleteMessage('${msg.id}', this)" title="Delete">✕</button>
-        </div>` : ''}
       </div>
+      ${isMe ? `<div class="msg-actions">
+        <button class="msg-action-btn" onclick="startEditMessage('${msg.id}', this)" title="Edit">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="msg-action-btn danger" onclick="confirmDeleteMessage('${msg.id}', this)" title="Delete">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3,6 5,6 21,6"/>
+            <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+          </svg>
+        </button>
+      </div>` : ''}
       <div class="msg-time">
         ${time}
         ${msg._pending ? '<span class="msg-pending">●</span>' : ''}
@@ -183,8 +270,10 @@ function renderMessages(messages) {
   if (!container) return;
   const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 60;
   container.innerHTML = '';
-  messages.forEach(msg => {
-    const el = createMessageElement(msg);
+  messages.forEach((msg, i) => {
+    const prev = i > 0 ? messages[i - 1] : null;
+    const isGrouped = prev && prev.sender_email === msg.sender_email;
+    const el = createMessageElement(msg, isGrouped);
     if (el) container.appendChild(el);
   });
   if (wasAtBottom) container.scrollTop = container.scrollHeight;
@@ -304,18 +393,49 @@ function cancelEditMessage(msgId, original, el) {
   if (bubble) bubble.innerHTML = formatMessageContent(original);
 }
 
+function showConfirm(title, message, onConfirm) {
+  const existing = document.getElementById('cc-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'cc-overlay';
+  overlay.className = 'cc-overlay';
+  overlay.innerHTML = `
+    <div class="cc-box glass">
+      <div class="cc-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="cc-title">${escapeHtml(title)}</div>
+      <div class="cc-body">${escapeHtml(message)}</div>
+      <div class="cc-actions">
+        <button class="cc-cancel">Cancel</button>
+        <button class="cc-confirm">Delete</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('cc-in'), 10);
+  const close = () => { overlay.classList.remove('cc-in'); setTimeout(() => overlay.remove(), 220); };
+  overlay.querySelector('.cc-cancel').onclick = close;
+  overlay.querySelector('.cc-confirm').onclick = () => { close(); onConfirm(); };
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+}
+
 async function confirmDeleteMessage(msgId, btn) {
-  if (!confirm(typeof t === 'function' ? t('confirm_delete_message') : 'Delete this message?')) return;
-  const wrapper = document.getElementById('msg-' + msgId);
-  if (wrapper) wrapper.style.opacity = '0.4';
-  try {
-    await callAPI('deleteMessage', { id: msgId });
-    wrapper?.remove();
-    chatMessages = chatMessages.filter(m => m.id !== msgId);
-  } catch(e) {
-    if (wrapper) wrapper.style.opacity = '1';
-    showToast('Delete failed: ' + e.message, 'error');
-  }
+  showConfirm('Delete Message', 'This message will be permanently deleted.', async () => {
+    const wrapper = document.getElementById('msg-' + msgId);
+    if (wrapper) wrapper.style.opacity = '0.4';
+    try {
+      await callAPI('deleteMessage', { id: msgId });
+      wrapper?.remove();
+      chatMessages = chatMessages.filter(m => m.id !== msgId);
+    } catch(e) {
+      if (wrapper) wrapper.style.opacity = '1';
+      showToast('Delete failed: ' + e.message, 'error');
+    }
+  });
 }
 
 // ── File Attachment (Google Drive upload) ──────────────────────────
@@ -423,37 +543,55 @@ function initEmojiPicker() {
   });
 }
 
-const EMOJI_LIST = [
-  '😀','😊','😂','🤣','❤️','😍','🥰','😎','🤔','😅',
-  '👍','👎','👏','🙌','🎉','🔥','💯','✅','❌','⚠️',
-  '📌','📎','🗂️','💡','🚀','⭐','🌟','💬','📊','📅',
-  '🏆','🎯','📝','🔔','💪','🤝','👀','💼','🕐','📱',
-  '😢','😡','🤯','🥳','😴','🤗','😬','🤭','🫡','🫶',
+const EMOJI_CATEGORIES = [
+  { label: '😊', name: 'Smileys',  emojis: ['😀','😄','😂','🤣','😊','😍','🥰','😎','🤔','😅','😢','😡','🤯','🥳','😴','🤗','😬','🫡','🫶','😇','🤩','🙃','😤','🥺','😈','💀','😏','🫠','😻','🤭'] },
+  { label: '👋', name: 'People',   emojis: ['👍','👎','👏','🙌','👋','🤝','💪','👀','🤞','✌️','☝️','🫂','💅','🙏','🫵','🤜','🤛','👊','🤚','🖐️','✋','🤙','🦾','🧠','🫀'] },
+  { label: '🎉', name: 'Fun',      emojis: ['🎉','🔥','💯','✅','❌','⚠️','🏆','🎯','🚀','⭐','🌟','💡','🎊','🎈','🎁','🥇','🎶','🌈','⚡','💎','🦋','🌺','🌸','🍀','🔮','🎠'] },
+  { label: '💼', name: 'Work',     emojis: ['📌','📎','🗂️','💬','📊','📅','📝','🔔','💼','🕐','📱','💻','📧','📋','🔍','⚙️','🛠️','📐','📁','🏗️','🖥️','🖨️','⌨️','🗃️','📈'] },
+  { label: '❤️', name: 'Symbols',  emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕','💞','💓','✨','💫','🌊','🌙','☀️','❄️','🔴','🟡','🟢','🔵','⚪','⚫','🟣'] },
 ];
 
 function _initSimpleEmojiPicker(btn, picker, input) {
-  picker.style.cssText = 'background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:10px;display:flex;flex-wrap:wrap;gap:4px;width:280px;max-height:200px;overflow-y:auto;';
-  picker.innerHTML = EMOJI_LIST.map(e =>
-    `<button class="emoji-item" type="button" data-emoji="${encodeURIComponent(e)}">${e}</button>`
-  ).join('');
-  picker.addEventListener('click', ev => {
-    const b = ev.target.closest('.emoji-item');
-    if (!b) return;
-    const emoji = decodeURIComponent(b.dataset.emoji);
-    const pos = input.selectionStart || 0;
-    input.value = input.value.slice(0, pos) + emoji + input.value.slice(pos);
-    input.focus();
-    input.setSelectionRange(pos + emoji.length, pos + emoji.length);
-    picker.classList.add('hidden');
-  });
+  let activeCategory = 0;
+
+  function renderPicker() {
+    picker.innerHTML = `
+      <div class="ep-cats">
+        ${EMOJI_CATEGORIES.map((c, i) => `<button class="ep-cat${i === activeCategory ? ' active' : ''}" data-cat="${i}" title="${c.name}">${c.label}</button>`).join('')}
+      </div>
+      <div class="ep-grid">
+        ${EMOJI_CATEGORIES[activeCategory].emojis.map(e => `<button class="ep-btn" data-emoji="${encodeURIComponent(e)}">${e}</button>`).join('')}
+      </div>
+    `;
+    picker.querySelectorAll('.ep-cat').forEach(b => {
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        activeCategory = parseInt(b.dataset.cat);
+        renderPicker();
+        picker.classList.remove('hidden');
+      });
+    });
+    picker.querySelector('.ep-grid').addEventListener('click', ev => {
+      const b = ev.target.closest('.ep-btn');
+      if (!b) return;
+      const emoji = decodeURIComponent(b.dataset.emoji);
+      const pos = input.selectionStart || 0;
+      input.value = input.value.slice(0, pos) + emoji + input.value.slice(pos);
+      input.focus();
+      input.setSelectionRange(pos + emoji.length, pos + emoji.length);
+      picker.classList.add('hidden');
+    });
+  }
+
+  renderPicker();
+
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    picker.classList.toggle('hidden');
+    if (picker.classList.contains('hidden')) { renderPicker(); picker.classList.remove('hidden'); }
+    else picker.classList.add('hidden');
   });
   document.addEventListener('click', (e) => {
-    if (!picker.contains(e.target) && e.target !== btn) {
-      picker.classList.add('hidden');
-    }
+    if (!picker.contains(e.target) && e.target !== btn) picker.classList.add('hidden');
   });
 }
 

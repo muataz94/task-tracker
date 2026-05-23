@@ -75,6 +75,7 @@ async function loadTable(sheetName) {
     const result = await getAll(sheetName);
     tableData[sheetName] = result.rows || [];
     renderTable(sheetName);
+    if (sheetName === 'Expenses') renderBudgetTracker(tableData[sheetName]);
   } catch (e) {
     wrap.innerHTML = '<p class="error">Failed to load: ' + e.message + '</p>';
   }
@@ -87,12 +88,21 @@ function renderTable(sheetName) {
   const wrap   = document.getElementById('table-' + sheetName.toLowerCase());
   if (!wrap) return;
 
-  const filterEl  = document.getElementById('filter-' + sheetName);
-  const filterVal = filterEl ? filterEl.value.toLowerCase() : '';
+  const filterEl      = document.getElementById('filter-' + sheetName);
+  const filterVal     = filterEl ? filterEl.value.toLowerCase() : '';
+  const projectFilter = (document.getElementById('filter-' + sheetName + '-project') || {}).value || '';
+  const fromFilter    = (document.getElementById('filter-' + sheetName + '-from') || {}).value || '';
+  const toFilter      = (document.getElementById('filter-' + sheetName + '-to') || {}).value || '';
 
-  const filtered = rows.filter(row =>
-    fields.some(f => String(row[f.key] || '').toLowerCase().includes(filterVal))
-  );
+  const filtered = rows.filter(row => {
+    const matchText    = !filterVal || fields.some(f => String(row[f.key] || '').toLowerCase().includes(filterVal));
+    const matchProject = !projectFilter || row.project === projectFilter;
+    const rowDate      = row.due_date || row.date || row.target_date || row.created_at || '';
+    const rowDateStr   = rowDate ? String(rowDate).split('T')[0] : '';
+    const matchFrom    = !fromFilter || rowDateStr >= fromFilter;
+    const matchTo      = !toFilter   || rowDateStr <= toFilter;
+    return matchText && matchProject && matchFrom && matchTo;
+  });
 
   if (!rows.length) {
     wrap.innerHTML = '<p class="empty">No records yet. Click + Add to create one.</p>';
@@ -101,9 +111,7 @@ function renderTable(sheetName) {
 
   let html = `
     <div class="table-toolbar">
-      <input id="filter-${sheetName}" type="text" placeholder="Search..."
-        value="${filterVal}" oninput="renderTable('${sheetName}')" class="filter-input" />
-      <span class="row-count">${filtered.length} of ${rows.length} records</span>
+      <span class="row-count" id="count-${sheetName}">${filtered.length} of ${rows.length}</span>
       <button class="refresh-btn" onclick="refreshTable('${sheetName}')" title="Refresh">
         <svg class="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
@@ -117,9 +125,9 @@ function renderTable(sheetName) {
           <tr>
             ${fields.map(f => `
               <th onclick="sortTable('${sheetName}','${f.key}')">
-                ${f.label} ${getSortIcon(f.key)}
+                ${(typeof t === 'function' ? t(f.key) : null) || f.label} ${getSortIcon(f.key)}
               </th>`).join('')}
-            <th>Actions</th>
+            <th>${typeof t === 'function' ? t('actions') : 'Actions'}</th>
           </tr>
         </thead>
         <tbody>
@@ -145,6 +153,13 @@ function renderTable(sheetName) {
     </div>`;
 
   wrap.innerHTML = html;
+  populateProjectFilter(sheetName, rows);
+  const countEl = document.getElementById(sheetName.toLowerCase() + '-count');
+  if (countEl) countEl.textContent = filtered.length + ' of ' + rows.length;
+  const subEl = document.getElementById(sheetName.toLowerCase() + '-subtitle');
+  if (subEl && !subEl.hasAttribute('data-updated')) {
+    subEl.textContent = rows.length + ' records';
+  }
 }
 
 // ── Format cell display
@@ -157,7 +172,9 @@ function formatCell(field, value) {
     return value.toISOString().split('T')[0];
   }
   if (field.key === 'status' || field.key === 'priority') {
-    return `<span class="badge badge-${value}">${String(value).replace(/_/g,' ')}</span>`;
+    const tKey = value === 'overdue' ? 'overdue_status' : String(value);
+    const label = (typeof t === 'function' ? t(tKey) : null) || String(value).replace(/_/g,' ');
+    return `<span class="badge badge-${value}">${label}</span>`;
   }
   if (field.key === 'completion_pct') {
     const pct = Math.min(Math.max(parseInt(value) || 0, 0), 100);
@@ -299,7 +316,7 @@ async function saveModal() {
     closeModal();
     renderTable(currentSheet);
   } catch (e) {
-    alert('Save failed: ' + e.message);
+    showToast('Save failed: ' + e.message, 'error');
   } finally {
     saveBtn.textContent = 'Save';
     saveBtn.disabled    = false;
@@ -307,15 +324,16 @@ async function saveModal() {
 }
 
 // ── Confirm and delete
-async function confirmDelete(sheetName, id) {
-  if (!confirm('Delete this record? This cannot be undone.')) return;
-  try {
-    await deleteRow(sheetName, id);
-    tableData[sheetName] = (tableData[sheetName] || []).filter(r => String(r.id) !== String(id));
-    renderTable(sheetName);
-  } catch (e) {
-    alert('Delete failed: ' + e.message);
-  }
+function confirmDelete(sheetName, id) {
+  showConfirm('Delete Record', 'This record will be permanently deleted. This cannot be undone.', async () => {
+    try {
+      await deleteRow(sheetName, id);
+      tableData[sheetName] = (tableData[sheetName] || []).filter(r => String(r.id) !== String(id));
+      renderTable(sheetName);
+    } catch (e) {
+      showToast('Delete failed: ' + e.message, 'error');
+    }
+  });
 }
 
 // ── Close modal
@@ -332,5 +350,38 @@ async function refreshTable(sheetName) {
     renderTable(sheetName);
   } catch (e) {
     alert('Refresh failed: ' + e.message);
+  }
+}
+
+function populateProjectFilter(sheetName, rows) {
+  const select = document.getElementById('filter-' + sheetName + '-project');
+  if (!select) return;
+  const current  = select.value;
+  const projects = [...new Set((rows || []).map(r => r.project).filter(Boolean))].sort();
+  select.innerHTML = '<option value="">All Projects</option>' +
+    projects.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${p}</option>`).join('');
+}
+
+function clearFilters(sheetName) {
+  const f    = document.getElementById('filter-' + sheetName);
+  const p    = document.getElementById('filter-' + sheetName + '-project');
+  const from = document.getElementById('filter-' + sheetName + '-from');
+  const to   = document.getElementById('filter-' + sheetName + '-to');
+  if (f)    f.value = '';
+  if (p)    p.value = '';
+  if (from) from.value = '';
+  if (to)   to.value = '';
+  renderTable(sheetName);
+}
+
+function renderBudgetTracker(expenses) {
+  const budget = parseFloat(localStorage.getItem('tt_budget') || '0');
+  const spent  = (expenses || []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  const pct    = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+  const color  = pct > 90 ? 'var(--accent-red)' : pct > 70 ? 'var(--accent-amber)' : 'var(--accent-green)';
+  const sub    = document.getElementById('expenses-subtitle');
+  if (sub && budget > 0) {
+    sub.setAttribute('data-updated', '1');
+    sub.innerHTML = `<span style="color:${color}">${spent.toLocaleString()} spent of ${budget.toLocaleString()} budget (${Math.round(pct)}%)</span>`;
   }
 }

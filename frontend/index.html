@@ -12,6 +12,9 @@
   <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/dist/browser.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/css/emoji-mart.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -57,48 +60,49 @@
       </div>
       <ul>
         <li class="nav-item active" data-view="dashboard">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.15"/>
+            <rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.15"/>
+            <rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.15"/>
+            <rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.4"/>
           </svg>
           <span data-i18n="dashboard">Dashboard</span>
+          <span class="nav-badge" id="overdue-badge" style="display:none">0</span>
         </li>
         <li class="nav-item" data-view="tasks">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.08"/>
+            <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span data-i18n="tasks">Tasks</span>
+          <span class="nav-badge" id="tasks-overdue-badge" style="display:none">0</span>
         </li>
         <li class="nav-item" data-view="pos">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
-            <path d="M16 10a4 4 0 01-8 0"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.08"/>
+            <line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M16 10a4 4 0 01-8 0" stroke="currentColor" stroke-width="1.8"/>
           </svg>
           <span data-i18n="purchase_orders">Purchase Orders</span>
         </li>
         <li class="nav-item" data-view="milestones">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+              stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.15" stroke-linejoin="round"/>
           </svg>
           <span data-i18n="milestones">Milestones</span>
         </li>
         <li class="nav-item" data-view="expenses">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.08"/>
+            <path d="M12 6v12M9 9.5C9 8.1 10.3 7 12 7s3 1.1 3 2.5S13.7 12 12 12s-3 1.1-3 2.5S10.3 17 12 17s3-1.1 3-2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
           <span data-i18n="expenses">Expenses</span>
         </li>
-        <li class="nav-item" data-view="chat">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-          </svg>
-          <span data-i18n="team_chat">Team Chat</span>
-        </li>
         <li class="nav-item" data-view="settings">
-          <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
-            <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="1.8"/>
           </svg>
           <span data-i18n="settings">Settings</span>
         </li>
@@ -157,19 +161,10 @@
               <h2 id="dashboard-greeting-text">Good morning 👋</h2>
               <p class="greeting-sub">Here's what's happening with your projects today.</p>
             </div>
-            <button class="btn-sheets" onclick="openSheet()">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14,2 14,8 20,8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10,9 9,9 8,9"/>
-              </svg>
-              Open Google Sheet
-            </button>
           </div>
 
-          <div class="stat-grid">
+          <!-- Task stat cards (primary focus) -->
+          <div class="task-stat-grid">
             <div class="stat-card glass">
               <div class="stat-icon-wrap si-clock" style="background:rgba(99,102,241,0.15)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
@@ -179,8 +174,28 @@
               </div>
               <div class="stat-label" data-i18n="open_tasks">Open Tasks</div>
               <div class="stat-value" id="stat-open">—</div>
-              <div class="stat-subtitle">Tasks in progress</div>
-              <div class="stat-badge green">Active</div>
+              <div class="stat-badge blue">Pending</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap" style="background:rgba(245,158,11,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12,6 12,12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div class="stat-label">In Progress</div>
+              <div class="stat-value" id="stat-inprogress">—</div>
+              <div class="stat-badge amber">Active</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-icon-wrap si-check" style="background:rgba(16,185,129,0.15)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round">
+                  <polyline points="20,6 9,17 4,12"/>
+                </svg>
+              </div>
+              <div class="stat-label">Done</div>
+              <div class="stat-value" id="stat-done">—</div>
+              <div class="stat-badge green">Completed</div>
             </div>
             <div class="stat-card glass">
               <div class="stat-icon-wrap si-alert" style="background:rgba(239,68,68,0.15)">
@@ -191,9 +206,51 @@
               </div>
               <div class="stat-label" data-i18n="overdue">Overdue</div>
               <div class="stat-value danger" id="stat-overdue">—</div>
-              <div class="stat-subtitle">Needs attention</div>
               <div class="stat-badge red">Attention</div>
             </div>
+          </div>
+
+          <!-- Recent Tasks Pivot Table — directly below stat cards -->
+          <div class="pivot-section glass" style="border-radius:var(--r-md);padding:1.1rem;margin-bottom:1.25rem;">
+            <div class="panel-header" style="margin-bottom:0.875rem;">
+              <h3 style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;" data-i18n="recent_tasks">Recent Tasks</h3>
+              <button class="panel-link" onclick="navigateTo('tasks')" data-i18n="view_all">View all →</button>
+            </div>
+            <div class="table-scroll">
+              <table id="pivot-tasks-table" style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th data-i18n="title">Title</th>
+                    <th data-i18n="status">Status</th>
+                    <th data-i18n="priority">Priority</th>
+                    <th data-i18n="assignee">Assignee</th>
+                    <th data-i18n="due_date">Due Date</th>
+                  </tr>
+                </thead>
+                <tbody id="pivot-tasks-body">
+                  <tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:1rem;">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Milestones + Activity -->
+          <div class="dash-mid-row">
+            <div class="dash-panel glass">
+              <div class="panel-header">
+                <h3 data-i18n="milestones">Milestones</h3>
+                <button class="panel-link" onclick="navigateTo('milestones')" data-i18n="view_all">View all →</button>
+              </div>
+              <div id="milestone-progress-list"></div>
+            </div>
+            <div class="dash-panel glass">
+              <div class="panel-header"><h3>Recent Activity</h3></div>
+              <div id="activity-feed"></div>
+            </div>
+          </div>
+
+          <!-- Financial stats -->
+          <div class="fin-stat-grid">
             <div class="stat-card glass">
               <div class="stat-icon-wrap si-card" style="background:rgba(139,92,246,0.15)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round">
@@ -202,7 +259,6 @@
               </div>
               <div class="stat-label" data-i18n="po_spend">PO Spend</div>
               <div class="stat-value" id="stat-spend">—</div>
-              <div class="stat-subtitle">Total committed</div>
               <div class="stat-badge purple">Committed</div>
             </div>
             <div class="stat-card glass">
@@ -213,7 +269,6 @@
               </div>
               <div class="stat-label" data-i18n="avg_progress">Avg Progress</div>
               <div class="stat-value" id="stat-progress">—</div>
-              <div class="stat-subtitle">Across milestones</div>
               <div class="stat-badge green">Milestones</div>
             </div>
             <div class="stat-card glass">
@@ -224,11 +279,11 @@
               </div>
               <div class="stat-label" data-i18n="total_expenses">Total Expenses</div>
               <div class="stat-value" id="stat-expenses">—</div>
-              <div class="stat-subtitle">All time spend</div>
               <div class="stat-badge amber">All time</div>
             </div>
           </div>
 
+          <!-- Charts -->
           <div class="charts-row">
             <div class="chart-box glass">
               <h3 data-i18n="task_status">Task Status</h3>
@@ -240,113 +295,178 @@
             </div>
           </div>
 
-          <div class="dashboard-bottom">
-            <div class="dash-panel glass">
-              <div class="panel-header">
-                <h3 data-i18n="recent_tasks">Recent Tasks</h3>
-                <button class="panel-link" onclick="navigateTo('tasks')" data-i18n="view_all">View all →</button>
-              </div>
-              <div id="recent-tasks-list"></div>
-            </div>
-            <div class="dash-panel glass">
-              <div class="panel-header">
-                <h3 data-i18n="milestones">Milestones</h3>
-                <button class="panel-link" onclick="navigateTo('milestones')" data-i18n="view_all">View all →</button>
-              </div>
-              <div id="milestone-progress-list"></div>
-            </div>
-            <div class="dash-panel glass">
-              <div class="panel-header">
-                <h3 data-i18n="recent_expenses">Recent Expenses</h3>
-                <button class="panel-link" onclick="navigateTo('expenses')" data-i18n="view_all">View all →</button>
-              </div>
-              <div id="recent-expenses-list"></div>
-            </div>
-          </div>
-
-          <div class="dash-panel glass" style="margin-top:14px;">
+          <!-- Recent Expenses -->
+          <div class="dash-panel glass dash-expenses-row">
             <div class="panel-header">
-              <h3>Recent Activity</h3>
+              <h3 data-i18n="recent_expenses">Recent Expenses</h3>
+              <button class="panel-link" onclick="navigateTo('expenses')" data-i18n="view_all">View all →</button>
             </div>
-            <div id="activity-feed"></div>
+            <div id="recent-expenses-list"></div>
           </div>
         </div>
 
         <!-- Tasks -->
         <div id="view-tasks" class="view">
-          <div class="view-header">
-            <h2 data-i18n="tasks">Tasks</h2>
-            <button class="btn-add" data-sheet="Tasks" data-i18n="add_task">Add Task</button>
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon tasks-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-5"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="tasks">Tasks</h2>
+                <p class="tab-subtitle" id="tasks-subtitle">Loading...</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="view-toggle-btn active" onclick="setTaskView('table')" id="btn-table-view" title="Table view">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              </button>
+              <button class="view-toggle-btn" onclick="setTaskView('kanban')" id="btn-kanban-view" title="Kanban view">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+              </button>
+              <button class="btn-export" onclick="exportToExcel('Tasks')" title="Export Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
+                XLS
+              </button>
+              <button class="btn-export" onclick="exportToPDF('Tasks')" title="Export PDF">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                PDF
+              </button>
+              <button class="btn-add" data-sheet="Tasks" data-i18n="add_task">+ Add Task</button>
+            </div>
           </div>
-          <div id="table-tasks" class="table-wrap glass"></div>
+          <div class="filter-bar glass">
+            <input type="text" id="filter-Tasks" class="filter-input" placeholder="Search tasks..." oninput="renderTable('Tasks')" />
+            <select id="filter-Tasks-project" class="filter-select" onchange="renderTable('Tasks')">
+              <option value="">All Projects</option>
+            </select>
+            <input type="date" id="filter-Tasks-from" class="filter-date" title="From date" onchange="renderTable('Tasks')" />
+            <span style="color:var(--text-3);font-size:12px;">→</span>
+            <input type="date" id="filter-Tasks-to" class="filter-date" title="To date" onchange="renderTable('Tasks')" />
+            <button class="filter-clear-btn" onclick="clearFilters('Tasks')">✕ Clear</button>
+            <span class="row-count" id="tasks-count"></span>
+          </div>
+          <div id="tasks-table-view">
+            <div id="table-tasks" class="table-wrap glass"></div>
+          </div>
+          <div id="tasks-kanban-view" class="hidden">
+            <div class="kanban-board" id="kanban-board"></div>
+          </div>
         </div>
 
         <!-- POs -->
         <div id="view-pos" class="view">
-          <div class="view-header">
-            <h2 data-i18n="purchase_orders">Purchase Orders</h2>
-            <button class="btn-add" data-sheet="POs" data-i18n="add_po">Add PO</button>
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon pos-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="purchase_orders">Purchase Orders</h2>
+                <p class="tab-subtitle" id="pos-subtitle">Loading...</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-export" onclick="exportToExcel('POs')" title="Export Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
+                XLS
+              </button>
+              <button class="btn-export" onclick="exportToPDF('POs')" title="Export PDF">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                PDF
+              </button>
+              <button class="btn-add" data-sheet="POs" data-i18n="add_po">+ Add PO</button>
+            </div>
+          </div>
+          <div class="filter-bar glass">
+            <input type="text" id="filter-POs" class="filter-input" placeholder="Search POs..." oninput="renderTable('POs')" />
+            <select id="filter-POs-project" class="filter-select" onchange="renderTable('POs')">
+              <option value="">All Projects</option>
+            </select>
+            <input type="date" id="filter-POs-from" class="filter-date" title="From date" onchange="renderTable('POs')" />
+            <span style="color:var(--text-3);font-size:12px;">→</span>
+            <input type="date" id="filter-POs-to" class="filter-date" title="To date" onchange="renderTable('POs')" />
+            <button class="filter-clear-btn" onclick="clearFilters('POs')">✕ Clear</button>
+            <span class="row-count" id="pos-count"></span>
           </div>
           <div id="table-pos" class="table-wrap glass"></div>
         </div>
 
         <!-- Milestones -->
         <div id="view-milestones" class="view">
-          <div class="view-header">
-            <h2 data-i18n="milestones">Milestones</h2>
-            <button class="btn-add" data-sheet="Milestones" data-i18n="add_milestone">Add Milestone</button>
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon milestones-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="milestones">Milestones</h2>
+                <p class="tab-subtitle" id="milestones-subtitle">Loading...</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-export" onclick="exportToExcel('Milestones')" title="Export Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                XLS
+              </button>
+              <button class="btn-add" data-sheet="Milestones" data-i18n="add_milestone">+ Add Milestone</button>
+            </div>
+          </div>
+          <div class="filter-bar glass">
+            <input type="text" id="filter-Milestones" class="filter-input" placeholder="Search milestones..." oninput="renderTable('Milestones')" />
+            <select id="filter-Milestones-project" class="filter-select" onchange="renderTable('Milestones')">
+              <option value="">All Projects</option>
+            </select>
+            <button class="filter-clear-btn" onclick="clearFilters('Milestones')">✕ Clear</button>
+            <span class="row-count" id="milestones-count"></span>
           </div>
           <div id="table-milestones" class="table-wrap glass"></div>
         </div>
 
         <!-- Expenses -->
         <div id="view-expenses" class="view">
-          <div class="view-header">
-            <h2 data-i18n="expenses">Expenses</h2>
-            <button class="btn-add" data-sheet="Expenses" data-i18n="add_expense">Add Expense</button>
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon expenses-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/><path d="M12 6v12M9 9.5C9 8.1 10.3 7 12 7s3 1.1 3 2.5S13.7 12 12 12s-3 1.1-3 2.5S10.3 17 12 17s3-1.1 3-2.5"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="expenses">Expenses</h2>
+                <p class="tab-subtitle" id="expenses-subtitle">Loading...</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-export" onclick="exportToExcel('Expenses')" title="Export Excel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
+                XLS
+              </button>
+              <button class="btn-export" onclick="exportToPDF('Expenses')" title="Export PDF">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                PDF
+              </button>
+              <button class="btn-add" data-sheet="Expenses" data-i18n="add_expense">+ Add Expense</button>
+            </div>
+          </div>
+          <div class="filter-bar glass">
+            <input type="text" id="filter-Expenses" class="filter-input" placeholder="Search expenses..." oninput="renderTable('Expenses')" />
+            <select id="filter-Expenses-project" class="filter-select" onchange="renderTable('Expenses')">
+              <option value="">All Projects</option>
+            </select>
+            <input type="date" id="filter-Expenses-from" class="filter-date" title="From date" onchange="renderTable('Expenses')" />
+            <span style="color:var(--text-3);font-size:12px;">→</span>
+            <input type="date" id="filter-Expenses-to" class="filter-date" title="To date" onchange="renderTable('Expenses')" />
+            <button class="filter-clear-btn" onclick="clearFilters('Expenses')">✕ Clear</button>
+            <span class="row-count" id="expenses-count"></span>
           </div>
           <div id="table-expenses" class="table-wrap glass"></div>
-        </div>
-
-        <!-- Chat -->
-        <div id="view-chat" class="view">
-          <div class="chat-wrapper">
-            <!-- Topic sidebar -->
-            <div class="chat-sidebar glass">
-              <div class="chat-sidebar-header">Topics</div>
-              <div id="topic-list"></div>
-            </div>
-            <!-- Main chat area -->
-            <div class="chat-container glass">
-              <div class="chat-header">
-                <div class="chat-title">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                  </svg>
-                  <span id="chat-topic-name">💬 General</span>
-                </div>
-                <span id="chat-status" class="chat-status">● <span data-i18n="live">Live</span></span>
-              </div>
-              <div id="chat-messages"></div>
-              <div class="chat-input-bar">
-                <img id="chat-avatar" src="" class="chat-input-avatar" alt="" />
-                <label class="chat-attach-btn" title="Attach file">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-                  </svg>
-                  <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.xlsx,.txt" style="display:none" />
-                </label>
-                <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" />
-                <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
-                <div id="emoji-picker" class="emoji-picker hidden"></div>
-                <button id="chat-send">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Settings -->
@@ -501,6 +621,13 @@
                     <option value="ar">العربية</option>
                   </select>
                 </div>
+                <div class="pref-item">
+                  <div>
+                    <div class="pref-label">Monthly Budget</div>
+                    <div class="pref-sub">Total budget limit for expenses</div>
+                  </div>
+                  <input type="number" id="pref-budget" class="pref-select" style="width:100px" placeholder="0" />
+                </div>
                 <button id="save-prefs-btn" class="btn-primary" data-i18n="save_preferences" style="margin-top:1rem;width:100%">Save preferences</button>
               </div>
 
@@ -623,6 +750,7 @@
   <script src="api.js"></script>
   <script src="tables.js"></script>
   <script src="dashboard.js"></script>
+  <script src="kanban.js"></script>
   <script src="chat.js"></script>
   <script>
     var idToken = null;
@@ -771,11 +899,24 @@
       if (url) window.open(url, '_blank');
     }
 
+    // ── Toggle floating chat panel ────────────────────────────────────
+    function toggleChatPanel() {
+      const panel = document.getElementById('chat-panel');
+      const isHidden = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      if (isHidden) {
+        loadChat();
+        document.getElementById('chat-unread').style.display = 'none';
+        document.getElementById('chat-unread').textContent = '0';
+      } else {
+        stopChatPolling();
+      }
+    }
+
     // ── THEME SYSTEM ─────────────────────────────────────────────────
     function initTheme() {
-      const saved  = localStorage.getItem('tt_theme');
-      const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      applyTheme(saved || system);
+      const saved = localStorage.getItem('tt_theme') || 'dark';
+      applyTheme(saved);
     }
 
     function applyTheme(theme) {
@@ -788,6 +929,8 @@
       const loginIcon   = document.getElementById('login-icon');
       if (sidebarLogo) sidebarLogo.src = theme === 'light' ? 'assets/logo-light.svg' : 'assets/logo-dark.svg';
       if (loginIcon)   loginIcon.src   = theme === 'light' ? 'assets/icon-light.svg' : 'assets/icon-dark.svg';
+
+      if (typeof refreshChartsFromCache === 'function') refreshChartsFromCache();
     }
 
     function toggleTheme() {
@@ -892,8 +1035,7 @@
       const titles = {
         dashboard: t('dashboard'),  tasks:     t('tasks'),
         pos:       t('purchase_orders'), milestones: t('milestones'),
-        expenses:  t('expenses'),   chat:      t('team_chat'),
-        settings:  t('settings')
+        expenses:  t('expenses'),   settings:  t('settings')
       };
       const titleEl = document.getElementById('topbar-title');
       if (titleEl) titleEl.textContent = titles[view] || view;
@@ -903,10 +1045,9 @@
       const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
 
       if (view === 'dashboard')     { stopDashboardRefresh(); loadDashboard(); }
-      else if (view === 'chat')     { stopDashboardRefresh(); loadChat(); }
       else if (view === 'settings') { stopDashboardRefresh(); loadSettings(); }
-      else if (sheetMap[view])      { stopDashboardRefresh(); stopChatPolling(); loadTable(sheetMap[view]); }
-      else                          { stopDashboardRefresh(); stopChatPolling(); }
+      else if (sheetMap[view])      { stopDashboardRefresh(); loadTable(sheetMap[view]); }
+      else                          { stopDashboardRefresh(); }
     }
 
     // ── Settings ─────────────────────────────────────────────────────
@@ -938,6 +1079,8 @@
         const el = document.getElementById(id);
         if (el && prefs[keys[i]]) el.value = prefs[keys[i]];
       });
+      const budgetEl = document.getElementById('pref-budget');
+      if (budgetEl) budgetEl.value = localStorage.getItem('tt_budget') || '';
       const milesEl = document.getElementById('pref-auto-milestone');
       const expEl   = document.getElementById('pref-auto-expense');
       if (milesEl) milesEl.checked = prefs.autoMilestone !== false;
@@ -963,14 +1106,15 @@
       } catch (e) { showToast('Failed to add member: ' + e.message, 'error'); }
     }
 
-    async function removeMember(email) {
-      if (!confirm('Remove ' + email + ' from the team?')) return;
-      try {
-        const result = await getAll('Users');
-        const user   = (result.rows || []).find(u => u.email === email);
-        if (user?.id) await deleteRow('Users', user.id);
-        loadSettings();
-      } catch (e) { showToast('Failed to remove: ' + e.message, 'error'); }
+    function removeMember(email) {
+      showConfirm('Remove Team Member', email + ' will be removed from the workspace.', async () => {
+        try {
+          const result = await getAll('Users');
+          const user   = (result.rows || []).find(u => u.email === email);
+          if (user?.id) await deleteRow('Users', user.id);
+          loadSettings();
+        } catch (e) { showToast('Failed to remove: ' + e.message, 'error'); }
+      });
     }
 
     function savePrefs() {
@@ -985,6 +1129,7 @@
         autoExpense:     document.getElementById('pref-auto-expense')?.checked    !== false,
       };
       localStorage.setItem('tt_prefs', JSON.stringify(prefs));
+      localStorage.setItem('tt_budget', document.getElementById('pref-budget')?.value || '0');
       const btn = document.getElementById('save-prefs-btn');
       if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = t('save_preferences'); }, 2000); }
     }
@@ -1005,10 +1150,39 @@
     }
 
     function clearLocalCache() {
-      if (!confirm('Clear all local cache? You will remain logged in.')) return;
-      localStorage.removeItem('tt_prefs');
-      window.tableData = {};
-      showToast('Cache cleared.', 'info');
+      showConfirm('Clear Cache', 'All local cache will be cleared. You will remain logged in.', () => {
+        localStorage.removeItem('tt_prefs');
+        window.tableData = {};
+        showToast('Cache cleared.', 'info');
+      });
+    }
+
+    // ── Excel export ─────────────────────────────────────────────────
+    function exportToExcel(sheetName) {
+      const data = tableData[sheetName];
+      if (!data || !data.length) { showToast('No data to export', 'error'); return; }
+      const fields  = SHEET_FIELDS[sheetName];
+      const headers = fields.map(f => f.label);
+      const rows    = data.map(row => fields.map(f => row[f.key] || ''));
+      const ws      = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb      = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, sheetName + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+    }
+
+    // ── PDF export ───────────────────────────────────────────────────
+    function exportToPDF(sheetName) {
+      const data = tableData[sheetName];
+      if (!data || !data.length) { showToast('No data to export', 'error'); return; }
+      const fields  = SHEET_FIELDS[sheetName];
+      const headers = fields.map(f => f.label);
+      const rows    = data.map(row => fields.map(f => String(row[f.key] || '')));
+      const { jsPDF } = window.jspdf;
+      const doc       = new jsPDF({ orientation: 'landscape' });
+      doc.setFontSize(14);
+      doc.text(sheetName + ' Report — ' + new Date().toLocaleDateString(), 14, 15);
+      doc.autoTable({ head: [headers], body: rows, startY: 22, styles: { fontSize: 9 }, headStyles: { fillColor: [99,102,241] } });
+      doc.save(sheetName + '_' + new Date().toISOString().split('T')[0] + '.pdf');
     }
 
     // ── Toast ────────────────────────────────────────────────────────
@@ -1077,5 +1251,61 @@
     };
 
   </script>
+
+  <!-- Background decorations -->
+  <div class="bg-decoration" aria-hidden="true">
+    <svg class="deco-svg deco-1" viewBox="0 0 100 100" fill="none">
+      <circle cx="50" cy="50" r="40" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="4 4" opacity="0.2"/>
+      <circle cx="50" cy="50" r="25" stroke="var(--accent-2)" stroke-width="0.5" opacity="0.15"/>
+    </svg>
+    <svg class="deco-svg deco-2" viewBox="0 0 80 80" fill="none">
+      <rect x="10" y="10" width="60" height="60" rx="12" stroke="var(--accent-3)" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.15"/>
+    </svg>
+    <svg class="deco-svg deco-3" viewBox="0 0 60 60" fill="none">
+      <polygon points="30,5 55,50 5,50" stroke="var(--accent-green)" stroke-width="0.5" opacity="0.12"/>
+    </svg>
+  </div>
+
+  <!-- Floating chat bubble -->
+  <div id="chat-bubble" class="chat-bubble" onclick="toggleChatPanel()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+    </svg>
+    <span class="chat-bubble-badge" id="chat-unread" style="display:none">0</span>
+  </div>
+
+  <!-- Chat panel -->
+  <div id="chat-panel" class="chat-panel hidden">
+    <div class="chat-panel-header">
+      <div class="chat-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <span data-i18n="team_chat">Team Chat</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="chat-status">● <span data-i18n="live">Live</span></span>
+        <button class="chat-panel-close-btn" onclick="toggleChatPanel()">✕</button>
+      </div>
+    </div>
+    <div id="chat-messages"></div>
+    <div class="chat-input-bar">
+      <img id="chat-avatar" src="" class="chat-input-avatar" alt="" />
+      <label class="chat-attach-btn" title="Attach file">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+        </svg>
+        <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.xlsx,.txt" style="display:none" />
+      </label>
+      <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" data-i18n-placeholder="message_placeholder" />
+      <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
+      <div id="emoji-picker" class="emoji-picker hidden"></div>
+      <button id="chat-send">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 </body>
 </html>
