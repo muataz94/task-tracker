@@ -58,4 +58,8 @@ function prefetchAll() {
     if (d.expenses)   cacheSet('Expenses',   { rows: d.expenses });
   }).catch(() => {});
   callAPI('getAll', { sheet: 'POs' }).then(d => cacheSet('POs', d)).catch(() => {});
+  
+  // Prefetch quotation comparisons and vendors in parallel for instant data load
+  callAPI('getAll', { sheet: 'Comparisons' }).then(d => cacheSet('Comparisons', d)).catch(() => {});
+  callAPI('getAll', { sheet: 'ComparisonVendors' }).then(d => cacheSet('ComparisonVendors', d)).catch(() => {});
 }

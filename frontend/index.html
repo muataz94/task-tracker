@@ -189,7 +189,7 @@
         <div id="view-dashboard" class="view active">
           <div class="dashboard-greeting">
             <div class="greeting-left">
-              <h2 id="dashboard-greeting-text">Good morning 👋</h2>
+              <h2 id="dashboard-greeting-text">Good morning <span class="wave-hand">👋</span></h2>
               <p class="greeting-sub">Here's what's happening with your projects today.</p>
             </div>
           </div>
@@ -1053,7 +1053,7 @@
       const hour = new Date().getHours();
       const key  = hour < 12 ? 'good_morning' : hour < 17 ? 'good_afternoon' : 'good_evening';
       const el   = document.getElementById('dashboard-greeting-text');
-      if (el) el.textContent = t(key) + ' 👋';
+      if (el) el.innerHTML = t(key) + ' <span class="wave-hand">👋</span>';
     }
 
     // ── Handle sign-in response ──────────────────────────────────────
