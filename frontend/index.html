@@ -187,10 +187,13 @@
 
         <!-- Dashboard -->
         <div id="view-dashboard" class="view active">
-          <div class="dashboard-greeting">
+          <div class="dashboard-greeting glass" style="border-radius: var(--r-lg); padding: 1.5rem; border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <div class="greeting-emoji-wrap" style="width: 48px; height: 48px; border-radius: 50%; background: var(--grad-primary); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(99,102,241,0.3); flex-shrink: 0; animation: cardFloat 3s ease-in-out infinite;">
+              👋
+            </div>
             <div class="greeting-left">
-              <h2 id="dashboard-greeting-text">Good morning <span class="wave-hand">👋</span></h2>
-              <p class="greeting-sub">Here's what's happening with your projects today.</p>
+              <h2 id="dashboard-greeting-text" style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0;">Good morning</h2>
+              <p class="greeting-sub" style="font-size: 13px; color: var(--text-3); margin-top: 2px;">Here's what's happening with your projects today.</p>
             </div>
           </div>
 
@@ -1053,7 +1056,7 @@
       const hour = new Date().getHours();
       const key  = hour < 12 ? 'good_morning' : hour < 17 ? 'good_afternoon' : 'good_evening';
       const el   = document.getElementById('dashboard-greeting-text');
-      if (el) el.innerHTML = t(key) + ' <span class="wave-hand">👋</span>';
+      if (el) el.textContent = t(key);
     }
 
     // ── Handle sign-in response ──────────────────────────────────────
