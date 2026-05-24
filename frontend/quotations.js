@@ -69,7 +69,7 @@ function showNewCompForm() {
 
 function emptyVendor() {
   return { vendor_name:'', annex_ref:'', total_cost:'',
-    spec_compliance:100, install_compliance:100,
+    spec_compliance:100, installation_compliance:100,
     delivery_days:'', warranty_months:'',
     payment_compliance:100, commitment_pct:100 };
 }
@@ -241,8 +241,8 @@ function renderVendorRows() {
           <input type="number" value="${v.spec_compliance??100}" min="0" max="100"
             oninput="_compVendors[${i}].spec_compliance=this.value;dRecalc()"/></div>
         <div class="form-group"><label>Install Compliance %</label>
-          <input type="number" value="${v.install_compliance??100}" min="0" max="100"
-            oninput="_compVendors[${i}].install_compliance=this.value;dRecalc()"/></div>
+          <input type="number" value="${v.installation_compliance??100}" min="0" max="100"
+            oninput="_compVendors[${i}].installation_compliance=this.value;dRecalc()"/></div>
         <div class="form-group"><label>Delivery (Days) <span class="req">*</span></label>
           <input type="number" value="${v.delivery_days||''}" min="1" placeholder="e.g. 35"
             oninput="_compVendors[${i}].delivery_days=this.value;dRecalc()"/></div>
@@ -341,7 +341,7 @@ function scoreVendors(vendors, weights) {
     const deliv   = parseFloat(v.delivery_days)||0;
     const warr    = parseFloat(v.warranty_months)||0;
     const spec    = parseFloat(v.spec_compliance)??100;
-    const install = parseFloat(v.install_compliance)??100;
+    const install = parseFloat(v.installation_compliance)??100;
     const pay     = parseFloat(v.payment_compliance)??100;
     const commit  = parseFloat(v.commitment_pct)??100;
 
@@ -535,10 +535,7 @@ function cancelCompForm() {
 // ── VIEW / EDIT / DELETE ───────────────────────────────
 
 async function viewComp(id) {
-  const comp = _allComparisons.find(c=>c.id===id);
-  if (!comp) return;
-  tableData['Comparisons'] = _allComparisons;
-  openDetailPanel('Comparisons', id);
+  editComp(id);
 }
 
 async function editComp(id) {
@@ -592,7 +589,7 @@ async function exportCompExcel(id) {
   rows.push([]);
   rows.push(['','جدول بيانات الموردين / Vendors\' Data Table']);
   rows.push(['','اسم المورد / Vendor Name','التكلفة / Total Cost','امتثال المواصفات % / Spec %','امتثال التركيب % / Install %','التسليم (أيام) / Delivery Days','الضمان (شهر) / Warranty Months','الدفع % / Payment %','الالتزام % / Commitment %']);
-  scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),v.total_cost,v.spec_compliance,v.install_compliance,v.delivery_days,v.warranty_months,v.payment_compliance,v.commitment_pct]));
+  scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),v.total_cost,v.spec_compliance,v.installation_compliance,v.delivery_days,v.warranty_months,v.payment_compliance,v.commitment_pct]));
   rows.push([]);
   rows.push(['','جدول النقاط / Vendors\' Scores Table']);
   rows.push(['','الأوزان / Standard Scoring',w.price,w.requirements,'',w.delivery,w.warranty,w.payment,w.commitment]);
@@ -660,7 +657,7 @@ async function exportCompPDF(id) {
   doc.autoTable({startY:y,
     head:[['Vendor / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days / أيام','Warranty Mo. / شهر','Payment %','Commit %']],
     body:scored.map(v=>[v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
-      Number(v.total_cost||0).toLocaleString(),v.spec_compliance??100,v.install_compliance??100,
+      Number(v.total_cost||0).toLocaleString(),v.spec_compliance??100,v.installation_compliance??100,
       v.delivery_days||'—',v.warranty_months||'—',v.payment_compliance??100,v.commitment_pct??100]),
     headStyles:{fillColor:ac,textColor:[255,255,255],fontSize:8,fontStyle:'bold'},
     bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,255]},
