@@ -35,8 +35,13 @@ function doPost(e) {
       case 'editMessage':   return respond(editMessage(body.id, body.message));
       case 'deleteMessage': return respond(deleteMessage(body.id));
       case 'uploadFile':    return respond(uploadFileToDrive(body.fileData, body.fileName, body.fileType, user.email));
-      case 'bulkGet':       return respond(bulkGet(body.sheets));
-      default:              return respond({ error: 'Unknown action: ' + action });
+      case 'bulkGet':          return respond(bulkGet(body.sheets));
+      case 'getComparisons':   return respond(getAll('Comparisons'));
+      case 'getCompVendors':   return respond(getCompVendors(body.comparison_id));
+      case 'saveComparison':   return respond(saveComparison(body.data, body.vendors, user.email));
+      case 'updateComparison': return respond(updateComparison(body.id, body.data, body.vendors, user.email));
+      case 'deleteComparison': return respond(deleteComparisonFull(body.id));
+      default:                 return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
     return respond({ error: err.message });
@@ -371,6 +376,101 @@ function autoCreateExpense(poRow) {
     return '';
   });
   sheet.appendRow(row);
+}
+
+// ── QUOTATION COMPARISON ─────────────────────────────────────────
+
+function getCompVendors(compId) {
+  const sheet = getSpreadsheet().getSheetByName('ComparisonVendors');
+  if (!sheet || sheet.getLastRow() < 2) return { rows: [] };
+  const data    = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+  const headers = data[0];
+  const cidCol  = headers.indexOf('comparison_id');
+  const rows    = data.slice(1)
+    .filter(r => r[0] !== '' && r[cidCol] === compId)
+    .map(r => { const o={}; headers.forEach((h,i)=>{if(h)o[h]=r[i];}); return o; });
+  return { rows };
+}
+
+function saveComparison(data, vendors, createdBy) {
+  const sheet = getSpreadsheet().getSheetByName('Comparisons');
+  if (!sheet) return { error: 'Comparisons sheet not found. Create it first.' };
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const now = new Date().toISOString();
+  const id  = Utilities.getUuid();
+  data.id = id; data.created_at = now; data.updated_at = now; data.created_by = createdBy;
+  if (!data.status) data.status = 'draft';
+  sheet.appendRow(headers.map(h => data[h] !== undefined ? data[h] : ''));
+
+  const vs = getSpreadsheet().getSheetByName('ComparisonVendors');
+  if (vs) {
+    const vh = vs.getRange(1,1,1,vs.getLastColumn()).getValues()[0];
+    (vendors || []).forEach(v => {
+      v.id = Utilities.getUuid();
+      v.comparison_id = id;
+      v.created_at = now;
+      vs.appendRow(vh.map(h => v[h] !== undefined ? v[h] : ''));
+    });
+  }
+
+  if (data.linked_po_id) {
+    try {
+      const pos = getSpreadsheet().getSheetByName('POs');
+      const pd  = pos.getRange(1,1,pos.getLastRow(),pos.getLastColumn()).getValues();
+      const ph  = pd[0];
+      const idC = ph.indexOf('id'), cC = ph.indexOf('comparison_id');
+      if (cC >= 0) {
+        const ri = pd.findIndex((r,i) => i>0 && r[idC]===data.linked_po_id);
+        if (ri > -1) pos.getRange(ri+1, cC+1).setValue(id);
+      }
+    } catch(e) {}
+  }
+  return { success: true, id };
+}
+
+function updateComparison(id, data, vendors, updatedBy) {
+  const sheet = getSpreadsheet().getSheetByName('Comparisons');
+  if (!sheet) return { error: 'Comparisons sheet not found' };
+  const lastRow = sheet.getLastRow();
+  const allData = sheet.getRange(1,1,lastRow,sheet.getLastColumn()).getValues();
+  const headers = allData[0];
+  const idCol   = headers.indexOf('id');
+  const rowIdx  = allData.findIndex((r,i) => i>0 && r[idCol]===id);
+  if (rowIdx === -1) return { error: 'Comparison not found' };
+  data.updated_at = new Date().toISOString();
+  headers.forEach((h,ci) => { if (data[h] !== undefined) sheet.getRange(rowIdx+1, ci+1).setValue(data[h]); });
+
+  const vs = getSpreadsheet().getSheetByName('ComparisonVendors');
+  if (vs && vs.getLastRow() >= 2) {
+    const vd  = vs.getRange(1,1,vs.getLastRow(),vs.getLastColumn()).getValues();
+    const vh  = vd[0];
+    const cic = vh.indexOf('comparison_id');
+    for (let i = vs.getLastRow(); i >= 2; i--) {
+      if (vd[i-1][cic] === id) vs.deleteRow(i);
+    }
+  }
+  if (vs) {
+    const vh2 = vs.getRange(1,1,1,vs.getLastColumn()).getValues()[0];
+    const now = new Date().toISOString();
+    (vendors || []).forEach(v => {
+      v.id = Utilities.getUuid(); v.comparison_id = id; v.created_at = now;
+      vs.appendRow(vh2.map(h => v[h] !== undefined ? v[h] : ''));
+    });
+  }
+  return { success: true };
+}
+
+function deleteComparisonFull(id) {
+  deleteRow('Comparisons', id);
+  const vs = getSpreadsheet().getSheetByName('ComparisonVendors');
+  if (vs && vs.getLastRow() >= 2) {
+    const vd  = vs.getRange(1,1,vs.getLastRow(),vs.getLastColumn()).getValues();
+    const cic = vd[0].indexOf('comparison_id');
+    for (let i = vs.getLastRow(); i >= 2; i--) {
+      if (vd[i-1][cic] === id) vs.deleteRow(i);
+    }
+  }
+  return { success: true };
 }
 
 // ── RESPONSE ──────────────────────────────────────────────────────

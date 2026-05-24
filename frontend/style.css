@@ -2552,3 +2552,39 @@ body.rtl .chat-panel {
     width: calc(100vw - 2rem) !important;
   }
 }
+
+/* ── QUOTATION COMPARISON ── */
+.qc-form    { display:flex; flex-direction:column; gap:14px; }
+.qc-sec     { border-radius:var(--r-md); padding:1.25rem 1.5rem; }
+.qc-sec-hd  { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text-1); letter-spacing:-.02em; margin-bottom:1rem; }
+.qc-grid    { display:grid; grid-template-columns:repeat(auto-fit,minmax(195px,1fr)); gap:12px; }
+.qc-wgrid   { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+.qc-winput  { background:var(--glass-bg); border:1px solid var(--border); color:var(--text-1); padding:8px; border-radius:var(--r-sm); font-size:15px; font-weight:700; outline:none; text-align:center; font-family:'Inter',sans-serif; transition:border-color .15s; width:100%; }
+.qc-winput:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(167,139,250,.12); }
+.qc-wtotal  { margin-left:auto; font-size:12px; font-weight:600; padding:3px 10px; border-radius:20px; transition:all .2s; }
+.qc-vrow    { border-radius:var(--r-md); padding:1rem 1.25rem; margin-bottom:10px; }
+.qc-vrow-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.qc-vnum    { font-size:12px; font-weight:700; color:var(--accent); background:rgba(167,139,250,.12); padding:3px 10px; border-radius:20px; }
+.qc-vgrid   { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; }
+.qc-stbl    { width:100%; border-collapse:collapse; font-size:12px; }
+.qc-stbl thead th { padding:8px 12px; background:var(--glass-bg); border-bottom:1px solid var(--border); font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; text-align:right; }
+.qc-stbl thead th:first-child { text-align:left; }
+.qc-stbl tbody td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text-2); text-align:right; }
+.qc-stbl tbody td:first-child { text-align:left; }
+.qc-stbl tbody tr:last-child td { border-bottom:none; }
+.qc-stbl tbody tr:hover td { background:var(--glass-bg); }
+.qc-winner-tr td { background:rgba(16,185,129,.05) !important; }
+.qc-stbl tfoot td { padding:6px 12px; font-size:10px; color:var(--text-4); border-top:1px solid var(--border); }
+.qc-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; padding-bottom:2rem; }
+.qc-list    { display:flex; flex-direction:column; gap:10px; }
+.qc-card    { border-radius:var(--r-md); padding:1.1rem 1.25rem; cursor:pointer; transition:transform .2s ease,box-shadow .2s ease; }
+.qc-card:hover { transform:translateY(-2px); box-shadow:var(--glass-shadow-lg); }
+.qc-card-top    { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.qc-pr-badge    { font-size:10px; font-weight:600; color:var(--accent); background:rgba(167,139,250,.12); padding:2px 8px; border-radius:20px; display:inline-block; margin-bottom:4px; }
+.qc-card-title  { font-size:14px; font-weight:600; color:var(--text-1); }
+.qc-card-meta   { font-size:12px; color:var(--text-3); margin-top:2px; }
+.qc-card-bottom { display:flex; align-items:center; gap:12px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:10px; margin-top:8px; }
+
+/* Extra badge types for quotation status */
+.badge-in_review { background:rgba(245,158,11,.15); color:#fbbf24; border:1px solid rgba(245,158,11,.25); }
+.badge-awarded   { background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.25); }

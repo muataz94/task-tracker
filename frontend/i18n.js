@@ -135,6 +135,9 @@ const TRANSLATIONS = {
     about_auth:            'Auth',
     your_name_ph:          'Your name',
     project_name_ph:       'Project name',
+
+    quotations:     'Quotations',
+    quotations_sub: 'Final Bids Comparison Table',
   },
 
   ar: {
@@ -273,6 +276,9 @@ const TRANSLATIONS = {
     about_auth:            'المصادقة',
     your_name_ph:          'اسمك',
     project_name_ph:       'اسم المشروع',
+
+    quotations:     'مقارنة العطاءات',
+    quotations_sub: 'جدول مقارنة العطاءات النهائية',
   }
 };
 

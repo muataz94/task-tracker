@@ -98,6 +98,16 @@
           </svg>
           <span data-i18n="purchase_orders">Purchase Orders</span>
         </li>
+        <li class="nav-item" data-view="quotations">
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="1"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="16" x2="11" y2="16"/>
+            <line x1="13" y1="16" x2="15" y2="16"/>
+          </svg>
+          <span data-i18n="quotations">Quotations</span>
+        </li>
         <li class="nav-item" data-view="milestones">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
             <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
@@ -746,6 +756,28 @@
           </div><!-- /settings-layout -->
         </div>
 
+        <!-- Quotation Comparisons -->
+        <div id="view-quotations" class="view hidden">
+          <div class="tab-header glass" style="border-radius:var(--r-md);padding:1rem 1.25rem;margin-bottom:1rem;">
+            <div class="tab-header-left">
+              <div class="tab-header-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                  <rect x="9" y="3" width="6" height="4" rx="1"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="quotations">Quotation Comparisons</h2>
+                <p class="tab-subtitle" data-i18n="quotations_sub">Final Bids Comparison Table / جدول مقارنة العطاءات</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-add" onclick="showNewCompForm()">+ New Comparison</button>
+            </div>
+          </div>
+          <div id="qc-wrap"></div>
+        </div>
+
       </main>
     </div><!-- end #app-right -->
   </div><!-- end #app -->
@@ -799,6 +831,7 @@
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
   <script src="chat.js"></script>
+  <script src="quotations.js"></script>
   <script>
     var idToken = null;
 
@@ -1134,7 +1167,7 @@
       const titleMap = {
         dashboard: 'dashboard', tasks: 'tasks', pos: 'purchase_orders',
         milestones: 'milestones', expenses: 'expenses',
-        chat: 'team_chat', settings: 'settings'
+        chat: 'team_chat', settings: 'settings', quotations: 'quotations'
       };
       const titleEl = document.getElementById('topbar-title');
       if (titleEl && titleMap[view]) titleEl.textContent = t(titleMap[view]);
@@ -1145,8 +1178,9 @@
 
       if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
       else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
-      else if (view === 'settings') { stopDashboardRefresh(); loadSettings(); }
-      else                       { stopDashboardRefresh(); }
+      else if (view === 'settings')   { stopDashboardRefresh(); loadSettings(); }
+      else if (view === 'quotations') { stopDashboardRefresh(); loadQuotations(); }
+      else                           { stopDashboardRefresh(); }
 
       // Re-apply translations to the newly shown view
       applyLanguage();

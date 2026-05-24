@@ -40,6 +40,20 @@ const SHEET_FIELDS = {
     { key: 'date',        label: 'Date',        type: 'date' },
     { key: 'budget_line', label: 'Budget Line', type: 'datalist', sources: [['Expenses','budget_line']] },
     { key: 'approved_by', label: 'Approved By', type: 'datalist', sources: [['Users','name'], ['Users','email'], ['Expenses','approved_by']] }
+  ],
+  Comparisons: [
+    { key: 'pr_number',          label: 'PR Number',      type: 'text' },
+    { key: 'request_description',label: 'Description',    type: 'text' },
+    { key: 'requesting_dept',    label: 'Department',     type: 'text' },
+    { key: 'request_date',       label: 'Request Date',   type: 'date' },
+    { key: 'awarding_date',      label: 'Awarding Date',  type: 'date' },
+    { key: 'total_pr_value',     label: 'Total PR Value', type: 'number' },
+    { key: 'currency',           label: 'Currency',       type: 'text' },
+    { key: 'status',             label: 'Status',         type: 'select', options: ['draft','in_review','approved','awarded'] },
+    { key: 'winner_vendor',      label: 'Winner',         type: 'text' },
+    { key: 'winner_score',       label: 'Winner Score',   type: 'number' },
+    { key: 'winner_amount',      label: 'Winner Amount',  type: 'number' },
+    { key: 'winner_comment',     label: 'Comment',        type: 'textarea' },
   ]
 };
 
