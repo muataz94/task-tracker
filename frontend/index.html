@@ -1416,7 +1416,10 @@
       loginScreen.classList.add('hidden');
       loadingScreen.classList.remove('hidden');
 
-      // Attempt silent re-auth with GIS
+      // Try restoring saved JWT first (instant, avoids Google round-trip)
+      if (tryRestoreSession()) return;
+
+      // JWT expired — attempt silent re-auth with Google One Tap
       let authResolved = false;
 
       google.accounts.id.initialize({

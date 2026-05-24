@@ -1,12 +1,14 @@
 // Stale-while-revalidate cache for Apps Script data
 const CACHE_TTL = {
-  Tasks:      30 * 1000,
-  POs:        60 * 1000,
-  Milestones: 60 * 1000,
-  Expenses:   60 * 1000,
-  Users:     300 * 1000,
-  dashboard:  30 * 1000,
-  Chat:        5 * 1000
+  Tasks:               30 * 1000,
+  POs:                 60 * 1000,
+  Milestones:          60 * 1000,
+  Expenses:            60 * 1000,
+  Users:              300 * 1000,
+  dashboard:           30 * 1000,
+  Chat:                 5 * 1000,
+  Comparisons:        120 * 1000,
+  ComparisonVendors:  120 * 1000,
 };
 
 const _cache = new Map();

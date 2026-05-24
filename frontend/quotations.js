@@ -1,24 +1,30 @@
 // ══════════════════════════════════════════════════════
 // QUOTATION COMPARISON MODULE
+// Uses generic API (getAll/addRow/updateRow/deleteRow)
+// — no custom backend actions needed
 // ══════════════════════════════════════════════════════
 
 let _allComparisons  = [];
-let _compVendors     = [];   // vendors for current form
+let _compVendors     = [];
 let _editingCompId   = null;
 let _recalcDebounce  = null;
+
+// Returns text in current language — avoids hardcoded Arabic in English mode
+function bl(en, ar) { return currentLang === 'ar' ? ar : en; }
 
 // ── LOAD LIST ─────────────────────────────────────────
 
 async function loadQuotations() {
   const wrap = document.getElementById('qc-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '<p class="loading" style="padding:2rem;text-align:center;">Loading...</p>';
+  wrap.innerHTML = '<p class="loading" style="padding:2rem;text-align:center;">' + t('loading') + '</p>';
   try {
-    const r = await callAPI('getComparisons', {});
+    const r = await getAll('Comparisons');
     _allComparisons = r.rows || [];
     renderCompList();
   } catch(e) {
-    wrap.innerHTML = `<p class="error" style="padding:1rem;">Error: ${escapeHtml(e.message)}</p>`;
+    wrap.innerHTML = `<p class="error" style="padding:1rem;color:var(--accent-red);">Error: ${escapeHtml(e.message)}</p>`;
+    console.error('loadQuotations error:', e);
   }
 }
 
@@ -28,9 +34,14 @@ function renderCompList() {
   if (!_allComparisons.length) {
     wrap.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;padding:4rem 2rem;text-align:center;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:var(--text-4);margin-bottom:1rem;"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-        <p style="color:var(--text-3);font-size:14px;">No comparison tables yet.</p>
-        <p style="color:var(--text-4);font-size:12px;margin-top:4px;">Click "+ New Comparison" to start.</p>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:var(--text-4);margin-bottom:1rem;">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+          <line x1="9" y1="12" x2="15" y2="12"/>
+          <line x1="9" y1="16" x2="13" y2="16"/>
+        </svg>
+        <p style="color:var(--text-3);font-size:14px;">${bl('No comparison tables yet.','لا توجد جداول مقارنة بعد.')}</p>
+        <p style="color:var(--text-4);font-size:12px;margin-top:4px;">${bl('Click "+ New Comparison" to start.','انقر على "+ مقارنة جديدة" للبدء.')}</p>
       </div>`;
     return;
   }
@@ -40,7 +51,7 @@ function renderCompList() {
         <div>
           <span class="qc-pr-badge">${escapeHtml(c.pr_number||'—')}</span>
           <div class="qc-card-title">${escapeHtml(c.request_description||'—')}</div>
-          <div class="qc-card-meta">${escapeHtml(c.requesting_dept||'')} · ${c.request_date?new Date(c.request_date).toLocaleDateString():''}</div>
+          <div class="qc-card-meta">${escapeHtml(c.requesting_dept||'')}${c.requesting_dept&&c.request_date?' · ':''}${c.request_date?new Date(c.request_date).toLocaleDateString():''}</div>
         </div>
         <span class="badge badge-${c.status||'draft'}">${(c.status||'draft').replace(/_/g,' ')}</span>
       </div>
@@ -98,30 +109,30 @@ function renderCompForm(comp) {
     <div class="qc-sec glass">
       <div class="qc-sec-hd">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-        Request Information
+        ${bl('Request Information','معلومات الطلب')}
       </div>
       <div class="qc-grid">
-        <div class="form-group"><label>Request Description <span class="req">*</span></label>
-          <input id="qf-desc" type="text" value="${escapeHtml(comp?.request_description||'')}" placeholder="e.g. Provision of UX/UI Services"/></div>
-        <div class="form-group"><label>PR Number <span class="req">*</span></label>
+        <div class="form-group"><label>${bl('Request Description','وصف الطلب')} <span class="req">*</span></label>
+          <input id="qf-desc" type="text" value="${escapeHtml(comp?.request_description||'')}" placeholder="${bl('e.g. Provision of UX/UI Services','مثال: توفير خدمات التصميم')}"/></div>
+        <div class="form-group"><label>${bl('PR Number','رقم طلب الشراء')} <span class="req">*</span></label>
           <input id="qf-pr" type="text" value="${escapeHtml(comp?.pr_number||'')}" placeholder="e.g. SW3104"/></div>
-        <div class="form-group"><label>Requesting Department</label>
-          <input id="qf-dept" type="text" value="${escapeHtml(comp?.requesting_dept||'')}" placeholder="IT - Technology"/></div>
-        <div class="form-group"><label>Request Date</label>
+        <div class="form-group"><label>${bl('Requesting Department','الجهة الطالبة')}</label>
+          <input id="qf-dept" type="text" value="${escapeHtml(comp?.requesting_dept||'')}" placeholder="${bl('IT - Technology','تكنولوجيا المعلومات')}"/></div>
+        <div class="form-group"><label>${bl('Request Date','تاريخ الطلب')}</label>
           <input id="qf-rdate" type="date" value="${comp?.request_date?String(comp.request_date).split('T')[0]:''}"/></div>
-        <div class="form-group"><label>Awarding Date</label>
+        <div class="form-group"><label>${bl('Awarding Date','تاريخ الترسية')}</label>
           <input id="qf-adate" type="date" value="${comp?.awarding_date?String(comp.awarding_date).split('T')[0]:''}"/></div>
-        <div class="form-group"><label>Total PR Value</label>
+        <div class="form-group"><label>${bl('Total PR Value','القيمة الإجمالية للطلب')}</label>
           <input id="qf-val" type="number" value="${comp?.total_pr_value||''}" placeholder="0" min="0"/></div>
-        <div class="form-group"><label>Currency</label>
+        <div class="form-group"><label>${bl('Currency','العملة')}</label>
           <select id="qf-cur">${['IQD','USD','EUR','GBP'].map(c=>`<option ${(comp?.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}</select></div>
-        <div class="form-group"><label>Delivery Term (Days)</label>
+        <div class="form-group"><label>${bl('Delivery Term (Days)','مدة التسليم (أيام)')}</label>
           <input id="qf-dterm" type="number" value="${comp?.delivery_term_days??35}" min="1"/></div>
-        <div class="form-group"><label>Warranty Term (Months)</label>
+        <div class="form-group"><label>${bl('Warranty Term (Months)','مدة الضمان (شهر)')}</label>
           <input id="qf-wterm" type="number" value="${comp?.warranty_term_months??12}" min="0"/></div>
-        <div class="form-group"><label>Linked PO (optional)</label>
-          <select id="qf-po"><option value="">— None —</option>${poOptions}</select></div>
-        <div class="form-group"><label>Status</label>
+        <div class="form-group"><label>${bl('Linked PO (optional)','طلب الشراء المرتبط (اختياري)')}</label>
+          <select id="qf-po"><option value="">— ${bl('None','لا يوجد')} —</option>${poOptions}</select></div>
+        <div class="form-group"><label>${bl('Status','الحالة')}</label>
           <select id="qf-status">${['draft','in_review','approved','awarded'].map(s=>`<option value="${s}" ${(comp?.status||'draft')===s?'selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}</select></div>
       </div>
     </div>
@@ -129,29 +140,33 @@ function renderCompForm(comp) {
     <!-- S2: Scoring Weights -->
     <div class="qc-sec glass">
       <div class="qc-sec-hd" style="justify-content:space-between;">
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Scoring Weights</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> ${bl('Scoring Weights','أوزان التقييم')}</span>
         <span id="qf-wtotal" class="qc-wtotal"></span>
       </div>
-      <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;">Weights must total exactly 100. Adjust per comparison requirements.</p>
+      <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;">${bl('Weights must total exactly 100. Adjust per comparison requirements.','يجب أن تساوي الأوزان 100 بالضبط. اضبط حسب متطلبات المقارنة.')}</p>
       <div class="qc-wgrid">
-        ${[{k:'price',l:'Price / السعر',v:w.price},{k:'requirements',l:'Requirements / المتطلبات',v:w.requirements},
-           {k:'delivery',l:'Delivery / التسليم',v:w.delivery},{k:'warranty',l:'Warranty / الضمان',v:w.warranty},
-           {k:'payment',l:'Payment / الدفع',v:w.payment},{k:'commitment',l:'Commitment / الالتزام',v:w.commitment}
-        ].map(x=>`<div class="form-group">
-          <label style="font-size:11px;">${x.l}</label>
-          <input type="number" id="qf-w-${x.k}" class="qc-winput" value="${x.v}" min="0" max="100" step="0.5" oninput="updateWTotal()"/>
+        ${[
+          {k:'price',        en:'Price',        ar:'السعر'},
+          {k:'requirements', en:'Requirements', ar:'المتطلبات'},
+          {k:'delivery',     en:'Delivery',     ar:'التسليم'},
+          {k:'warranty',     en:'Warranty',     ar:'الضمان'},
+          {k:'payment',      en:'Payment',      ar:'الدفع'},
+          {k:'commitment',   en:'Commitment',   ar:'الالتزام'}
+        ].map((x,i)=>`<div class="form-group">
+          <label style="font-size:11px;">${bl(x.en, x.ar)}</label>
+          <input type="number" id="qf-w-${x.k}" class="qc-winput" value="${[w.price,w.requirements,w.delivery,w.warranty,w.payment,w.commitment][i]}" min="0" max="100" step="0.5" oninput="updateWTotal()"/>
         </div>`).join('')}
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;">
-        <button class="btn-export" onclick="normalizeWeights()" style="font-size:12px;">↺ Auto-normalize to 100</button>
+        <button class="btn-export" onclick="normalizeWeights()" style="font-size:12px;">↺ ${bl('Auto-normalize to 100','تطبيع تلقائي إلى 100')}</button>
       </div>
     </div>
 
     <!-- S3: Vendors -->
     <div class="qc-sec glass">
       <div class="qc-sec-hd" style="justify-content:space-between;">
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> Vendor Quotations</span>
-        <button class="btn-add" onclick="addVendor()" style="font-size:12px;padding:6px 12px;">+ Add Vendor</button>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> ${bl('Vendor Quotations','عروض الموردين')}</span>
+        <button class="btn-add" onclick="addVendor()" style="font-size:12px;padding:6px 12px;">+ ${bl('Add Vendor','إضافة مورد')}</button>
       </div>
       <div id="qf-vendors"></div>
     </div>
@@ -160,26 +175,23 @@ function renderCompForm(comp) {
     <div class="qc-sec glass">
       <div class="qc-sec-hd">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-        Live Scores Preview
+        ${bl('Live Scores Preview','معاينة النقاط المباشرة')}
       </div>
       <div id="qf-scores"></div>
     </div>
 
-    <!-- S5: Winner -->
+    <!-- S5: Auto Winner -->
     <div class="qc-sec glass">
       <div class="qc-sec-hd">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-        Winner Selection
+        ${bl('Winner (Auto-Selected by Score)','الفائز (محدد تلقائياً بالنقاط)')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;flex-wrap:wrap;">
-        <div class="form-group">
-          <label>Winning Vendor</label>
-          <select id="qf-winner"><option value="">— Auto (highest score) —</option></select>
-        </div>
-        <div class="form-group">
-          <label>Comment / Recommendation (ملاحظات / توصية)</label>
-          <textarea id="qf-comment" rows="3" placeholder="e.g. Vendor A offers best value with full specification compliance...">${escapeHtml(comp?.winner_comment||'')}</textarea>
-        </div>
+      <div id="qf-winner-display" style="margin-bottom:12px;">
+        <p style="color:var(--text-3);font-size:13px;">${bl('Enter vendor data above to see the winner.','أدخل بيانات الموردين أعلاه لمعرفة الفائز.')}</p>
+      </div>
+      <div class="form-group">
+        <label>${bl('Comment / Recommendation','ملاحظات / توصية')}</label>
+        <textarea id="qf-comment" rows="3" placeholder="${bl('e.g. Vendor A offers best value with full specification compliance...','مثال: المورد أ يقدم أفضل قيمة مع امتثال كامل للمواصفات...')}">${escapeHtml(comp?.winner_comment||'')}</textarea>
       </div>
     </div>
 
@@ -187,25 +199,26 @@ function renderCompForm(comp) {
     <div class="qc-sec glass">
       <div class="qc-sec-hd">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Committee Signatures / توقيعات اللجنة
+        ${bl('Committee Signatures','توقيعات اللجنة')}
       </div>
       <div class="qc-grid">
-        ${[{id:'qf-s1',l:'Head of Committee / رئيس اللجنة',v:comp?.head_of_committee||''},
-           {id:'qf-s2',l:'Requester / الطالب',v:comp?.requester_name||''},
-           {id:'qf-s3',l:'Requester Management / إدارة الطالب',v:comp?.requester_management||''},
-           {id:'qf-s4',l:'Supply Chain Officer / مسؤول التوريد',v:comp?.supply_chain_officer||''},
-           {id:'qf-s5',l:'Head of Supply Chain / رئيس التوريد',v:comp?.head_of_supply_chain||''}
-        ].map(s=>`<div class="form-group"><label style="font-size:11px;">${s.l}</label>
-          <input type="text" id="${s.id}" value="${escapeHtml(s.v)}" placeholder="Full name / الاسم الكامل"/></div>`).join('')}
+        ${[
+          {id:'qf-s1', en:'Head of Committee',      ar:'رئيس اللجنة',         v:comp?.head_of_committee||''},
+          {id:'qf-s2', en:'Requester',               ar:'الطالب',              v:comp?.requester_name||''},
+          {id:'qf-s3', en:'Requester Management',    ar:'إدارة الطالب',        v:comp?.requester_management||''},
+          {id:'qf-s4', en:'Supply Chain Officer',    ar:'مسؤول التوريد',       v:comp?.supply_chain_officer||''},
+          {id:'qf-s5', en:'Head of Supply Chain',    ar:'رئيس التوريد',        v:comp?.head_of_supply_chain||''}
+        ].map(s=>`<div class="form-group"><label style="font-size:11px;">${bl(s.en, s.ar)}</label>
+          <input type="text" id="${s.id}" value="${escapeHtml(s.v)}" placeholder="${bl('Full name','الاسم الكامل')}"/></div>`).join('')}
       </div>
     </div>
 
     <!-- Actions -->
     <div class="qc-actions">
-      <button class="btn-export" onclick="cancelCompForm()">Cancel</button>
-      <button class="btn-export" onclick="recalcScores()">↻ Recalculate</button>
+      <button class="btn-export" onclick="cancelCompForm()">${bl('Cancel','إلغاء')}</button>
+      <button class="btn-export" onclick="recalcScores()">↻ ${bl('Recalculate','إعادة حساب')}</button>
       <button class="btn-primary" id="qf-save-btn" onclick="saveCompForm()">
-        ${comp ? 'Update Comparison' : 'Save Comparison'}
+        ${comp ? bl('Update Comparison','تحديث المقارنة') : bl('Save Comparison','حفظ المقارنة')}
       </button>
     </div>
   </div>`;
@@ -223,36 +236,36 @@ function renderVendorRows() {
   wrap.innerHTML = _compVendors.map((v, i) => `
     <div class="qc-vrow glass" id="qcv-${i}">
       <div class="qc-vrow-hd">
-        <span class="qc-vnum">Vendor ${i+1} / المورد ${i+1}</span>
+        <span class="qc-vnum">${bl('Vendor','مورد')} ${i+1}</span>
         ${_compVendors.length > 1 ?
-          `<button class="btn-delete" onclick="removeVendor(${i})" style="font-size:11px;padding:2px 8px;">Remove</button>`:'' }
+          `<button class="btn-delete" onclick="removeVendor(${i})" style="font-size:11px;padding:2px 8px;">${bl('Remove','إزالة')}</button>`:'' }
       </div>
       <div class="qc-vgrid">
-        <div class="form-group"><label>Vendor Name <span class="req">*</span></label>
-          <input type="text" value="${escapeHtml(v.vendor_name||'')}" placeholder="Company name"
+        <div class="form-group"><label>${bl('Vendor Name','اسم المورد')} <span class="req">*</span></label>
+          <input type="text" value="${escapeHtml(v.vendor_name||'')}" placeholder="${bl('Company name','اسم الشركة')}"
             oninput="_compVendors[${i}].vendor_name=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Annex / Reference</label>
+        <div class="form-group"><label>${bl('Annex / Reference','المرفق / المرجع')}</label>
           <input type="text" value="${escapeHtml(v.annex_ref||'')}" placeholder="Annex A"
             oninput="_compVendors[${i}].annex_ref=this.value"/></div>
-        <div class="form-group"><label>Total Cost <span class="req">*</span></label>
+        <div class="form-group"><label>${bl('Total Cost','التكلفة الإجمالية')} <span class="req">*</span></label>
           <input type="number" value="${v.total_cost||''}" placeholder="0" min="0"
             oninput="_compVendors[${i}].total_cost=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Spec Compliance %</label>
+        <div class="form-group"><label>${bl('Spec Compliance %','امتثال المواصفات %')}</label>
           <input type="number" value="${v.spec_compliance??100}" min="0" max="100"
             oninput="_compVendors[${i}].spec_compliance=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Install Compliance %</label>
+        <div class="form-group"><label>${bl('Install Compliance %','امتثال التركيب %')}</label>
           <input type="number" value="${v.installation_compliance??100}" min="0" max="100"
             oninput="_compVendors[${i}].installation_compliance=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Delivery (Days) <span class="req">*</span></label>
+        <div class="form-group"><label>${bl('Delivery (Days)','التسليم (أيام)')} <span class="req">*</span></label>
           <input type="number" value="${v.delivery_days||''}" min="1" placeholder="e.g. 35"
             oninput="_compVendors[${i}].delivery_days=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Warranty (Months)</label>
+        <div class="form-group"><label>${bl('Warranty (Months)','الضمان (شهر)')}</label>
           <input type="number" value="${v.warranty_months||''}" min="0" placeholder="e.g. 12"
             oninput="_compVendors[${i}].warranty_months=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Payment Compliance %</label>
+        <div class="form-group"><label>${bl('Payment Compliance %','امتثال الدفع %')}</label>
           <input type="number" value="${v.payment_compliance??100}" min="0" max="100"
             oninput="_compVendors[${i}].payment_compliance=this.value;dRecalc()"/></div>
-        <div class="form-group"><label>Commitment / Experience %</label>
+        <div class="form-group"><label>${bl('Commitment / Experience %','الالتزام / الخبرة %')}</label>
           <input type="number" value="${v.commitment_pct??100}" min="0" max="100"
             oninput="_compVendors[${i}].commitment_pct=this.value;dRecalc()"/></div>
       </div>
@@ -268,7 +281,7 @@ function addVendor() {
 }
 
 function removeVendor(idx) {
-  if (_compVendors.length <= 1) { showToast('At least one vendor required', 'info'); return; }
+  if (_compVendors.length <= 1) { showToast(bl('At least one vendor required','مطلوب مورد واحد على الأقل'), 'info'); return; }
   _compVendors.splice(idx, 1);
   renderVendorRows();
   recalcScores();
@@ -301,7 +314,7 @@ function updateWTotal() {
   if (saveBtn) {
     saveBtn.disabled = !isOk;
     saveBtn.style.opacity = isOk ? '1' : '0.5';
-    saveBtn.title = isOk ? '' : 'Weights must total 100';
+    saveBtn.title = isOk ? '' : bl('Weights must total 100','يجب أن تساوي الأوزان 100');
   }
 }
 
@@ -340,28 +353,28 @@ function scoreVendors(vendors, weights) {
     const cost    = parseFloat(v.total_cost)||0;
     const deliv   = parseFloat(v.delivery_days)||0;
     const warr    = parseFloat(v.warranty_months)||0;
-    const spec    = parseFloat(v.spec_compliance)??100;
-    const install = parseFloat(v.installation_compliance)??100;
-    const pay     = parseFloat(v.payment_compliance)??100;
-    const commit  = parseFloat(v.commitment_pct)??100;
+    const spec    = parseFloat(v.spec_compliance) ?? 100;
+    const install = parseFloat(v.installation_compliance) ?? 100;
+    const pay     = parseFloat(v.payment_compliance) ?? 100;
+    const commit  = parseFloat(v.commitment_pct) ?? 100;
 
-    const pScore = (cost>0 && minCost>0) ? (minCost/cost)*weights.price : 0;
-    const rScore = ((spec+install)/2/100) * weights.requirements;
-    const dScore = (deliv>0 && minDelivery>0) ? (minDelivery/deliv)*weights.delivery : 0;
-    const wScore = (warr>0 && maxWarranty>0) ? (warr/maxWarranty)*weights.warranty : 0;
-    const payScore    = (pay/100)*weights.payment;
-    const commitScore = (commit/100)*weights.commitment;
+    const pScore      = (cost>0 && minCost>0)         ? (minCost/cost)*weights.price                : 0;
+    const rScore      = ((spec+install)/2/100)         * weights.requirements;
+    const dScore      = (deliv>0 && minDelivery>0)     ? (minDelivery/deliv)*weights.delivery        : 0;
+    const wScore      = (warr>0 && maxWarranty>0)      ? (warr/maxWarranty)*weights.warranty         : 0;
+    const payScore    = (pay/100)                      * weights.payment;
+    const commitScore = (commit/100)                   * weights.commitment;
 
     const total = pScore+rScore+dScore+wScore+payScore+commitScore;
     return {
       ...v,
-      price_score:        parseFloat(pScore.toFixed(4)),
-      requirements_score: parseFloat(rScore.toFixed(4)),
-      delivery_score:     parseFloat(dScore.toFixed(4)),
-      warranty_score:     parseFloat(wScore.toFixed(4)),
-      payment_score:      parseFloat(payScore.toFixed(4)),
-      commitment_score:   parseFloat(commitScore.toFixed(4)),
-      total_score:        parseFloat(total.toFixed(4)),
+      price_score:          parseFloat(pScore.toFixed(4)),
+      requirements_score:   parseFloat(rScore.toFixed(4)),
+      delivery_score:       parseFloat(dScore.toFixed(4)),
+      warranty_score:       parseFloat(wScore.toFixed(4)),
+      payment_score:        parseFloat(payScore.toFixed(4)),
+      commitment_score:     parseFloat(commitScore.toFixed(4)),
+      total_score:          parseFloat(total.toFixed(4)),
     };
   })
   .sort((a,b) => b.total_score - a.total_score)
@@ -372,7 +385,7 @@ function recalcScores() {
   const w      = getWeights();
   const scored = scoreVendors(_compVendors, w);
   renderScoresTable(scored);
-  updateWinnerSelect(scored);
+  updateWinnerDisplay(scored);
   return scored;
 }
 
@@ -393,12 +406,13 @@ function renderScoresTable(scored) {
   const el = document.getElementById('qf-scores');
   if (!el) return;
   if (!scored.length || scored.every(s=>!s.vendor_name)) {
-    el.innerHTML = '<p class="empty" style="padding:1rem;text-align:center;">Enter vendor data above to see live scores.</p>';
+    el.innerHTML = `<p class="empty" style="padding:1rem;text-align:center;">${bl('Enter vendor data above to see live scores.','أدخل بيانات الموردين أعلاه لمشاهدة النقاط المباشرة.')}</p>`;
     return;
   }
 
   const SCORE_KEYS = ['price_score','requirements_score','delivery_score','warranty_score','payment_score','commitment_score','total_score'];
-  const LABELS     = ['Price','Requirements','Delivery','Warranty','Payment','Commitment','TOTAL'];
+  const LABELS     = [bl('Price','السعر'),bl('Requirements','المتطلبات'),bl('Delivery','التسليم'),
+                      bl('Warranty','الضمان'),bl('Payment','الدفع'),bl('Commitment','الالتزام'),'TOTAL'];
 
   const colorMap = SCORE_KEYS.map(key => {
     const vals = scored.map(s => parseFloat(s[key])||0);
@@ -410,8 +424,8 @@ function renderScoresTable(scored) {
       <table class="qc-stbl">
         <thead>
           <tr>
-            <th style="text-align:left;">Vendor / المورد</th>
-            <th>Cost / التكلفة</th>
+            <th style="text-align:left;">${bl('Vendor','المورد')}</th>
+            <th>${bl('Cost','التكلفة')}</th>
             ${LABELS.map(l=>`<th>${l}</th>`).join('')}
           </tr>
         </thead>
@@ -420,7 +434,7 @@ function renderScoresTable(scored) {
             <tr ${ri===0?'class="qc-winner-tr"':''}>
               <td style="text-align:left;">
                 ${ri===0?'<span style="font-size:14px;">🏆 </span>':''}
-                <strong>${escapeHtml(s.vendor_name||'Vendor '+(ri+1))}</strong>
+                <strong>${escapeHtml(s.vendor_name||bl('Vendor','مورد')+' '+(ri+1))}</strong>
                 ${s.annex_ref?`<span style="font-size:10px;color:var(--text-3);"> (${escapeHtml(s.annex_ref)})</span>`:''}
               </td>
               <td style="font-weight:600;color:var(--accent-amber);">${Number(s.total_cost||0).toLocaleString()}</td>
@@ -436,7 +450,7 @@ function renderScoresTable(scored) {
         </tbody>
         <tfoot>
           <tr><td colspan="2" style="font-size:10px;color:var(--text-4);">
-            Weights: ${['price','requirements','delivery','warranty','payment','commitment'].map(k=>
+            ${bl('Weights','الأوزان')}: ${['price','requirements','delivery','warranty','payment','commitment'].map(k=>
               `${k.charAt(0).toUpperCase()}=${getWeights()[k]}`).join(' | ')}
           </td><td colspan="${LABELS.length}"></td></tr>
         </tfoot>
@@ -444,15 +458,31 @@ function renderScoresTable(scored) {
     </div>`;
 }
 
-function updateWinnerSelect(scored) {
-  const sel = document.getElementById('qf-winner');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— Auto (highest score) —</option>' +
-    scored.filter(s=>s.vendor_name).map(s=>
-      `<option value="${escapeHtml(s.vendor_name)}" ${cur===s.vendor_name?'selected':''}>
-        ${escapeHtml(s.vendor_name)} — Score: ${parseFloat(s.total_score||0).toFixed(2)}
-      </option>`).join('');
+function updateWinnerDisplay(scored) {
+  const el = document.getElementById('qf-winner-display');
+  if (!el) return;
+  const winner = scored.filter(s => s.vendor_name)[0];
+  if (!winner) {
+    el.innerHTML = `<p style="color:var(--text-3);font-size:13px;">${bl('Enter vendor data above to see the winner.','أدخل بيانات الموردين أعلاه لمعرفة الفائز.')}</p>`;
+    return;
+  }
+  const rank2 = scored.filter(s=>s.vendor_name)[1];
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(16,185,129,0.08);border-radius:var(--r-sm);border:1px solid rgba(16,185,129,0.2);margin-bottom:8px;">
+      <span style="font-size:28px;">🏆</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:15px;color:var(--accent-green);">${escapeHtml(winner.vendor_name)}</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">
+          ${bl('Score','النقاط')}: <strong style="color:var(--text-1);">${parseFloat(winner.total_score||0).toFixed(2)}</strong>
+          &nbsp;·&nbsp; ${bl('Cost','التكلفة')}: <strong style="color:var(--accent-amber);">${Number(winner.total_cost||0).toLocaleString()}</strong>
+          ${rank2?`&nbsp;·&nbsp; ${bl('2nd','الثاني')}: ${escapeHtml(rank2.vendor_name)} (${parseFloat(rank2.total_score||0).toFixed(2)})`:''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent-green);">${parseFloat(winner.total_score||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--text-4);">/ 100</div>
+      </div>
+    </div>`;
 }
 
 // ── SAVE ──────────────────────────────────────────────
@@ -460,75 +490,92 @@ function updateWinnerSelect(scored) {
 async function saveCompForm() {
   const desc = document.getElementById('qf-desc')?.value.trim();
   const pr   = document.getElementById('qf-pr')?.value.trim();
-  if (!desc || !pr) { showToast('Description and PR Number are required', 'info'); return; }
+  if (!desc || !pr) { showToast(bl('Description and PR Number are required','الوصف ورقم الطلب مطلوبان'), 'info'); return; }
 
   const w = getWeights();
   const wtotal = Object.values(w).reduce((s,v)=>s+(isNaN(v)?0:v),0);
-  if (Math.abs(wtotal-100) > 0.5) { showToast('Weights must total 100', 'info'); return; }
+  if (Math.abs(wtotal-100) > 0.5) { showToast(bl('Weights must total 100','يجب أن تساوي الأوزان 100'), 'info'); return; }
 
   const hasVendors = _compVendors.some(v=>v.vendor_name);
-  if (!hasVendors) { showToast('Enter at least one vendor name', 'info'); return; }
+  if (!hasVendors) { showToast(bl('Enter at least one vendor name','أدخل اسم مورد واحد على الأقل'), 'info'); return; }
 
-  const scored   = recalcScores();
-  const winnerSel = document.getElementById('qf-winner')?.value;
-  const winner   = winnerSel || scored[0]?.vendor_name || '';
-  const winnerRec = scored.find(s=>s.vendor_name===winner) || scored[0] || {};
+  const scored  = recalcScores();
+  const winner  = scored.filter(s=>s.vendor_name)[0] || {};
 
   const data = {
-    request_description: desc,
-    pr_number:           pr,
-    requesting_dept:     document.getElementById('qf-dept')?.value||'',
-    request_date:        document.getElementById('qf-rdate')?.value||'',
-    awarding_date:       document.getElementById('qf-adate')?.value||'',
-    total_pr_value:      parseFloat(document.getElementById('qf-val')?.value)||0,
-    currency:            document.getElementById('qf-cur')?.value||'IQD',
-    delivery_term_days:  parseInt(document.getElementById('qf-dterm')?.value)||35,
-    warranty_term_months:parseInt(document.getElementById('qf-wterm')?.value)||12,
-    linked_po_id:        document.getElementById('qf-po')?.value||'',
-    status:              document.getElementById('qf-status')?.value||'draft',
-    w_price:             w.price,
-    w_requirements:      w.requirements,
-    w_delivery:          w.delivery,
-    w_warranty:          w.warranty,
-    w_payment:           w.payment,
-    w_commitment:        w.commitment,
-    winner_vendor:       winner,
-    winner_score:        parseFloat(winnerRec.total_score||0),
-    winner_amount:       parseFloat(winnerRec.total_cost||0),
-    winner_comment:      document.getElementById('qf-comment')?.value||'',
-    head_of_committee:   document.getElementById('qf-s1')?.value||'',
-    requester_name:      document.getElementById('qf-s2')?.value||'',
-    requester_management:document.getElementById('qf-s3')?.value||'',
-    supply_chain_officer:document.getElementById('qf-s4')?.value||'',
-    head_of_supply_chain:document.getElementById('qf-s5')?.value||'',
+    request_description:  desc,
+    pr_number:            pr,
+    requesting_dept:      document.getElementById('qf-dept')?.value||'',
+    request_date:         document.getElementById('qf-rdate')?.value||'',
+    awarding_date:        document.getElementById('qf-adate')?.value||'',
+    total_pr_value:       parseFloat(document.getElementById('qf-val')?.value)||0,
+    currency:             document.getElementById('qf-cur')?.value||'IQD',
+    delivery_term_days:   parseInt(document.getElementById('qf-dterm')?.value)||35,
+    warranty_term_months: parseInt(document.getElementById('qf-wterm')?.value)||12,
+    linked_po_id:         document.getElementById('qf-po')?.value||'',
+    status:               document.getElementById('qf-status')?.value||'draft',
+    w_price:              w.price,
+    w_requirements:       w.requirements,
+    w_delivery:           w.delivery,
+    w_warranty:           w.warranty,
+    w_payment:            w.payment,
+    w_commitment:         w.commitment,
+    winner_vendor:        winner.vendor_name  || '',
+    winner_score:         parseFloat(winner.total_score||0),
+    winner_amount:        parseFloat(winner.total_cost||0),
+    winner_comment:       document.getElementById('qf-comment')?.value||'',
+    head_of_committee:    document.getElementById('qf-s1')?.value||'',
+    requester_name:       document.getElementById('qf-s2')?.value||'',
+    requester_management: document.getElementById('qf-s3')?.value||'',
+    supply_chain_officer: document.getElementById('qf-s4')?.value||'',
+    head_of_supply_chain: document.getElementById('qf-s5')?.value||'',
   };
 
   const btn = document.getElementById('qf-save-btn');
-  if (btn) { btn.textContent='Saving...'; btn.disabled=true; }
+  if (btn) { btn.textContent = bl('Saving...','جار الحفظ...'); btn.disabled = true; }
 
   try {
     if (_editingCompId) {
-      await callAPI('updateComparison', { id:_editingCompId, data, vendors:scored });
-      _allComparisons = _allComparisons.map(c=>c.id===_editingCompId?{...c,...data}:c);
-      showToast('Comparison updated ✓','success');
+      // Update header row
+      await updateRow('Comparisons', _editingCompId, data);
+
+      // Replace vendor rows: delete old ones, insert new ones
+      const allVds = await callAPI('getAll', { sheet: 'ComparisonVendors' });
+      const oldVds = (allVds.rows || []).filter(v => String(v.comparison_id) === String(_editingCompId));
+      for (const v of oldVds) {
+        await callAPI('deleteRow', { sheet: 'ComparisonVendors', id: v.id });
+      }
+      for (const v of scored.filter(s=>s.vendor_name)) {
+        await addRow('ComparisonVendors', { ...v, comparison_id: _editingCompId });
+      }
+      cacheClear('ComparisonVendors');
+      _allComparisons = _allComparisons.map(c => c.id===_editingCompId ? {...c,...data} : c);
+      showToast(bl('Comparison updated ✓','تم تحديث المقارنة ✓'), 'success');
     } else {
-      const res = await callAPI('saveComparison', { data, vendors:scored });
-      data.id = res.id;
+      // Add header row — backend assigns UUID and returns it
+      const res = await addRow('Comparisons', data);
+      const newId = res.id;
+      data.id = newId;
+      // Add vendor rows
+      for (const v of scored.filter(s=>s.vendor_name)) {
+        await addRow('ComparisonVendors', { ...v, comparison_id: newId });
+      }
+      cacheClear('ComparisonVendors');
       _allComparisons.push(data);
-      showToast('Comparison saved ✓','success');
+      showToast(bl('Comparison saved ✓','تم حفظ المقارنة ✓'), 'success');
     }
     cacheClear('Comparisons');
     _editingCompId = null;
     _compVendors   = [];
     renderCompList();
   } catch(e) {
-    showToast('Save failed: '+e.message,'error');
-    if (btn) { btn.textContent=_editingCompId?'Update Comparison':'Save Comparison'; btn.disabled=false; }
+    showToast(bl('Save failed: ','فشل الحفظ: ') + e.message, 'error');
+    if (btn) { btn.textContent = _editingCompId ? bl('Update Comparison','تحديث المقارنة') : bl('Save Comparison','حفظ المقارنة'); btn.disabled = false; }
   }
 }
 
 function cancelCompForm() {
-  _editingCompId=null; _compVendors=[];
+  _editingCompId = null; _compVendors = [];
   renderCompList();
 }
 
@@ -542,23 +589,33 @@ async function editComp(id) {
   const comp = _allComparisons.find(c=>c.id===id);
   if (!comp) return;
   try {
-    const r = await callAPI('getCompVendors',{comparison_id:id});
-    _compVendors   = r.rows.map(v=>({...v}));
+    const r = await getAll('ComparisonVendors');
+    _compVendors   = (r.rows || []).filter(v => String(v.comparison_id) === String(id)).map(v=>({...v}));
     _editingCompId = id;
     renderCompForm(comp);
-  } catch(e) { showToast('Failed to load: '+e.message,'error'); }
+  } catch(e) { showToast(bl('Failed to load: ','فشل التحميل: ') + e.message, 'error'); }
 }
 
 async function deleteComp(id) {
-  showConfirm('Delete Comparison','This will permanently delete the comparison and all vendor data.',
+  showConfirm(
+    bl('Delete Comparison','حذف المقارنة'),
+    bl('This will permanently delete the comparison and all vendor data.','سيتم حذف المقارنة وجميع بيانات الموردين نهائياً.'),
     async () => {
       try {
-        await callAPI('deleteComparison',{id});
+        // Delete vendor rows first
+        const allVds = await callAPI('getAll', { sheet: 'ComparisonVendors' });
+        const oldVds = (allVds.rows || []).filter(v => String(v.comparison_id) === String(id));
+        for (const v of oldVds) {
+          await callAPI('deleteRow', { sheet: 'ComparisonVendors', id: v.id });
+        }
+        cacheClear('ComparisonVendors');
+        await deleteRow('Comparisons', id);
         _allComparisons = _allComparisons.filter(c=>c.id!==id);
         renderCompList();
-        showToast('Deleted','success');
-      } catch(e){ showToast('Delete failed: '+e.message,'error'); }
-    });
+        showToast(bl('Deleted','تم الحذف'), 'success');
+      } catch(e) { showToast(bl('Delete failed: ','فشل الحذف: ') + e.message, 'error'); }
+    }
+  );
 }
 
 // ── EXCEL EXPORT ───────────────────────────────────────
@@ -566,57 +623,53 @@ async function deleteComp(id) {
 async function exportCompExcel(id) {
   const comp = _allComparisons.find(c=>c.id===id);
   if (!comp) return;
-  let vds = _compVendors.filter(v=>v.comparison_id===id);
-  if (!vds.length) {
-    const r = await callAPI('getCompVendors',{comparison_id:id});
-    vds = r.rows||[];
-  }
-  const w = {
-    price:comp.w_price??40, requirements:comp.w_requirements??30,
+  let vds;
+  try {
+    const r = await getAll('ComparisonVendors');
+    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
+  } catch(e) { vds = []; }
+  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
     delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
-    payment:comp.w_payment??5, commitment:comp.w_commitment??5
-  };
+    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
   const scored = scoreVendors(vds, w);
   if (!window.XLSX){ showToast('SheetJS not loaded','error'); return; }
 
   const rows = [];
-  rows.push(['','جدول مقارنة العطاءات النهائية — Final Bids Comparison Table (Equipment + Service)']);
+  rows.push(['','جدول مقارنة العطاءات النهائية — Final Bids Comparison Table']);
   rows.push([]);
-  rows.push(['','وصف الطلب / Request Description:',comp.request_description||'','','','الجهة الطالبة / Dept:',comp.requesting_dept||'']);
-  rows.push(['','رقم الطلب / PR Number:',comp.pr_number||'','','','تاريخ الترسية / Awarding Date:',comp.awarding_date?String(comp.awarding_date).split('T')[0]:'']);
-  rows.push(['','تاريخ الطلب / Request Date:',comp.request_date?String(comp.request_date).split('T')[0]:'','','','القيمة الإجمالية / Total PR Value:',`${Number(comp.total_pr_value||0).toLocaleString()} ${comp.currency||''}`]);
-  rows.push(['','مدة التسليم (أيام) / Delivery Term (Days):',comp.delivery_term_days||35,'','','مدة الضمان (شهر) / Warranty (Months):',comp.warranty_term_months||12]);
+  rows.push(['','Request Description / وصف الطلب:',comp.request_description||'','','','Dept / الجهة:',comp.requesting_dept||'']);
+  rows.push(['','PR Number / رقم الطلب:',comp.pr_number||'','','','Awarding Date / تاريخ الترسية:',comp.awarding_date?String(comp.awarding_date).split('T')[0]:'']);
+  rows.push(['','Request Date / تاريخ الطلب:',comp.request_date?String(comp.request_date).split('T')[0]:'','','','Total Value / القيمة:',`${Number(comp.total_pr_value||0).toLocaleString()} ${comp.currency||''}`]);
   rows.push([]);
-  rows.push(['','جدول بيانات الموردين / Vendors\' Data Table']);
-  rows.push(['','اسم المورد / Vendor Name','التكلفة / Total Cost','امتثال المواصفات % / Spec %','امتثال التركيب % / Install %','التسليم (أيام) / Delivery Days','الضمان (شهر) / Warranty Months','الدفع % / Payment %','الالتزام % / Commitment %']);
+  rows.push(['','Vendors Data / بيانات الموردين']);
+  rows.push(['','Vendor Name / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commitment %']);
   scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),v.total_cost,v.spec_compliance,v.installation_compliance,v.delivery_days,v.warranty_months,v.payment_compliance,v.commitment_pct]));
   rows.push([]);
-  rows.push(['','جدول النقاط / Vendors\' Scores Table']);
-  rows.push(['','الأوزان / Standard Scoring',w.price,w.requirements,'',w.delivery,w.warranty,w.payment,w.commitment]);
-  rows.push(['','اسم المورد / Vendor Name','السعر / Price','المتطلبات / Requirements','','التسليم / Delivery','الضمان / Warranty','الدفع / Payment','الالتزام / Commitment','المجموع / Total']);
+  rows.push(['','Scores / النقاط']);
+  rows.push(['','Vendor / المورد','Price','Requirements','Delivery','Warranty','Payment','Commitment','TOTAL']);
   scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
-    parseFloat(v.price_score||0).toFixed(2),parseFloat(v.requirements_score||0).toFixed(2),'',
+    parseFloat(v.price_score||0).toFixed(2),parseFloat(v.requirements_score||0).toFixed(2),
     parseFloat(v.delivery_score||0).toFixed(2),parseFloat(v.warranty_score||0).toFixed(2),
     parseFloat(v.payment_score||0).toFixed(2),parseFloat(v.commitment_score||0).toFixed(2),
     parseFloat(v.total_score||0).toFixed(2)]));
   rows.push([]);
-  rows.push(['','العطاء الفائز / Winning Bid']);
-  rows.push(['','المورد الفائز / Winning Supplier','','المجموع / Total Score','','المبلغ / Amount','ملاحظات / Comment']);
+  rows.push(['','Winning Bid / العطاء الفائز']);
+  rows.push(['','Winner / الفائز','','Score / النقاط','','Amount / المبلغ','Comment / ملاحظة']);
   rows.push(['',comp.winner_vendor||scored[0]?.vendor_name||'','',
     parseFloat(comp.winner_score||scored[0]?.total_score||0).toFixed(2),'',
     Number(comp.winner_amount||scored[0]?.total_cost||0).toLocaleString(),comp.winner_comment||'']);
   rows.push([]);
-  rows.push(['','توقيعات اللجنة / Committee Signatures']);
-  rows.push(['','رئيس اللجنة\nHead of Committee','الطالب\nRequester','إدارة الطالب\nRequester Mgmt','مسؤول التوريد\nSupply Chain Officer','رئيس التوريد\nHead of Supply Chain']);
+  rows.push(['','Committee Signatures / توقيعات اللجنة']);
+  rows.push(['','Head of Committee / رئيس اللجنة','Requester / الطالب','Requester Mgmt / إدارة الطالب','SC Officer / مسؤول التوريد','Head of SC / رئيس التوريد']);
   rows.push(['',comp.head_of_committee||'',comp.requester_name||'',comp.requester_management||'',comp.supply_chain_officer||'',comp.head_of_supply_chain||'']);
   rows.push(['','________________','________________','________________','________________','________________']);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:3},{wch:38},{wch:18},{wch:16},{wch:16},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12}];
+  ws['!cols']=[{wch:3},{wch:38},{wch:18},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12}];
   ws['!dir']='rtl';
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Comparison / مقارنة');
-  XLSX.writeFile(wb,`Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
+  XLSX.writeFile(wb, `Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.xlsx`);
   showToast('Excel exported ✓','success');
 }
 
@@ -625,15 +678,15 @@ async function exportCompExcel(id) {
 async function exportCompPDF(id) {
   const comp = _allComparisons.find(c=>c.id===id);
   if (!comp) return;
-  let vds = _compVendors.filter(v=>v.comparison_id===id);
-  if (!vds.length) {
-    const r = await callAPI('getCompVendors',{comparison_id:id});
-    vds = r.rows||[];
-  }
-  const w = {price:comp.w_price??40,requirements:comp.w_requirements??30,
-    delivery:comp.w_delivery??10,warranty:comp.w_warranty??10,
-    payment:comp.w_payment??5,commitment:comp.w_commitment??5};
-  const scored = scoreVendors(vds,w);
+  let vds;
+  try {
+    const r = await getAll('ComparisonVendors');
+    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
+  } catch(e) { vds = []; }
+  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
+    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
+    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
+  const scored = scoreVendors(vds, w);
   if (!window.jspdf){ showToast('jsPDF not loaded','error'); return; }
 
   const {jsPDF} = window.jspdf;
@@ -653,9 +706,9 @@ async function exportCompPDF(id) {
   let y=32; doc.setTextColor(30,30,50);
 
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Vendors Data / بيانات الموردين',14,y); y+=4;
+  doc.text('Vendors Data',14,y); y+=4;
   doc.autoTable({startY:y,
-    head:[['Vendor / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days / أيام','Warranty Mo. / شهر','Payment %','Commit %']],
+    head:[['Vendor','Total Cost','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commit %']],
     body:scored.map(v=>[v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
       Number(v.total_cost||0).toLocaleString(),v.spec_compliance??100,v.installation_compliance??100,
       v.delivery_days||'—',v.warranty_months||'—',v.payment_compliance??100,v.commitment_pct??100]),
@@ -666,9 +719,9 @@ async function exportCompPDF(id) {
 
   if(y>155){doc.addPage();y=16;}
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Scores / النقاط',14,y); y+=4;
+  doc.text('Score Analysis',14,y); y+=4;
   doc.autoTable({startY:y,
-    head:[[`Vendor`,`Price(${w.price})`,`Req(${w.requirements})`,`Del(${w.delivery})`,`War(${w.warranty})`,`Pay(${w.payment})`,`Com(${w.commitment})`,'TOTAL / المجموع']],
+    head:[[`Vendor`,`Price(${w.price})`,`Req(${w.requirements})`,`Del(${w.delivery})`,`War(${w.warranty})`,`Pay(${w.payment})`,`Com(${w.commitment})`,'TOTAL']],
     body:scored.map((s,i)=>[(i===0?'🏆 ':'')+s.vendor_name+(s.annex_ref?` (${s.annex_ref})`:''),
       parseFloat(s.price_score||0).toFixed(1),parseFloat(s.requirements_score||0).toFixed(1),
       parseFloat(s.delivery_score||0).toFixed(1),parseFloat(s.warranty_score||0).toFixed(1),
@@ -683,10 +736,10 @@ async function exportCompPDF(id) {
 
   if(y>155){doc.addPage();y=16;}
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Winning Bid / العطاء الفائز',14,y); y+=4;
+  doc.text('Winning Bid',14,y); y+=4;
   const wd=scored[0]||{};
   doc.autoTable({startY:y,
-    head:[['Winner / الفائز','Total Score / المجموع','Amount / المبلغ','Comment / ملاحظة']],
+    head:[['Winner','Total Score','Amount','Comment']],
     body:[[comp.winner_vendor||wd.vendor_name||'—',
       parseFloat(comp.winner_score||wd.total_score||0).toFixed(2),
       Number(comp.winner_amount||wd.total_cost||0).toLocaleString()+' '+(comp.currency||''),
@@ -697,9 +750,9 @@ async function exportCompPDF(id) {
 
   if(y>165){doc.addPage();y=16;}
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Committee Signatures / توقيعات أعضاء اللجنة',14,y); y+=4;
+  doc.text('Committee Signatures',14,y); y+=4;
   doc.autoTable({startY:y,
-    head:[['رئيس اللجنة\nHead of Committee','الطالب\nRequester','إدارة الطالب\nRequester Mgmt','مسؤول التوريد\nSC Officer','رئيس التوريد\nHead of SC']],
+    head:[['Head of Committee','Requester','Requester Mgmt','SC Officer','Head of SC']],
     body:[[comp.head_of_committee||'',comp.requester_name||'',comp.requester_management||'',comp.supply_chain_officer||'',comp.head_of_supply_chain||''],
           ['','','','',''],
           ['________________','________________','________________','________________','________________']],
