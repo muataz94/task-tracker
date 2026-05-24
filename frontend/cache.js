@@ -1,15 +1,15 @@
 // Stale-while-revalidate cache for Apps Script data
-const CACHE_TTL = {
-  Tasks:               30 * 1000,
-  POs:                 60 * 1000,
-  Milestones:          60 * 1000,
-  Expenses:            60 * 1000,
-  Users:              300 * 1000,
-  dashboard:           30 * 1000,
-  Chat:                 5 * 1000,
-  Comparisons:        120 * 1000,
-  ComparisonVendors:  120 * 1000,
-};
+const CACHE_TTL = new Map([
+  ['Tasks',               30 * 1000],
+  ['POs',                 60 * 1000],
+  ['Milestones',          60 * 1000],
+  ['Expenses',            60 * 1000],
+  ['Users',              300 * 1000],
+  ['dashboard',           30 * 1000],
+  ['Chat',                 5 * 1000],
+  ['Comparisons',        120 * 1000],
+  ['ComparisonVendors',  120 * 1000]
+]);
 
 const _cache = new Map();
 
@@ -17,7 +17,7 @@ function cacheGet(key) {
   const entry = _cache.get(key);
   if (!entry) return null;
   const age = Date.now() - entry.timestamp;
-  const ttl = (key && Object.prototype.hasOwnProperty.call(CACHE_TTL, key)) ? CACHE_TTL[key] : 30000;
+  const ttl = CACHE_TTL.get(key) || 30000;
   if (age > ttl * 3) { _cache.delete(key); return null; }
   return { data: entry.data, stale: age > ttl };
 }
