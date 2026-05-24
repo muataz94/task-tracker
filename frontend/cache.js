@@ -17,7 +17,7 @@ function cacheGet(key) {
   const entry = _cache.get(key);
   if (!entry) return null;
   const age = Date.now() - entry.timestamp;
-  const ttl = CACHE_TTL[key] || 30000;
+  const ttl = (key && Object.prototype.hasOwnProperty.call(CACHE_TTL, key)) ? CACHE_TTL[key] : 30000;
   if (age > ttl * 3) { _cache.delete(key); return null; }
   return { data: entry.data, stale: age > ttl };
 }
