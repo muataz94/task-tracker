@@ -185,39 +185,48 @@ function renderCompForm(comp) {
       <div id="qf-vendors"></div>
     </div>
 
-    <!-- S4: Live Scores -->
-    <div class="qc-sec glass">
-      <div class="qc-sec-hd" style="justify-content:space-between;">
+    <!-- Compare Action Trigger Block -->
+    <div class="qc-sec glass" style="display:flex; justify-content:center; align-items:center; padding:1.5rem 2rem; text-align:center;">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%;">
+        <div style="font-size:12px; color:var(--text-3); font-weight:500;">
+          ${bl('All vendor quotations entered? Run standard weighted comparison modeling.','هل تم إدخال جميع عروض الموردين؟ قم بتشغيل نموذج المقارنة الموزونة القياسي.')}
+        </div>
+        <button class="qc-btn-analyze" onclick="startComparing()" style="font-size:14px; padding:10px 24px; border-radius:var(--r-md); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; vertical-align:middle;"><polygon points="5,3 19,12 5,21"/></svg>
+          ${bl('Start Bids Analysis & Compare','بدء تحليل العروض والمقارنة')}
+        </button>
+      </div>
+    </div>
+
+    <!-- Final Results Section (lazy-revealed after comparison) -->
+    <div id="qc-results-sec" class="qc-sec glass ${comp?.winner_vendor ? 'visible' : 'hidden'}">
+      <div class="qc-sec-hd" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px;">
         <span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-          ${bl('Live Scores Preview','معاينة النقاط المباشرة')}
+          ${bl('Comparison Analysis Report','تقرير تحليل المقارنة')}
         </span>
-        <button class="qc-btn-analyze" onclick="startComparing()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
-          ${bl('Start Comparing','بدء المقارنة')}
-        </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-export" onclick="exportActiveFormExcel()" style="background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.25); color:var(--accent-green); font-weight:600; font-size:11px; padding:4px 10px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:middle;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            Excel
+          </button>
+          <button class="btn-export" onclick="exportActiveFormPDF()" style="background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.25); color:var(--accent); font-weight:600; font-size:11px; padding:4px 10px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:middle;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            PDF
+          </button>
+        </div>
+      </div>
+      <div id="qf-winner-display" style="margin-bottom:12px;"></div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>${bl('Comment / Recommendation','ملاحظات / توصية')}</label>
+        <textarea id="qf-comment" rows="3" placeholder="${bl('e.g. Vendor A offers best value with full specification compliance...','مثال: المورد أ يقدم أفضل قيمة مع امتثال كامل للمواصفات...')}">${escapeHtml(comp?.winner_comment||'')}</textarea>
       </div>
       <div id="qf-scores"></div>
     </div>
 
-    <!-- S5: Auto Winner -->
-    <div class="qc-sec glass">
-      <div class="qc-sec-hd">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-        ${bl('Winner (Auto-Selected by Score)','الفائز (محدد تلقائياً بالنقاط)')}
-      </div>
-      <div id="qf-winner-display" style="margin-bottom:12px;">
-        <p style="color:var(--text-3);font-size:13px;">${bl('Enter vendor data above to see the winner.','أدخل بيانات الموردين أعلاه لمعرفة الفائز.')}</p>
-      </div>
-      <div class="form-group">
-        <label>${bl('Comment / Recommendation','ملاحظات / توصية')}</label>
-        <textarea id="qf-comment" rows="3" placeholder="${bl('e.g. Vendor A offers best value with full specification compliance...','مثال: المورد أ يقدم أفضل قيمة مع امتثال كامل للمواصفات...')}">${escapeHtml(comp?.winner_comment||'')}</textarea>
-      </div>
-    </div>
-
     <!-- S6: Committee Signatures (editable) -->
     <div class="qc-sec glass">
-      <div class="qc-sec-hd" style="justify-content:space-between;">
+      <div class="qc-sec-hd" style="display:flex; justify-content:space-between; align-items:center;">
         <span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           ${bl('Committee Signatures','توقيعات اللجنة')}
@@ -441,12 +450,15 @@ async function startComparing() {
   await sleep(380);
   overlay.remove();
 
-  // Scroll to scores section
-  const scoresEl = document.getElementById('qf-scores');
-  if (scoresEl) {
-    scoresEl.scrollIntoView({ behavior:'smooth', block:'start' });
-    scoresEl.classList.add('qc-scores-highlight');
-    setTimeout(() => scoresEl.classList.remove('qc-scores-highlight'), 1200);
+  // Reveal and scroll to results section
+  const resultsSec = document.getElementById('qc-results-sec');
+  if (resultsSec) {
+    resultsSec.classList.remove('hidden');
+    resultsSec.classList.add('visible');
+    void resultsSec.offsetWidth; // trigger reflow
+    resultsSec.scrollIntoView({ behavior:'smooth', block:'start' });
+    resultsSec.classList.add('qc-scores-highlight');
+    setTimeout(() => resultsSec.classList.remove('qc-scores-highlight'), 1200);
   }
 }
 
@@ -800,6 +812,8 @@ async function deleteComp(id) {
 
 // ── SIGNATURES HELPER FOR EXPORTS ──────────────────────
 
+// ── SIGNATURES HELPER FOR EXPORTS ──────────────────────
+
 function _sigsFromComp(comp) {
   if (comp.signatures_json) {
     try { return JSON.parse(comp.signatures_json); } catch {}
@@ -813,21 +827,9 @@ function _sigsFromComp(comp) {
   ];
 }
 
-// ── EXCEL EXPORT ───────────────────────────────────────
+// ── CORE EXPORT HELPERS ────────────────────────────────
 
-async function exportCompExcel(id) {
-  const comp = _allComparisons.find(c=>c.id===id);
-  if (!comp) return;
-  let vds;
-  try {
-    const r = await getAll('ComparisonVendors');
-    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
-  } catch(e) { vds = []; }
-  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
-    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
-    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
-  const scored = scoreVendors(vds, w);
-  const sigs   = _sigsFromComp(comp);
+function _exportExcelFromData(comp, scored, sigs) {
   if (!window.XLSX){ showToast('SheetJS not loaded','error'); return; }
 
   const rows = [];
@@ -838,7 +840,7 @@ async function exportCompExcel(id) {
   rows.push(['','Request Date / تاريخ الطلب:',comp.request_date?String(comp.request_date).split('T')[0]:'','','','Total Value / القيمة:',`${Number(comp.total_pr_value||0).toLocaleString()} ${comp.currency||''}`]);
   rows.push([]);
   rows.push(['','Vendors Data / بيانات الموردين']);
-  rows.push(['','Vendor Name / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commitment %']);
+  rows.push(['','Vendor Name / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commit %']);
   scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),v.total_cost,v.spec_compliance,v.installation_compliance,v.delivery_days,v.warranty_months,v.payment_compliance,v.commitment_pct]));
   rows.push([]);
   rows.push(['','Scores / النقاط']);
@@ -869,22 +871,17 @@ async function exportCompExcel(id) {
   showToast('Excel exported ✓','success');
 }
 
-// ── PDF EXPORT ─────────────────────────────────────────
-
-async function exportCompPDF(id) {
-  const comp = _allComparisons.find(c=>c.id===id);
-  if (!comp) return;
-  let vds;
-  try {
-    const r = await getAll('ComparisonVendors');
-    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
-  } catch(e) { vds = []; }
-  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
-    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
-    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
-  const scored = scoreVendors(vds, w);
-  const sigs   = _sigsFromComp(comp);
+function _exportPDFFromData(comp, scored, sigs) {
   if (!window.jspdf){ showToast('jsPDF not loaded','error'); return; }
+
+  const w = {
+    price: comp.w_price ?? 40,
+    requirements: comp.w_requirements ?? 30,
+    delivery: comp.w_delivery ?? 10,
+    warranty: comp.w_warranty ?? 10,
+    payment: comp.w_payment ?? 5,
+    commitment: comp.w_commitment ?? 5
+  };
 
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -961,4 +958,95 @@ async function exportCompPDF(id) {
   }
   doc.save(`Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.pdf`);
   showToast('PDF exported ✓','success');
+}
+
+// ── SAVED RECORD EXPORTS ───────────────────────────────
+
+async function exportCompExcel(id) {
+  const comp = _allComparisons.find(c=>c.id===id);
+  if (!comp) return;
+  let vds;
+  try {
+    const r = await getAll('ComparisonVendors');
+    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
+  } catch(e) { vds = []; }
+  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
+    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
+    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
+  const scored = scoreVendors(vds, w);
+  const sigs   = _sigsFromComp(comp);
+  _exportExcelFromData(comp, scored, sigs);
+}
+
+async function exportCompPDF(id) {
+  const comp = _allComparisons.find(c=>c.id===id);
+  if (!comp) return;
+  let vds;
+  try {
+    const r = await getAll('ComparisonVendors');
+    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
+  } catch(e) { vds = []; }
+  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
+    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
+    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
+  const scored = scoreVendors(vds, w);
+  const sigs   = _sigsFromComp(comp);
+  _exportPDFFromData(comp, scored, sigs);
+}
+
+// ── ACTIVE FORM EXPORTS (UNSAVED / DIRTY STATE) ────────
+
+function getActiveFormCompData(scored) {
+  const desc = document.getElementById('qf-desc')?.value.trim() || 'Active Bids Comparison';
+  const pr   = document.getElementById('qf-pr')?.value.trim() || 'DRAFT';
+  const w    = getWeights();
+  const winner = scored.filter(s => s.vendor_name)[0] || {};
+
+  return {
+    request_description:  desc,
+    pr_number:            pr,
+    requesting_dept:      document.getElementById('qf-dept')?.value || '',
+    request_date:         document.getElementById('qf-rdate')?.value || '',
+    awarding_date:        document.getElementById('qf-adate')?.value || '',
+    total_pr_value:       parseFloat(document.getElementById('qf-val')?.value) || 0,
+    currency:             document.getElementById('qf-cur')?.value || 'IQD',
+    delivery_term_days:   parseInt(document.getElementById('qf-dterm')?.value) || 35,
+    warranty_term_months: parseInt(document.getElementById('qf-wterm')?.value) || 12,
+    w_price:              w.price,
+    w_requirements:       w.requirements,
+    w_delivery:           w.delivery,
+    w_warranty:           w.warranty,
+    w_payment:            w.payment,
+    w_commitment:         w.commitment,
+    winner_vendor:        winner.vendor_name || '',
+    winner_score:         parseFloat(winner.total_score || 0),
+    winner_amount:        parseFloat(winner.total_cost || 0),
+    winner_comment:       document.getElementById('qf-comment')?.value || '',
+  };
+}
+
+function exportActiveFormExcel() {
+  const w = getWeights();
+  const activeVendors = _compVendors.filter(v => v.vendor_name);
+  if (!activeVendors.length) {
+    showToast(bl('Please enter at least one vendor name first','الرجاء إدخال اسم مورد واحد على الأقل أولاً'), 'info');
+    return;
+  }
+  const scored = scoreVendors(_compVendors, w);
+  const comp = getActiveFormCompData(scored);
+  const sigs = _compSignatures.length ? _compSignatures : defaultSignatures();
+  _exportExcelFromData(comp, scored, sigs);
+}
+
+function exportActiveFormPDF() {
+  const w = getWeights();
+  const activeVendors = _compVendors.filter(v => v.vendor_name);
+  if (!activeVendors.length) {
+    showToast(bl('Please enter at least one vendor name first','الرجاء إدخال اسم مورد واحد على الأقل أولاً'), 'info');
+    return;
+  }
+  const scored = scoreVendors(_compVendors, w);
+  const comp = getActiveFormCompData(scored);
+  const sigs = _compSignatures.length ? _compSignatures : defaultSignatures();
+  _exportPDFFromData(comp, scored, sigs);
 }

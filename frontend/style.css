@@ -2649,50 +2649,72 @@ body.rtl .chat-panel {
 }
 
 /* ── COMMITTEE SIGNATURES STYLING ── */
-.qc-sig-row {
+#qf-signatures {
   display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  width: 100%;
+}
+.qc-sig-row {
+  position: relative;
+  flex: 1 1 calc(20% - 14px);
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-end;
-  margin-bottom: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 12px 14px;
-  border-radius: var(--r-sm);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
+}
+.qc-sig-row:hover {
+  border-color: rgba(99, 102, 241, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-2px);
+  box-shadow: var(--glass-shadow);
 }
 [data-theme="light"] .qc-sig-row {
-  background: rgba(99, 102, 241, 0.03);
+  background: rgba(99, 102, 241, 0.02);
   border-color: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.05);
+}
+[data-theme="light"] .qc-sig-row:hover {
+  background: rgba(99, 102, 241, 0.04);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 .qc-sig-row .form-group {
+  width: 100%;
   margin-bottom: 0 !important;
 }
 .qc-sig-remove {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  border-radius: var(--r-sm);
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
   padding: 0 !important;
   color: var(--text-3);
-  border: 1px solid var(--border);
-  background: var(--glass-bg);
+  border: 1px solid transparent;
+  background: rgba(239, 68, 68, 0.08);
   cursor: pointer;
   transition: all 0.15s ease;
-  margin-bottom: 1px;
+  z-index: 2;
 }
 .qc-sig-remove:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.25);
   color: var(--accent-red);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-.qc-sig-remove-placeholder {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: scale(1.08);
 }
 
 /* ── START COMPARING BUTTON & HIGH-FIDELITY ANIMATIONS ── */
@@ -2985,13 +3007,7 @@ body.rtl .chat-panel {
 
 @media (max-width: 480px) {
   .qc-sig-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .qc-sig-remove {
-    align-self: flex-end;
-    width: 100%;
+    flex: 1 1 100% !important;
   }
 }
 
@@ -3079,5 +3095,29 @@ body.rtl .chat-panel {
 /* Prevent horizontal scroll on the body */
 body { overflow-x: hidden; }
 #app { overflow-x: hidden; }
+
+/* ── LAZY-REVEALED RESULTS SECTION ── */
+#qc-results-sec.hidden {
+  display: none !important;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+#qc-results-sec.visible {
+  display: block !important;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 
