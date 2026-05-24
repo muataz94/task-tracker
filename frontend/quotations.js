@@ -6,11 +6,24 @@
 
 let _allComparisons  = [];
 let _compVendors     = [];
+let _compSignatures  = [];
 let _editingCompId   = null;
 let _recalcDebounce  = null;
 
 // Returns text in current language — avoids hardcoded Arabic in English mode
 function bl(en, ar) { return currentLang === 'ar' ? ar : en; }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function defaultSignatures() {
+  return [
+    { role: 'Head of Committee',      name: '' },
+    { role: 'Requester',              name: '' },
+    { role: 'Requester Management',   name: '' },
+    { role: 'Supply Chain Officer',   name: '' },
+    { role: 'Head of Supply Chain',   name: '' },
+  ];
+}
 
 // ── LOAD LIST ─────────────────────────────────────────
 
@@ -73,8 +86,9 @@ function renderCompList() {
 // ── FORM ──────────────────────────────────────────────
 
 function showNewCompForm() {
-  _editingCompId = null;
-  _compVendors = [emptyVendor(), emptyVendor()];
+  _editingCompId   = null;
+  _compVendors     = [emptyVendor(), emptyVendor()];
+  _compSignatures  = defaultSignatures();
   renderCompForm(null);
 }
 
@@ -173,9 +187,15 @@ function renderCompForm(comp) {
 
     <!-- S4: Live Scores -->
     <div class="qc-sec glass">
-      <div class="qc-sec-hd">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-        ${bl('Live Scores Preview','معاينة النقاط المباشرة')}
+      <div class="qc-sec-hd" style="justify-content:space-between;">
+        <span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+          ${bl('Live Scores Preview','معاينة النقاط المباشرة')}
+        </span>
+        <button class="qc-btn-analyze" onclick="startComparing()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
+          ${bl('Start Comparing','بدء المقارنة')}
+        </button>
       </div>
       <div id="qf-scores"></div>
     </div>
@@ -195,22 +215,17 @@ function renderCompForm(comp) {
       </div>
     </div>
 
-    <!-- S6: Signatures -->
+    <!-- S6: Committee Signatures (editable) -->
     <div class="qc-sec glass">
-      <div class="qc-sec-hd">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        ${bl('Committee Signatures','توقيعات اللجنة')}
+      <div class="qc-sec-hd" style="justify-content:space-between;">
+        <span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          ${bl('Committee Signatures','توقيعات اللجنة')}
+        </span>
+        <button class="btn-add" onclick="addSig()" style="font-size:12px;padding:5px 10px;">+ ${bl('Add Member','إضافة عضو')}</button>
       </div>
-      <div class="qc-grid">
-        ${[
-          {id:'qf-s1', en:'Head of Committee',      ar:'رئيس اللجنة',         v:comp?.head_of_committee||''},
-          {id:'qf-s2', en:'Requester',               ar:'الطالب',              v:comp?.requester_name||''},
-          {id:'qf-s3', en:'Requester Management',    ar:'إدارة الطالب',        v:comp?.requester_management||''},
-          {id:'qf-s4', en:'Supply Chain Officer',    ar:'مسؤول التوريد',       v:comp?.supply_chain_officer||''},
-          {id:'qf-s5', en:'Head of Supply Chain',    ar:'رئيس التوريد',        v:comp?.head_of_supply_chain||''}
-        ].map(s=>`<div class="form-group"><label style="font-size:11px;">${bl(s.en, s.ar)}</label>
-          <input type="text" id="${s.id}" value="${escapeHtml(s.v)}" placeholder="${bl('Full name','الاسم الكامل')}"/></div>`).join('')}
-      </div>
+      <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;">${bl('Edit role titles and names to match your committee structure.','عدّل المسميات والأسماء لتتوافق مع هيكل لجنتك.')}</p>
+      <div id="qf-signatures"></div>
     </div>
 
     <!-- Actions -->
@@ -224,6 +239,7 @@ function renderCompForm(comp) {
   </div>`;
 
   renderVendorRows();
+  renderSignatureRows();
   updateWTotal();
   recalcScores();
 }
@@ -285,6 +301,153 @@ function removeVendor(idx) {
   _compVendors.splice(idx, 1);
   renderVendorRows();
   recalcScores();
+}
+
+// ── SIGNATURE ROWS ─────────────────────────────────────
+
+function renderSignatureRows() {
+  const wrap = document.getElementById('qf-signatures');
+  if (!wrap) return;
+  wrap.innerHTML = _compSignatures.map((s, i) => `
+    <div class="qc-sig-row" id="qcs-${i}">
+      <div class="form-group" style="flex:1;min-width:0;">
+        <label style="font-size:11px;">${bl('Role / Position','الدور / المنصب')}</label>
+        <input type="text" value="${escapeHtml(s.role||'')}"
+          placeholder="${bl('e.g. Head of Committee','مثال: رئيس اللجنة')}"
+          oninput="_compSignatures[${i}].role=this.value"/>
+      </div>
+      <div class="form-group" style="flex:1;min-width:0;">
+        <label style="font-size:11px;">${bl('Full Name','الاسم الكامل')}</label>
+        <input type="text" value="${escapeHtml(s.name||'')}"
+          placeholder="${bl('Name','الاسم')}"
+          oninput="_compSignatures[${i}].name=this.value"/>
+      </div>
+      ${_compSignatures.length > 1
+        ? `<button class="btn-delete qc-sig-remove" onclick="removeSig(${i})" title="${bl('Remove','إزالة')}">×</button>`
+        : '<span class="qc-sig-remove-placeholder"></span>'}
+    </div>`).join('');
+}
+
+function addSig() {
+  _compSignatures.push({ role: '', name: '' });
+  renderSignatureRows();
+  const last = document.getElementById(`qcs-${_compSignatures.length-1}`);
+  if (last) last.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function removeSig(idx) {
+  if (_compSignatures.length <= 1) return;
+  _compSignatures.splice(idx, 1);
+  renderSignatureRows();
+}
+
+// ── START COMPARING — ANIMATED SPLASH ─────────────────
+
+async function startComparing() {
+  const hasVendors = _compVendors.some(v => v.vendor_name);
+  if (!hasVendors) {
+    showToast(bl('Enter at least one vendor name first','أدخل اسم مورد واحد أولاً'), 'info');
+    return;
+  }
+
+  const scored = recalcScores();
+  const winner = scored.filter(s => s.vendor_name)[0];
+
+  const steps = [
+    { en: 'Loading vendor quotations',       ar: 'تحميل عروض الموردين' },
+    { en: 'Analyzing price competitiveness',  ar: 'تحليل تنافسية الأسعار' },
+    { en: 'Evaluating technical compliance',  ar: 'تقييم الامتثال التقني' },
+    { en: 'Applying scoring weights',         ar: 'تطبيق أوزان التقييم' },
+    { en: 'Ranking vendors by total score',   ar: 'ترتيب الموردين بحسب الدرجات' },
+    { en: 'Determining winning bid',          ar: 'تحديد العطاء الفائز' },
+  ];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'qc-splash-overlay';
+  overlay.innerHTML = `
+    <div class="qc-splash-inner glass">
+      <div class="qc-splash-orbit">
+        <div class="qc-splash-ring qc-ring-outer"></div>
+        <div class="qc-splash-ring qc-ring-inner"></div>
+        <div class="qc-splash-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+          </svg>
+        </div>
+      </div>
+      <div class="qc-splash-title">${bl('Analyzing Quotations','جار تحليل العروض')}</div>
+      <div class="qc-splash-subtitle">${bl('Applying weighted scoring model','تطبيق نموذج التقييم الموزون')}</div>
+      <div class="qc-splash-steps" id="qcss-wrap">
+        ${steps.map((s,i) => `
+          <div class="qc-splash-step" id="qcss-${i}">
+            <span class="qcss-icon">
+              <svg class="icon-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>
+              <svg class="icon-dot"   width="8"  height="8"  viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>
+            </span>
+            <span>${bl(s.en, s.ar)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="qc-splash-bar"><div class="qc-splash-bar-fill" id="qcss-bar"></div></div>
+      <div id="qcss-winner" class="qc-splash-winner" style="display:none;"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Animate steps
+  const delays = [300, 480, 420, 400, 380, 500];
+  for (let i = 0; i < steps.length; i++) {
+    await sleep(delays[i]);
+    if (i > 0) {
+      const prev = document.getElementById(`qcss-${i-1}`);
+      if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+    }
+    const cur = document.getElementById(`qcss-${i}`);
+    if (cur) cur.classList.add('active');
+    const bar = document.getElementById('qcss-bar');
+    if (bar) bar.style.width = `${Math.round((i+1)/steps.length*100)}%`;
+  }
+
+  await sleep(400);
+  const last = document.getElementById(`qcss-${steps.length-1}`);
+  if (last) { last.classList.remove('active'); last.classList.add('done'); }
+  const bar = document.getElementById('qcss-bar');
+  if (bar) bar.style.width = '100%';
+
+  // Winner reveal
+  await sleep(250);
+  const winEl = document.getElementById('qcss-winner');
+  if (winEl && winner) {
+    const rank2 = scored.filter(s=>s.vendor_name)[1];
+    winEl.style.display = 'flex';
+    winEl.innerHTML = `
+      <div class="qcss-win-trophy">🏆</div>
+      <div class="qcss-win-info">
+        <div class="qcss-win-label">${bl('Winner','الفائز')}</div>
+        <div class="qcss-win-name">${escapeHtml(winner.vendor_name)}</div>
+        <div class="qcss-win-detail">
+          ${bl('Score','النقاط')}: <strong>${parseFloat(winner.total_score||0).toFixed(2)}</strong>
+          &nbsp;·&nbsp; ${bl('Cost','التكلفة')}: <strong>${Number(winner.total_cost||0).toLocaleString()}</strong>
+          ${rank2 ? `&nbsp;·&nbsp; ${bl('Runner-up','المركز الثاني')}: ${escapeHtml(rank2.vendor_name)} (${parseFloat(rank2.total_score||0).toFixed(2)})` : ''}
+        </div>
+      </div>
+      <div class="qcss-win-score">${parseFloat(winner.total_score||0).toFixed(2)}<span>/ 100</span></div>`;
+    void winEl.offsetWidth; // trigger reflow for animation
+    winEl.classList.add('visible');
+  }
+
+  await sleep(2200);
+
+  // Dismiss
+  overlay.classList.add('qc-splash-out');
+  await sleep(380);
+  overlay.remove();
+
+  // Scroll to scores section
+  const scoresEl = document.getElementById('qf-scores');
+  if (scoresEl) {
+    scoresEl.scrollIntoView({ behavior:'smooth', block:'start' });
+    scoresEl.classList.add('qc-scores-highlight');
+    setTimeout(() => scoresEl.classList.remove('qc-scores-highlight'), 1200);
+  }
 }
 
 // ── WEIGHT VALIDATION ─────────────────────────────────
@@ -502,6 +665,9 @@ async function saveCompForm() {
   const scored  = recalcScores();
   const winner  = scored.filter(s=>s.vendor_name)[0] || {};
 
+  // Serialize editable signatures
+  const sigsJson = JSON.stringify(_compSignatures.filter(s => s.role || s.name));
+
   const data = {
     request_description:  desc,
     pr_number:            pr,
@@ -524,11 +690,13 @@ async function saveCompForm() {
     winner_score:         parseFloat(winner.total_score||0),
     winner_amount:        parseFloat(winner.total_cost||0),
     winner_comment:       document.getElementById('qf-comment')?.value||'',
-    head_of_committee:    document.getElementById('qf-s1')?.value||'',
-    requester_name:       document.getElementById('qf-s2')?.value||'',
-    requester_management: document.getElementById('qf-s3')?.value||'',
-    supply_chain_officer: document.getElementById('qf-s4')?.value||'',
-    head_of_supply_chain: document.getElementById('qf-s5')?.value||'',
+    signatures_json:      sigsJson,
+    // Legacy columns for backward compat
+    head_of_committee:    _compSignatures[0]?.name||'',
+    requester_name:       _compSignatures[1]?.name||'',
+    requester_management: _compSignatures[2]?.name||'',
+    supply_chain_officer: _compSignatures[3]?.name||'',
+    head_of_supply_chain: _compSignatures[4]?.name||'',
   };
 
   const btn = document.getElementById('qf-save-btn');
@@ -536,10 +704,7 @@ async function saveCompForm() {
 
   try {
     if (_editingCompId) {
-      // Update header row
       await updateRow('Comparisons', _editingCompId, data);
-
-      // Replace vendor rows: delete old ones, insert new ones
       const allVds = await callAPI('getAll', { sheet: 'ComparisonVendors' });
       const oldVds = (allVds.rows || []).filter(v => String(v.comparison_id) === String(_editingCompId));
       for (const v of oldVds) {
@@ -552,11 +717,9 @@ async function saveCompForm() {
       _allComparisons = _allComparisons.map(c => c.id===_editingCompId ? {...c,...data} : c);
       showToast(bl('Comparison updated ✓','تم تحديث المقارنة ✓'), 'success');
     } else {
-      // Add header row — backend assigns UUID and returns it
       const res = await addRow('Comparisons', data);
       const newId = res.id;
       data.id = newId;
-      // Add vendor rows
       for (const v of scored.filter(s=>s.vendor_name)) {
         await addRow('ComparisonVendors', { ...v, comparison_id: newId });
       }
@@ -567,6 +730,7 @@ async function saveCompForm() {
     cacheClear('Comparisons');
     _editingCompId = null;
     _compVendors   = [];
+    _compSignatures = [];
     renderCompList();
   } catch(e) {
     showToast(bl('Save failed: ','فشل الحفظ: ') + e.message, 'error');
@@ -575,7 +739,9 @@ async function saveCompForm() {
 }
 
 function cancelCompForm() {
-  _editingCompId = null; _compVendors = [];
+  _editingCompId  = null;
+  _compVendors    = [];
+  _compSignatures = [];
   renderCompList();
 }
 
@@ -592,6 +758,21 @@ async function editComp(id) {
     const r = await getAll('ComparisonVendors');
     _compVendors   = (r.rows || []).filter(v => String(v.comparison_id) === String(id)).map(v=>({...v}));
     _editingCompId = id;
+
+    // Load signatures — prefer new JSON column, fall back to legacy columns
+    if (comp.signatures_json) {
+      try { _compSignatures = JSON.parse(comp.signatures_json); } catch { _compSignatures = defaultSignatures(); }
+    } else {
+      _compSignatures = [
+        { role: 'Head of Committee',    name: comp.head_of_committee||'' },
+        { role: 'Requester',            name: comp.requester_name||'' },
+        { role: 'Requester Management', name: comp.requester_management||'' },
+        { role: 'Supply Chain Officer', name: comp.supply_chain_officer||'' },
+        { role: 'Head of Supply Chain', name: comp.head_of_supply_chain||'' },
+      ];
+    }
+    if (!_compSignatures.length) _compSignatures = defaultSignatures();
+
     renderCompForm(comp);
   } catch(e) { showToast(bl('Failed to load: ','فشل التحميل: ') + e.message, 'error'); }
 }
@@ -602,7 +783,6 @@ async function deleteComp(id) {
     bl('This will permanently delete the comparison and all vendor data.','سيتم حذف المقارنة وجميع بيانات الموردين نهائياً.'),
     async () => {
       try {
-        // Delete vendor rows first
         const allVds = await callAPI('getAll', { sheet: 'ComparisonVendors' });
         const oldVds = (allVds.rows || []).filter(v => String(v.comparison_id) === String(id));
         for (const v of oldVds) {
@@ -616,6 +796,21 @@ async function deleteComp(id) {
       } catch(e) { showToast(bl('Delete failed: ','فشل الحذف: ') + e.message, 'error'); }
     }
   );
+}
+
+// ── SIGNATURES HELPER FOR EXPORTS ──────────────────────
+
+function _sigsFromComp(comp) {
+  if (comp.signatures_json) {
+    try { return JSON.parse(comp.signatures_json); } catch {}
+  }
+  return [
+    { role: 'Head of Committee',    name: comp.head_of_committee||'' },
+    { role: 'Requester',            name: comp.requester_name||'' },
+    { role: 'Requester Management', name: comp.requester_management||'' },
+    { role: 'Supply Chain Officer', name: comp.supply_chain_officer||'' },
+    { role: 'Head of Supply Chain', name: comp.head_of_supply_chain||'' },
+  ];
 }
 
 // ── EXCEL EXPORT ───────────────────────────────────────
@@ -632,6 +827,7 @@ async function exportCompExcel(id) {
     delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
     payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
   const scored = scoreVendors(vds, w);
+  const sigs   = _sigsFromComp(comp);
   if (!window.XLSX){ showToast('SheetJS not loaded','error'); return; }
 
   const rows = [];
@@ -660,9 +856,9 @@ async function exportCompExcel(id) {
     Number(comp.winner_amount||scored[0]?.total_cost||0).toLocaleString(),comp.winner_comment||'']);
   rows.push([]);
   rows.push(['','Committee Signatures / توقيعات اللجنة']);
-  rows.push(['','Head of Committee / رئيس اللجنة','Requester / الطالب','Requester Mgmt / إدارة الطالب','SC Officer / مسؤول التوريد','Head of SC / رئيس التوريد']);
-  rows.push(['',comp.head_of_committee||'',comp.requester_name||'',comp.requester_management||'',comp.supply_chain_officer||'',comp.head_of_supply_chain||'']);
-  rows.push(['','________________','________________','________________','________________','________________']);
+  rows.push(['', ...sigs.map(s => s.role||'')]);
+  rows.push(['', ...sigs.map(s => s.name||'')]);
+  rows.push(['', ...sigs.map(() => '________________')]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:3},{wch:38},{wch:18},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12}];
@@ -687,6 +883,7 @@ async function exportCompPDF(id) {
     delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
     payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
   const scored = scoreVendors(vds, w);
+  const sigs   = _sigsFromComp(comp);
   if (!window.jspdf){ showToast('jsPDF not loaded','error'); return; }
 
   const {jsPDF} = window.jspdf;
@@ -752,10 +949,8 @@ async function exportCompPDF(id) {
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
   doc.text('Committee Signatures',14,y); y+=4;
   doc.autoTable({startY:y,
-    head:[['Head of Committee','Requester','Requester Mgmt','SC Officer','Head of SC']],
-    body:[[comp.head_of_committee||'',comp.requester_name||'',comp.requester_management||'',comp.supply_chain_officer||'',comp.head_of_supply_chain||''],
-          ['','','','',''],
-          ['________________','________________','________________','________________','________________']],
+    head:[sigs.map(s=>s.role||'—')],
+    body:[sigs.map(s=>s.name||''),sigs.map(()=>''),sigs.map(()=>'________________')],
     headStyles:{fillColor:[230,228,255],textColor:[60,50,120],fontSize:7},
     bodyStyles:{fontSize:8,minCellHeight:10},margin:{left:14,right:14}});
 
