@@ -4757,3 +4757,31 @@ body { overflow-x: hidden; }
   color: var(--accent-2);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   STAT CARDS — FIX TRUNCATED LABELS
+   Root cause: .stat-pill was a flex sibling eating ~80px of row space,
+   leaving the stat-body too narrow to show labels like "Total Expenses".
+   Fix: pull pill out of flex flow with absolute positioning so the
+   stat-body gets the full available width.
+══════════════════════════════════════════════════════════════════ */
+.stat-pill {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  /* flex props no longer needed */
+  flex-shrink: unset;
+  align-self: unset;
+  margin-top: 0;
+}
+
+/* Give the card right-padding so stat-value text doesn't slide under the pill */
+.stat-card {
+  padding-right: 70px;
+}
+
+/* Label can now use all available width — no truncation needed */
+.stat-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
