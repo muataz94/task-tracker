@@ -6,24 +6,37 @@ function escapeAttr(val) {
 
 const SHEET_FIELDS = {
   Tasks: [
-    { key: 'title',       label: 'Title',       type: 'text',     required: true },
-    { key: 'status',      label: 'Status',      type: 'select',   options: ['open','in_progress','done','overdue'], required: true, layout: 'half' },
-    { key: 'priority',    label: 'Priority',    type: 'select',   options: ['low','medium','high'], required: true, layout: 'half' },
-    { key: 'assignee',    label: 'Assignee',    type: 'datalist', sources: [['Tasks','assignee'], ['Users','name'], ['Users','email']], layout: 'half' },
-    { key: 'due_date',    label: 'Due Date',    type: 'date',     layout: 'half' },
-    { key: 'project',     label: 'Project',     type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true },
-    { key: 'description', label: 'Notes',       type: 'textarea' }
+    { key: 'title',            label: 'Title',          type: 'text',     required: true },
+    { key: 'status',           label: 'Status',         type: 'select',   options: ['open','in_progress','done','overdue'], required: true, layout: 'half' },
+    { key: 'priority',         label: 'Priority',       type: 'select',   options: ['low','medium','high'], required: true, layout: 'half' },
+    { key: 'assignee',         label: 'Assignee',       type: 'datalist', sources: [['Tasks','assignee'], ['Users','name'], ['Users','email']], layout: 'half' },
+    { key: 'due_date',         label: 'Due Date',       type: 'date',     layout: 'half' },
+    { key: 'start_date',       label: 'Start Date',     type: 'date',     layout: 'half' },
+    { key: 'completion_pct',   label: 'Progress %',     type: 'number',   layout: 'half' },
+    { key: 'project',          label: 'Project',        type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true, layout: 'half' },
+    { key: 'category',         label: 'Category',       type: 'datalist', sources: [['Tasks','category']], layout: 'half' },
+    { key: 'estimated_hours',  label: 'Est. Hours',     type: 'number',   layout: 'half' },
+    { key: 'actual_hours',     label: 'Actual Hours',   type: 'number',   layout: 'half' },
+    { key: 'tags',             label: 'Tags',           type: 'text' },
+    { key: 'description',      label: 'Notes',          type: 'textarea' }
   ],
   POs: [
     { key: 'po_number',         label: 'PO Number',         type: 'text',     required: true,  layout: 'half' },
     { key: 'supplier',          label: 'Supplier',          type: 'datalist', sources: [['POs','supplier']], required: true, layout: 'half' },
     { key: 'item_description',  label: 'Description',       type: 'datalist', sources: [['POs','item_description']] },
+    { key: 'category',          label: 'Category',          type: 'datalist', sources: [['POs','category'], ['Expenses','category']], layout: 'half' },
     { key: 'quantity',          label: 'Quantity',          type: 'number',   layout: 'half' },
     { key: 'unit_price',        label: 'Unit Price',        type: 'number',   layout: 'half' },
     { key: 'currency',          label: 'Currency',          type: 'select',   options: ['USD','IQD','EUR'], layout: 'half' },
     { key: 'status',            label: 'Status',            type: 'select',   options: ['draft','submitted','received','cancelled'], layout: 'half' },
+    { key: 'payment_status',    label: 'Payment Status',    type: 'select',   options: ['unpaid','partial','paid'], layout: 'half' },
+    { key: 'payment_terms',     label: 'Payment Terms',     type: 'select',   options: ['immediate','net_15','net_30','net_60','net_90'], layout: 'half' },
     { key: 'expected_delivery', label: 'Expected Delivery', type: 'date',     layout: 'half' },
+    { key: 'delivery_location', label: 'Delivery Location', type: 'datalist', sources: [['POs','delivery_location']], layout: 'half' },
     { key: 'requested_by',      label: 'Requested By',      type: 'datalist', sources: [['Users','name'], ['Users','email']], layout: 'half' },
+    { key: 'approved_by',       label: 'Approved By',       type: 'datalist', sources: [['Users','name'], ['Users','email']], layout: 'half' },
+    { key: 'invoice_number',    label: 'Invoice #',         type: 'text',     layout: 'half' },
+    { key: 'pr_reference',      label: 'PR Reference',      type: 'text',     layout: 'half' },
     { key: 'notes',             label: 'Notes',             type: 'textarea' }
   ],
   Milestones: [
