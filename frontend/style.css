@@ -4758,30 +4758,52 @@ body { overflow-x: hidden; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   STAT CARDS — FIX TRUNCATED LABELS
-   Root cause: .stat-pill was a flex sibling eating ~80px of row space,
-   leaving the stat-body too narrow to show labels like "Total Expenses".
-   Fix: pull pill out of flex flow with absolute positioning so the
-   stat-body gets the full available width.
+   STAT CARDS — VERTICAL LAYOUT REDESIGN
+   Root cause: horizontal row layout leaves the stat-body only ~30px
+   wide (icon 36 + gap 12 + pill ~80 + padding 40 = ~168px consumed),
+   not enough for labels like "TOTAL EXPENSES" (~98px).
+   Fix: switch to column layout — icon on top, label + value below at
+   full card width. Pill absolutely anchored top-right.
 ══════════════════════════════════════════════════════════════════ */
-.stat-pill {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  /* flex props no longer needed */
-  flex-shrink: unset;
-  align-self: unset;
-  margin-top: 0;
-}
 
-/* Give the card right-padding so stat-value text doesn't slide under the pill */
+/* Column layout: icon → label → value stacked vertically */
 .stat-card {
-  padding-right: 70px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem 1.25rem 1.1rem;
+  gap: 0;
 }
 
-/* Label can now use all available width — no truncation needed */
+/* Icon sits at top with spacing below */
+.stat-icon-wrap {
+  margin-bottom: 10px;
+}
+
+/* Body takes full card width — no more squeezing */
+.stat-body {
+  width: 100%;
+  gap: 3px;
+}
+
+/* Label now has ~120px+ of space — no truncation needed */
 .stat-label {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+/* Value slightly tighter to save vertical space */
+.stat-value {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+/* Pill anchored top-right, out of flow so it takes zero width */
+.stat-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  flex-shrink: unset;
+  align-self: unset;
+  margin-top: 0;
 }
