@@ -22,13 +22,6 @@ async function loadDashboard() {
     if (el) el.textContent = '...';
   });
 
-  // Show shimmer skeleton on stat grid before data loads
-  const statEl = document.querySelector('.stat-grid');
-  if (statEl && !statEl.dataset.loaded) {
-    statEl.innerHTML =
-      '<div class="skeleton skeleton-stat"></div>'.repeat(5);
-  }
-
   try {
     const dashData = await getDashboard();
 
@@ -50,7 +43,6 @@ async function loadDashboard() {
     animateCountUp('stat-expenses',   dashData.totalExpenses || 0, cPre, cSuf);
 
     window._lastDashData = dashData;
-    if (statEl) statEl.dataset.loaded = '1';
     renderTaskChart(dashData.taskSummary);
     renderPOChart(dashData.poByStatus);
     startDashboardRefresh();

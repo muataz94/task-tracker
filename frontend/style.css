@@ -149,22 +149,22 @@ html,
   --bg-elevated: #ffffff;
   --bg-hover:    #eef0ff;
 
-  --blob-1: rgba(80,  60, 180, 0.10);
-  --blob-2: rgba(60,  40, 160, 0.08);
-  --blob-3: rgba(0,  120, 140, 0.07);
-  --blob-4: rgba(50,  35, 150, 0.08);
+  --blob-1: rgba(80,  60, 180, 0.35);
+  --blob-2: rgba(100, 60, 200, 0.28);
+  --blob-3: rgba(0,  140, 160, 0.22);
+  --blob-4: rgba(60,  40, 180, 0.30);
 
-  --g1-bg:      rgba(255, 255, 255, 0.50);
-  --g1-border:  rgba(255, 255, 255, 0.80);
-  --g1-blur:    blur(48px) saturate(140%) brightness(102%);
+  --g1-bg:      rgba(255, 255, 255, 0.38);
+  --g1-border:  rgba(255, 255, 255, 0.70);
+  --g1-blur:    blur(48px) saturate(160%) brightness(103%);
 
-  --g2-bg:      rgba(255, 255, 255, 0.65);
-  --g2-border:  rgba(255, 255, 255, 0.88);
-  --g2-blur:    blur(24px) saturate(160%) brightness(104%);
+  --g2-bg:      rgba(255, 255, 255, 0.52);
+  --g2-border:  rgba(255, 255, 255, 0.80);
+  --g2-blur:    blur(24px) saturate(180%) brightness(106%);
 
-  --g3-bg:      rgba(255, 255, 255, 0.82);
-  --g3-border:  rgba(255, 255, 255, 0.95);
-  --g3-blur:    blur(32px) saturate(180%) brightness(106%);
+  --g3-bg:      rgba(255, 255, 255, 0.70);
+  --g3-border:  rgba(255, 255, 255, 0.92);
+  --g3-blur:    blur(32px) saturate(200%) brightness(108%);
 
   --glass-bg:        var(--g2-bg);
   --glass-bg-strong: var(--g3-bg);
@@ -276,8 +276,8 @@ body::after {
 
 [data-theme="light"] body::after {
   background:
-    radial-gradient(ellipse 45% 55% at 75% 25%, rgba(80, 60, 180, 0.06) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 18% 68%, rgba(0, 120, 140, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse 45% 55% at 75% 25%, rgba(100, 60, 200, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 18% 68%, rgba(0,  140, 160, 0.18) 0%, transparent 50%);
 }
 
 @keyframes blobDrift1 {
