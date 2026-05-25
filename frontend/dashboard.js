@@ -70,6 +70,19 @@ async function loadDashboard() {
     if (tasksSub) tasksSub.textContent = (tasks.length || 0) + ' total tasks';
 
     renderActivityFeed(tasks, expenses);
+    renderDashboardOverdueReminders(tasks);
+    // Background-fetch POs for overdue panel
+    const cachedPOs = tableData['POs'];
+    if (cachedPOs && cachedPOs.length) {
+      renderDashOverduePanel('pos', cachedPOs, false);
+      syncOverdueRowVisibility();
+    } else {
+      getAll('POs').then(r => {
+        tableData['POs'] = r.rows || [];
+        renderDashOverduePanel('pos', tableData['POs'], false);
+        syncOverdueRowVisibility();
+      }).catch(() => {});
+    }
 
   } catch (e) {
     console.error('Dashboard error:', e);
@@ -444,4 +457,99 @@ function renderActivityFeed(tasks, expenses) {
         <span class="activity-time">${timeStr}</span>
       </div>`;
   }).join('');
+}
+
+// ── Dashboard overdue reminder panels ───────────────────────────────────────
+
+function renderDashboardOverdueReminders(tasks) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overdue = (tasks || []).filter(r =>
+    r.status !== 'done' && r.due_date &&
+    new Date(String(r.due_date).split('T')[0]) < today
+  );
+  renderDashOverduePanel('tasks', overdue, true);
+  syncOverdueRowVisibility();
+  // Show enable-notifications button if permission not granted
+  updateNotifBtn('Tasks');
+}
+
+function renderDashOverduePanel(type, rows, isTaskPanel) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let overdue;
+  if (isTaskPanel) {
+    overdue = rows; // already filtered by caller
+  } else {
+    overdue = (rows || []).filter(r =>
+      !['received', 'cancelled'].includes(r.status) &&
+      r.expected_delivery &&
+      new Date(String(r.expected_delivery).split('T')[0]) < today
+    );
+  }
+
+  const countEl = document.getElementById('dop-' + type + '-count');
+  const listEl  = document.getElementById('dop-' + type + '-list');
+  if (!countEl || !listEl) return;
+
+  countEl.textContent = overdue.length;
+  countEl.style.color = overdue.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)';
+
+  if (!overdue.length) {
+    listEl.innerHTML = '<div class="dop-empty">No overdue items</div>';
+    if (type === 'pos') updateNotifBtn('POs');
+    return;
+  }
+
+  const shown = overdue.slice(0, 4);
+  listEl.innerHTML = shown.map(r => {
+    const dateStr = isTaskPanel ? (r.due_date || '') : (r.expected_delivery || '');
+    const daysAgo = dateStr
+      ? Math.floor((today - new Date(String(dateStr).split('T')[0])) / 86400000)
+      : 0;
+    const name = isTaskPanel
+      ? (r.title || '—')
+      : (r.po_number ? r.po_number + (r.supplier ? ' · ' + r.supplier : '') : (r.supplier || '—'));
+    return `
+      <div class="dop-item">
+        <div class="dop-item-name">${escapeHtml(String(name))}</div>
+        <span class="dop-days-badge">${daysAgo}d overdue</span>
+      </div>`;
+  }).join('');
+
+  if (overdue.length > 4) {
+    listEl.innerHTML += `<div class="dop-more">+${overdue.length - 4} more</div>`;
+  }
+
+  if (type === 'pos') updateNotifBtn('POs');
+}
+
+function syncOverdueRowVisibility() {
+  const row = document.getElementById('dash-overdue-row');
+  if (!row) return;
+  const tasksCount = parseInt(document.getElementById('dop-tasks-count')?.textContent || '0') || 0;
+  const posCount   = parseInt(document.getElementById('dop-pos-count')?.textContent   || '0') || 0;
+  // Always show the row — even 0 is informative
+  row.style.display = '';
+}
+
+function updateNotifBtn(sheetName) {
+  if (!('Notification' in window)) return;
+  const btnId = sheetName === 'Tasks' ? 'dop-notif-tasks' : 'dop-notif-pos';
+  const btn   = document.getElementById(btnId);
+  if (!btn) return;
+  if (Notification.permission === 'granted') {
+    btn.classList.add('hidden');
+  } else {
+    btn.classList.remove('hidden');
+  }
+}
+
+function requestNotifPermission(sheetName) {
+  if (!('Notification' in window)) return;
+  Notification.requestPermission().then(perm => {
+    if (perm === 'granted') {
+      localStorage.setItem('tt_notif_granted', 'true');
+      new Notification('Task Tracker', { body: 'Overdue notifications enabled ✓' });
+      updateNotifBtn(sheetName);
+    }
+  });
 }

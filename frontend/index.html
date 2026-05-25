@@ -270,6 +270,49 @@
             </div>
           </div>
 
+          <!-- Overdue reminder panels -->
+          <div class="dash-overdue-row" id="dash-overdue-row">
+            <div class="dash-overdue-panel glass" id="dash-overdue-tasks">
+              <div class="dop-header">
+                <div class="dop-icon dop-icon-tasks">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div class="dop-title-block">
+                  <span class="dop-label">Overdue Tasks</span>
+                  <span class="dop-count" id="dop-tasks-count">—</span>
+                </div>
+                <button class="dop-notif-btn hidden" id="dop-notif-tasks" onclick="requestNotifPermission('Tasks')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                  Enable Notifications
+                </button>
+              </div>
+              <div class="dop-list" id="dop-tasks-list"></div>
+              <button class="dop-view-all" onclick="navigateTo('tasks')">View all tasks →</button>
+            </div>
+            <div class="dash-overdue-panel glass" id="dash-overdue-pos">
+              <div class="dop-header">
+                <div class="dop-icon dop-icon-pos">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                  </svg>
+                </div>
+                <div class="dop-title-block">
+                  <span class="dop-label">Overdue POs</span>
+                  <span class="dop-count" id="dop-pos-count">—</span>
+                </div>
+                <button class="dop-notif-btn hidden" id="dop-notif-pos" onclick="requestNotifPermission('POs')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                  Enable Notifications
+                </button>
+              </div>
+              <div class="dop-list" id="dop-pos-list"></div>
+              <button class="dop-view-all" onclick="navigateTo('pos')">View all POs →</button>
+            </div>
+          </div>
+
           <!-- Tabbed pivot table -->
           <div class="pivot-section glass" style="border-radius:var(--r-md);margin-bottom:1rem;overflow:hidden;">
             <div class="pivot-tabs">
@@ -395,11 +438,18 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
                 PDF
               </button>
+              <button class="btn-cf" onclick="openCustomFields('Tasks')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Fields
+              </button>
               <button class="btn-add" data-sheet="Tasks" data-i18n="add_task">+ Add Task</button>
             </div>
           </div>
           <div class="filter-bar glass">
-            <input type="text" id="filter-Tasks" class="filter-input" placeholder="Search tasks..." oninput="renderTable('Tasks')" />
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="filter-Tasks" class="filter-input" placeholder="Search tasks..." oninput="renderTable('Tasks')" />
+            </div>
             <select id="filter-Tasks-project" class="filter-select" onchange="renderTable('Tasks')">
               <option value="">All Projects</option>
             </select>
@@ -441,11 +491,18 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
                 PDF
               </button>
+              <button class="btn-cf" onclick="openCustomFields('POs')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Fields
+              </button>
               <button class="btn-add" data-sheet="POs" data-i18n="add_po">+ Add PO</button>
             </div>
           </div>
           <div class="filter-bar glass">
-            <input type="text" id="filter-POs" class="filter-input" placeholder="Search POs..." oninput="renderTable('POs')" />
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="filter-POs" class="filter-input" placeholder="Search POs..." oninput="renderTable('POs')" />
+            </div>
             <select id="filter-POs-project" class="filter-select" onchange="renderTable('POs')">
               <option value="">All Projects</option>
             </select>
@@ -482,7 +539,10 @@
             </div>
           </div>
           <div class="filter-bar glass">
-            <input type="text" id="filter-Milestones" class="filter-input" placeholder="Search milestones..." oninput="renderTable('Milestones')" />
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="filter-Milestones" class="filter-input" placeholder="Search milestones..." oninput="renderTable('Milestones')" />
+            </div>
             <select id="filter-Milestones-project" class="filter-select" onchange="renderTable('Milestones')">
               <option value="">All Projects</option>
             </select>
@@ -519,7 +579,10 @@
             </div>
           </div>
           <div class="filter-bar glass">
-            <input type="text" id="filter-Expenses" class="filter-input" placeholder="Search expenses..." oninput="renderTable('Expenses')" />
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="filter-Expenses" class="filter-input" placeholder="Search expenses..." oninput="renderTable('Expenses')" />
+            </div>
             <select id="filter-Expenses-project" class="filter-select" onchange="renderTable('Expenses')">
               <option value="">All Projects</option>
             </select>
@@ -1554,6 +1617,40 @@
     <svg class="deco-svg deco-3" viewBox="0 0 60 60" fill="none">
       <polygon points="30,5 55,50 5,50" stroke="var(--accent-green)" stroke-width="0.5" opacity="0.12"/>
     </svg>
+  </div>
+
+  <!-- ── CUSTOM FIELDS PANEL ── -->
+  <div id="cf-overlay" class="cf-overlay hidden" onclick="closeCustomFields()"></div>
+  <div id="cf-panel" class="cf-panel hidden">
+    <div class="cf-panel-header">
+      <div class="cf-panel-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span id="cf-panel-heading">Custom Fields</span>
+      </div>
+      <button class="cf-panel-close" onclick="closeCustomFields()">✕</button>
+    </div>
+    <div class="cf-panel-body">
+      <div id="cf-list"></div>
+      <div class="cf-add-form">
+        <div class="cf-add-title">Add a new field</div>
+        <div class="cf-add-row">
+          <input type="text" id="cf-label-input" class="cf-input" placeholder="Field label" />
+          <select id="cf-type-select" class="cf-select" onchange="toggleCFOptions()">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="select">Select</option>
+          </select>
+        </div>
+        <div id="cf-options-row" class="cf-options-row hidden">
+          <input type="text" id="cf-options-input" class="cf-input" placeholder="Options, comma-separated (e.g. Yes,No,Maybe)" />
+        </div>
+        <button class="cf-add-btn" onclick="addCustomField()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Field
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Floating chat bubble -->

@@ -152,12 +152,16 @@ function renderTable(sheetName) {
             <tr>
               ${fields.map(f => `<td>${formatCell(f, row[f.key])}</td>`).join('')}
               <td class="actions-cell">
-                <button class="btn-edit"
+                <button class="btn-edit btn-icon-action"
                   data-sheet="${escapeAttr(sheetName)}" data-id="${escapeAttr(row.id)}"
-                  onclick="openEditModal(this.dataset.sheet, this.dataset.id)">Edit</button>
-                <button class="btn-delete"
+                  onclick="openEditModal(this.dataset.sheet, this.dataset.id)" title="Edit">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn-delete btn-icon-action"
                   data-sheet="${escapeAttr(sheetName)}" data-id="${escapeAttr(row.id)}"
-                  onclick="confirmDelete(this.dataset.sheet, this.dataset.id)">Delete</button>
+                  onclick="confirmDelete(this.dataset.sheet, this.dataset.id)" title="Delete">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                </button>
               </td>
             </tr>`).join('') : `
             <tr>
@@ -178,6 +182,28 @@ function renderTable(sheetName) {
     subEl.textContent = rows.length + ' records';
   }
   if (sheetName === 'Tasks' || sheetName === 'POs') updateReminderBar(sheetName);
+}
+
+// ── Browser push notification for overdue items (once per day)
+function sendOverdueNotification(sheetName, overdueItems) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  const today = new Date().toISOString().split('T')[0];
+  const key   = 'tt_notif_' + sheetName + '_' + today;
+  if (localStorage.getItem(key)) return; // already sent today
+  localStorage.setItem(key, '1');
+  const label = sheetName === 'Tasks' ? 'task' : 'PO';
+  const count = overdueItems.length;
+  const first = sheetName === 'Tasks'
+    ? (overdueItems[0].title || '—')
+    : (overdueItems[0].po_number || overdueItems[0].supplier || '—');
+  const body = count === 1
+    ? `"${first}" is past its deadline`
+    : `${first} and ${count - 1} other ${label}${count - 1 > 1 ? 's' : ''} are past deadline`;
+  new Notification(`Task Tracker — ${count} overdue ${label}${count > 1 ? 's' : ''}`, {
+    body,
+    icon: 'assets/favicon.svg'
+  });
 }
 
 // ── Overdue reminder bar (Tasks + POs)
@@ -249,6 +275,7 @@ function updateReminderBar(sheetName) {
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>`;
+  if (overdue.length) sendOverdueNotification(sheetName, overdue);
   bar.classList.remove('hidden');
 }
 
@@ -367,6 +394,11 @@ function buildModalForm(sheetName, data) {
       i++;
     }
   }
+  const customFields = JSON.parse(localStorage.getItem('tt_cf_' + sheetName) || '[]');
+  if (customFields.length) {
+    html.push('<div class="cf-section-divider"><span>Custom Fields</span></div>');
+    customFields.forEach(cf => html.push(renderField(cf)));
+  }
   body.innerHTML = html.join('');
 }
 
@@ -386,6 +418,13 @@ async function saveModal() {
     }
     el.classList.remove('invalid');
     payload[f.key] = el.value;
+  }
+
+  // Collect custom fields
+  const customFieldDefs = JSON.parse(localStorage.getItem('tt_cf_' + currentSheet) || '[]');
+  for (const cf of customFieldDefs) {
+    const el = body.querySelector('[name="' + cf.key + '"]');
+    if (el) payload[cf.key] = el.value;
   }
 
   const saveBtn = document.getElementById('modal-save');
@@ -475,5 +514,87 @@ function renderBudgetTracker(expenses) {
   if (sub && budget > 0) {
     sub.setAttribute('data-updated', '1');
     sub.innerHTML = `<span style="color:${color}">${spent.toLocaleString()} spent of ${budget.toLocaleString()} budget (${Math.round(pct)}%)</span>`;
+  }
+}
+
+// ── Custom Fields Panel ──────────────────────────────────────────────────────
+
+let _cfCurrentSheet = null;
+
+function openCustomFields(sheetName) {
+  _cfCurrentSheet = sheetName;
+  const heading = document.getElementById('cf-panel-heading');
+  if (heading) heading.textContent = sheetName + ' — Custom Fields';
+  renderCFList();
+  document.getElementById('cf-panel').classList.remove('hidden');
+  document.getElementById('cf-overlay').classList.remove('hidden');
+}
+
+function closeCustomFields() {
+  document.getElementById('cf-panel').classList.add('hidden');
+  document.getElementById('cf-overlay').classList.add('hidden');
+  _cfCurrentSheet = null;
+}
+
+function renderCFList() {
+  const list   = document.getElementById('cf-list');
+  if (!list) return;
+  const fields = JSON.parse(localStorage.getItem('tt_cf_' + _cfCurrentSheet) || '[]');
+  if (!fields.length) {
+    list.innerHTML = '<div class="cf-empty">No custom fields yet.</div>';
+    return;
+  }
+  list.innerHTML = fields.map((cf, idx) => `
+    <div class="cf-item">
+      <div class="cf-item-info">
+        <span class="cf-item-label">${escapeAttr(cf.label)}</span>
+        <span class="cf-item-type">${cf.type}</span>
+      </div>
+      <button class="cf-remove-btn" onclick="removeCustomField(${idx})" title="Remove field">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>`).join('');
+}
+
+function addCustomField() {
+  const labelInput   = document.getElementById('cf-label-input');
+  const typeSelect   = document.getElementById('cf-type-select');
+  const optionsInput = document.getElementById('cf-options-input');
+  if (!labelInput || !typeSelect) return;
+  const label = labelInput.value.trim();
+  if (!label) { labelInput.focus(); return; }
+  const type    = typeSelect.value;
+  const key     = 'cf_' + label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const fields  = JSON.parse(localStorage.getItem('tt_cf_' + _cfCurrentSheet) || '[]');
+  const newField = { key, label, type };
+  if (type === 'select' && optionsInput) {
+    newField.options = optionsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  fields.push(newField);
+  localStorage.setItem('tt_cf_' + _cfCurrentSheet, JSON.stringify(fields));
+  labelInput.value = '';
+  if (optionsInput) optionsInput.value = '';
+  typeSelect.value = 'text';
+  toggleCFOptions();
+  renderCFList();
+}
+
+function removeCustomField(idx) {
+  const fields = JSON.parse(localStorage.getItem('tt_cf_' + _cfCurrentSheet) || '[]');
+  fields.splice(idx, 1);
+  localStorage.setItem('tt_cf_' + _cfCurrentSheet, JSON.stringify(fields));
+  renderCFList();
+}
+
+function toggleCFOptions() {
+  const typeSelect  = document.getElementById('cf-type-select');
+  const optionsRow  = document.getElementById('cf-options-row');
+  if (!typeSelect || !optionsRow) return;
+  if (typeSelect.value === 'select') {
+    optionsRow.classList.remove('hidden');
+  } else {
+    optionsRow.classList.add('hidden');
   }
 }
