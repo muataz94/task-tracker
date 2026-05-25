@@ -6,22 +6,25 @@ function escapeAttr(val) {
 
 const SHEET_FIELDS = {
   Tasks: [
-    { key: 'title',    label: 'Title',    type: 'text',     required: true },
-    { key: 'status',   label: 'Status',   type: 'select',   options: ['open','in_progress','done','overdue'], required: true },
-    { key: 'priority', label: 'Priority', type: 'select',   options: ['low','medium','high'], required: true },
-    { key: 'assignee', label: 'Assignee', type: 'datalist', sources: [['Tasks','assignee'], ['Users','name'], ['Users','email']] },
-    { key: 'due_date', label: 'Due Date', type: 'date' },
-    { key: 'project',  label: 'Project',  type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true }
+    { key: 'title',       label: 'Title',       type: 'text',     required: true },
+    { key: 'status',      label: 'Status',      type: 'select',   options: ['open','in_progress','done','overdue'], required: true, layout: 'half' },
+    { key: 'priority',    label: 'Priority',    type: 'select',   options: ['low','medium','high'], required: true, layout: 'half' },
+    { key: 'assignee',    label: 'Assignee',    type: 'datalist', sources: [['Tasks','assignee'], ['Users','name'], ['Users','email']], layout: 'half' },
+    { key: 'due_date',    label: 'Due Date',    type: 'date',     layout: 'half' },
+    { key: 'project',     label: 'Project',     type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true },
+    { key: 'description', label: 'Notes',       type: 'textarea' }
   ],
   POs: [
-    { key: 'po_number',         label: 'PO Number',         type: 'text',     required: true },
-    { key: 'supplier',          label: 'Supplier',          type: 'datalist', sources: [['POs','supplier']],         required: true },
+    { key: 'po_number',         label: 'PO Number',         type: 'text',     required: true,  layout: 'half' },
+    { key: 'supplier',          label: 'Supplier',          type: 'datalist', sources: [['POs','supplier']], required: true, layout: 'half' },
     { key: 'item_description',  label: 'Description',       type: 'datalist', sources: [['POs','item_description']] },
-    { key: 'quantity',          label: 'Quantity',          type: 'number' },
-    { key: 'unit_price',        label: 'Unit Price',        type: 'number' },
-    { key: 'currency',          label: 'Currency',          type: 'select',   options: ['USD','IQD','EUR'] },
-    { key: 'status',            label: 'Status',            type: 'select',   options: ['draft','submitted','received','cancelled'] },
-    { key: 'expected_delivery', label: 'Expected Delivery', type: 'date' }
+    { key: 'quantity',          label: 'Quantity',          type: 'number',   layout: 'half' },
+    { key: 'unit_price',        label: 'Unit Price',        type: 'number',   layout: 'half' },
+    { key: 'currency',          label: 'Currency',          type: 'select',   options: ['USD','IQD','EUR'], layout: 'half' },
+    { key: 'status',            label: 'Status',            type: 'select',   options: ['draft','submitted','received','cancelled'], layout: 'half' },
+    { key: 'expected_delivery', label: 'Expected Delivery', type: 'date',     layout: 'half' },
+    { key: 'requested_by',      label: 'Requested By',      type: 'datalist', sources: [['Users','name'], ['Users','email']], layout: 'half' },
+    { key: 'notes',             label: 'Notes',             type: 'textarea' }
   ],
   Milestones: [
     { key: 'project',        label: 'Project',    type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true },
@@ -326,43 +329,45 @@ function buildModalForm(sheetName, data) {
   const fields = SHEET_FIELDS[sheetName];
   const body   = document.getElementById('modal-body');
   const prefs  = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
-  body.innerHTML = fields.map(f => {
+
+  function renderField(f) {
     let val = data[f.key] !== undefined ? data[f.key] : '';
-    // Apply defaults from prefs for new (empty) records
     if (!val && sheetName === 'Tasks') {
       if (f.key === 'assignee' && prefs.defaultAssignee) val = prefs.defaultAssignee;
       if (f.key === 'project'  && prefs.defaultProject)  val = prefs.defaultProject;
     }
-    // Handle Date objects
     if (val instanceof Date) val = val.toISOString().split('T')[0];
+    const lbl = `<label>${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>`;
     if (f.type === 'select') {
       const opts = f.options.map(o =>
         `<option value="${o}" ${String(val) === o ? 'selected' : ''}>${o.replace(/_/g,' ')}</option>`
       ).join('');
-      return `
-        <div class="form-group">
-          <label>${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-          <select name="${f.key}">${opts}</select>
-        </div>`;
+      return `<div class="form-group">${lbl}<select name="${f.key}">${opts}</select></div>`;
     }
     if (f.type === 'datalist') {
       const dlId   = 'dl-' + f.key + '-' + sheetName;
       const dlOpts = getDynamicOptions(f).map(o => `<option value="${escapeAttr(o)}">`).join('');
-      return `
-        <div class="form-group">
-          <label>${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-          <input type="text" name="${f.key}" value="${escapeAttr(val)}"
-            list="${dlId}" autocomplete="off" ${f.required ? 'required' : ''} />
-          <datalist id="${dlId}">${dlOpts}</datalist>
-        </div>`;
+      return `<div class="form-group">${lbl}<input type="text" name="${f.key}" value="${escapeAttr(val)}" list="${dlId}" autocomplete="off" ${f.required ? 'required' : ''} /><datalist id="${dlId}">${dlOpts}</datalist></div>`;
     }
-    return `
-      <div class="form-group">
-        <label>${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <input type="${f.type || 'text'}" name="${f.key}"
-          value="${escapeAttr(val)}" ${f.required ? 'required' : ''} />
-      </div>`;
-  }).join('');
+    if (f.type === 'textarea') {
+      return `<div class="form-group">${lbl}<textarea name="${f.key}" rows="3" ${f.required ? 'required' : ''}>${escapeAttr(val)}</textarea></div>`;
+    }
+    return `<div class="form-group">${lbl}<input type="${f.type || 'text'}" name="${f.key}" value="${escapeAttr(val)}" ${f.required ? 'required' : ''} /></div>`;
+  }
+
+  // Pair consecutive `layout:'half'` fields into two-column rows
+  const html = [];
+  let i = 0;
+  while (i < fields.length) {
+    if (fields[i].layout === 'half' && i + 1 < fields.length && fields[i + 1].layout === 'half') {
+      html.push(`<div class="form-row">${renderField(fields[i])}${renderField(fields[i + 1])}</div>`);
+      i += 2;
+    } else {
+      html.push(renderField(fields[i]));
+      i++;
+    }
+  }
+  body.innerHTML = html.join('');
 }
 
 // ── Save modal (add or update)

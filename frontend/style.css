@@ -1012,7 +1012,7 @@ tr:hover td { background: rgba(255, 255, 255, 0.04); color: var(--text-1); }
 
 #modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
+  padding: 1.1rem 1.5rem 1.1rem; border-bottom: 1px solid var(--border);
   position: relative;
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
@@ -3745,5 +3745,118 @@ body { overflow-x: hidden; }
       "about";
   }
   .export-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODAL FORM — LAYOUT, TEXTAREA, LIGHT-MODE POLISH
+══════════════════════════════════════════════════════════════════ */
+
+/* Two-column form row */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 480px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+
+/* Textarea */
+.form-group textarea {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-group textarea::placeholder { color: var(--text-4); }
+.form-group textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+/* Modal rainbow accent bar — on header so it stays inside overflow:hidden */
+#modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--accent) 0%, #a78bfa 50%, #60a5fa 100%);
+  z-index: 11;
+  pointer-events: none;
+}
+
+/* ── Light mode: stronger backdrop blur */
+[data-theme="light"] #modal-overlay {
+  background: rgba(50,50,90,0.22);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+}
+
+/* ── Light mode: modal glass surface */
+[data-theme="light"] #modal {
+  background: linear-gradient(155deg, rgba(255,255,255,0.97) 0%, rgba(242,242,255,0.93) 100%);
+  border: 1px solid rgba(99,102,241,0.22);
+  box-shadow:
+    0 28px 72px rgba(99,102,241,0.15),
+    0 8px 28px rgba(0,0,0,0.07),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+[data-theme="light"] #modal-header {
+  background: linear-gradient(155deg, rgba(255,255,255,0.99) 0%, rgba(248,248,255,0.95) 100%);
+  border-bottom: 1px solid rgba(99,102,241,0.11);
+}
+[data-theme="light"] #modal-footer {
+  background: rgba(245,245,255,0.97);
+  border-top: 1px solid rgba(99,102,241,0.09);
+}
+
+/* ── Light mode: form inputs — visible against white modal */
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea {
+  background: rgba(99,102,241,0.04);
+  border: 1.5px solid rgba(99,102,241,0.18);
+  color: var(--text-1);
+}
+[data-theme="light"] .form-group input::placeholder,
+[data-theme="light"] .form-group textarea::placeholder {
+  color: rgba(80,80,110,0.40);
+}
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus {
+  background: rgba(99,102,241,0.07);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.14);
+}
+[data-theme="light"] .form-group label {
+  color: rgba(55,55,80,0.72);
+}
+[data-theme="light"] .form-group select option {
+  background: #ffffff;
+  color: var(--text-1);
+}
+[data-theme="light"] #modal-close {
+  background: rgba(99,102,241,0.06);
+  border-color: rgba(99,102,241,0.16);
+}
+[data-theme="light"] #modal-cancel {
+  background: rgba(99,102,241,0.05);
+  border-color: rgba(99,102,241,0.16);
+  color: var(--text-2);
+}
+[data-theme="light"] #modal-cancel:hover {
+  background: rgba(99,102,241,0.10);
+  color: var(--text-1);
 }
 
