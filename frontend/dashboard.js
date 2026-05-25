@@ -61,6 +61,7 @@ async function loadDashboard() {
     renderPivotTasks(tasks);
     renderPivotExpenses(expenses);
     renderPivotActivity(tasks, expenses, milestones);
+    autoMarkOverdue(tasks, 'Tasks');
     updateOverdueBadge(tasks);
 
     const countEl = document.getElementById('pivot-count');
@@ -74,11 +75,13 @@ async function loadDashboard() {
     // Background-fetch POs for overdue panel
     const cachedPOs = tableData['POs'];
     if (cachedPOs && cachedPOs.length) {
+      autoMarkOverdue(cachedPOs, 'POs');
       renderDashOverduePanel('pos', cachedPOs, false);
       syncOverdueRowVisibility();
     } else {
       getAll('POs').then(r => {
         tableData['POs'] = r.rows || [];
+        autoMarkOverdue(tableData['POs'], 'POs');
         renderDashOverduePanel('pos', tableData['POs'], false);
         syncOverdueRowVisibility();
       }).catch(() => {});
@@ -410,6 +413,56 @@ function updateOverdueBadge(tasks) {
     el.textContent = count;
     el.style.display = count > 0 ? 'flex' : 'none';
   });
+}
+
+// ── Auto-mark past-deadline items as overdue + send browser notification
+function autoMarkOverdue(rows, sheetName) {
+  if (!rows || !rows.length) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Clean up keys from previous days so localStorage stays tidy
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('tt_ao_' + sheetName + '_') && !k.endsWith(todayStr))
+    .forEach(k => localStorage.removeItem(k));
+
+  const storageKey = 'tt_ao_' + sheetName + '_' + todayStr;
+  const alreadyUpdated = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+
+  const nowOverdue = rows.filter(r => {
+    const terminal = sheetName === 'Tasks'
+      ? (r.status === 'done' || r.status === 'overdue')
+      : (['received', 'cancelled', 'overdue'].includes(r.status));
+    if (terminal) return false;
+    const d = sheetName === 'Tasks' ? r.due_date : r.expected_delivery;
+    if (!d) return false;
+    return new Date(String(d).split('T')[0]) < today;
+  });
+
+  const toUpdate = nowOverdue.filter(r => !alreadyUpdated.has(String(r.id)));
+
+  if (toUpdate.length) {
+    // Update in-memory immediately so UI sees correct status before API responds
+    toUpdate.forEach(r => { r.status = 'overdue'; });
+    toUpdate.forEach(r => alreadyUpdated.add(String(r.id)));
+    localStorage.setItem(storageKey, JSON.stringify([...alreadyUpdated]));
+
+    // Fire-and-forget: write status to backend for each newly-overdue item
+    toUpdate.forEach(r => {
+      updateRow(sheetName, r.id, { status: 'overdue' }).catch(err => {
+        console.warn('[autoMarkOverdue] failed for', sheetName, r.id, '—', err.message);
+        // Remove from persisted set so it retries on next load
+        alreadyUpdated.delete(String(r.id));
+        localStorage.setItem(storageKey, JSON.stringify([...alreadyUpdated]));
+      });
+    });
+  }
+
+  // Send browser push notification once per day for all overdue items
+  const allOverdue = rows.filter(r => r.status === 'overdue');
+  if (allOverdue.length && typeof sendOverdueNotification === 'function') {
+    sendOverdueNotification(sheetName, allOverdue);
+  }
 }
 
 function renderActivityFeed(tasks, expenses) {
