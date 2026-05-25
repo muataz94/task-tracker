@@ -240,7 +240,7 @@ function renderCompForm(comp) {
     <!-- Actions -->
     <div class="qc-actions">
       <button class="btn-export" onclick="cancelCompForm()">${bl('Cancel','إلغاء')}</button>
-      <button class="btn-export" onclick="recalcScores()">↻ ${bl('Recalculate','إعادة حساب')}</button>
+      <button class="btn-export" onclick="manualRecalc()">↻ ${bl('Recalculate','إعادة حساب')}</button>
       <button class="btn-primary" id="qf-save-btn" onclick="saveCompForm()">
         ${comp ? bl('Update Comparison','تحديث المقارنة') : bl('Save Comparison','حفظ المقارنة')}
       </button>
@@ -557,11 +557,25 @@ function scoreVendors(vendors, weights) {
 }
 
 function recalcScores() {
+  // Re-read all vendor inputs fresh from DOM before calculating
+  document.querySelectorAll('.qc-vrow').forEach((row, i) => {
+    if (!_compVendors[i]) return;
+    const inputs = row.querySelectorAll('input[type="text"], input[type="number"]');
+    const keys   = ['vendor_name','annex_ref','total_cost','spec_compliance',
+                    'installation_compliance','delivery_days','warranty_months',
+                    'payment_compliance','commitment_pct'];
+    inputs.forEach((inp, fi) => { if (keys[fi]) _compVendors[i][keys[fi]] = inp.value; });
+  });
   const w      = getWeights();
   const scored = scoreVendors(_compVendors, w);
   renderScoresTable(scored);
   updateWinnerDisplay(scored);
   return scored;
+}
+
+function manualRecalc() {
+  recalcScores();
+  showToast(bl('Scores recalculated ✓', 'تم إعادة حساب النقاط ✓'), 'success');
 }
 
 // ── COLOR CODING ───────────────────────────────────────
@@ -830,134 +844,400 @@ function _sigsFromComp(comp) {
 // ── CORE EXPORT HELPERS ────────────────────────────────
 
 function _exportExcelFromData(comp, scored, sigs) {
-  if (!window.XLSX){ showToast('SheetJS not loaded','error'); return; }
+  if (!window.XLSX) { showToast('SheetJS not loaded', 'error'); return; }
 
-  const rows = [];
-  rows.push(['','جدول مقارنة العطاءات النهائية — Final Bids Comparison Table']);
-  rows.push([]);
-  rows.push(['','Request Description / وصف الطلب:',comp.request_description||'','','','Dept / الجهة:',comp.requesting_dept||'']);
-  rows.push(['','PR Number / رقم الطلب:',comp.pr_number||'','','','Awarding Date / تاريخ الترسية:',comp.awarding_date?String(comp.awarding_date).split('T')[0]:'']);
-  rows.push(['','Request Date / تاريخ الطلب:',comp.request_date?String(comp.request_date).split('T')[0]:'','','','Total Value / القيمة:',`${Number(comp.total_pr_value||0).toLocaleString()} ${comp.currency||''}`]);
-  rows.push([]);
-  rows.push(['','Vendors Data / بيانات الموردين']);
-  rows.push(['','Vendor Name / المورد','Total Cost / التكلفة','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commit %']);
-  scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),v.total_cost,v.spec_compliance,v.installation_compliance,v.delivery_days,v.warranty_months,v.payment_compliance,v.commitment_pct]));
-  rows.push([]);
-  rows.push(['','Scores / النقاط']);
-  rows.push(['','Vendor / المورد','Price','Requirements','Delivery','Warranty','Payment','Commitment','TOTAL']);
-  scored.forEach(v=>rows.push(['',v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
-    parseFloat(v.price_score||0).toFixed(2),parseFloat(v.requirements_score||0).toFixed(2),
-    parseFloat(v.delivery_score||0).toFixed(2),parseFloat(v.warranty_score||0).toFixed(2),
-    parseFloat(v.payment_score||0).toFixed(2),parseFloat(v.commitment_score||0).toFixed(2),
-    parseFloat(v.total_score||0).toFixed(2)]));
-  rows.push([]);
-  rows.push(['','Winning Bid / العطاء الفائز']);
-  rows.push(['','Winner / الفائز','','Score / النقاط','','Amount / المبلغ','Comment / ملاحظة']);
-  rows.push(['',comp.winner_vendor||scored[0]?.vendor_name||'','',
-    parseFloat(comp.winner_score||scored[0]?.total_score||0).toFixed(2),'',
-    Number(comp.winner_amount||scored[0]?.total_cost||0).toLocaleString(),comp.winner_comment||'']);
-  rows.push([]);
-  rows.push(['','Committee Signatures / توقيعات اللجنة']);
-  rows.push(['', ...sigs.map(s => s.role||'')]);
-  rows.push(['', ...sigs.map(s => s.name||'')]);
-  rows.push(['', ...sigs.map(() => '________________')]);
+  const company  = typeof getCompanyName === 'function' ? getCompanyName() : 'Task Tracker';
+  const currency = comp.currency || 'IQD';
+  const w = {
+    price:        parseFloat(comp.w_price        ?? 40),
+    requirements: parseFloat(comp.w_requirements ?? 30),
+    delivery:     parseFloat(comp.w_delivery     ?? 10),
+    warranty:     parseFloat(comp.w_warranty     ?? 10),
+    payment:      parseFloat(comp.w_payment      ??  5),
+    commitment:   parseFloat(comp.w_commitment   ??  5),
+  };
+  const currFmt = currency === 'IQD' ? '"IQD "#,##0' :
+                  currency === 'USD' ? '"USD $"#,##0.00' :
+                  currency === 'EUR' ? '"EUR €"#,##0.00' : `"${currency} "#,##0`;
+  const fmtDate = d => {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}); }
+    catch { return String(d).split('T')[0]; }
+  };
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:3},{wch:38},{wch:18},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12}];
-  ws['!dir']='rtl';
+  const R = [];
+  // Row 0–1: title
+  R.push([`★ ${company}  —  Final Bids Comparison Table`,'','','','','','','','']);
+  R.push(['Equipment & Services — Final Evaluation Report','','','','','','','','']);
+  R.push(new Array(9).fill(''));
+  // Rows 3–6: header info
+  R.push(['Request Description:', comp.request_description||'','','','Department:',    comp.requesting_dept||'','','','']);
+  R.push(['PR Number:',           comp.pr_number||'',          '','','Awarding Date:', fmtDate(comp.awarding_date),'','','']);
+  R.push(['Request Date:',        fmtDate(comp.request_date),  '','','Total PR Value:',parseFloat(comp.total_pr_value)||0,'','','']);
+  R.push(['Delivery Term:',       `${parseFloat(comp.delivery_term_days)||35} days`,'','','Warranty Term:',`${parseFloat(comp.warranty_term_months)||12} months`,'','','']);
+  R.push(new Array(9).fill(''));
+
+  // Vendors section
+  const secV = R.length;
+  R.push(['VENDORS DATA TABLE','','','','','','','','']);
+  R.push([`Vendor Name`,`Total Cost (${currency})`,'Spec %','Install %','Delivery (Days)','Warranty (Mo.)','Payment %','Commitment %','Annex Ref.']);
+  const vS = R.length;
+  scored.forEach(v => R.push([
+    v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
+    parseFloat(v.total_cost)||0,
+    parseFloat(v.spec_compliance)||0,
+    parseFloat(v.installation_compliance)||0,
+    parseFloat(v.delivery_days)||0,
+    parseFloat(v.warranty_months)||0,
+    parseFloat(v.payment_compliance)||0,
+    parseFloat(v.commitment_pct)||0,
+    v.annex_ref||''
+  ]));
+  const vE = R.length - 1;
+  R.push(new Array(9).fill(''));
+  R.push([`SCORING WEIGHTS:`,`Price:${w.price}`,`Req:${w.requirements}`,`Del:${w.delivery}`,`War:${w.warranty}`,`Pay:${w.payment}`,`Com:${w.commitment}`,'Total:100','']);
+  R.push(new Array(9).fill(''));
+
+  // Scores section
+  const secS = R.length;
+  R.push(['EVALUATION SCORES TABLE','','','','','','','','']);
+  R.push([`Vendor Name`,`Price (${w.price})`,`Req (${w.requirements})`,`Del (${w.delivery})`,`War (${w.warranty})`,`Pay (${w.payment})`,`Com (${w.commitment})`,'TOTAL SCORE','Rank']);
+  const sS = R.length;
+  scored.forEach((v,i) => R.push([
+    (i===0?'★ ':'')+v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
+    parseFloat(v.price_score||0), parseFloat(v.requirements_score||0),
+    parseFloat(v.delivery_score||0), parseFloat(v.warranty_score||0),
+    parseFloat(v.payment_score||0), parseFloat(v.commitment_score||0),
+    parseFloat(v.total_score||0), i+1
+  ]));
+  const sE = R.length - 1;
+  R.push(new Array(9).fill(''));
+
+  // Winner section
+  const secW = R.length;
+  R.push(['WINNING BID','','','','','','','','']);
+  const wHdr = R.length;
+  R.push([`Winning Supplier`,'Total Score','',`Amount (${currency})`,'','Comment / Recommendation','','','']);
+  const wData = R.length;
+  const wRec = scored[0]||{};
+  R.push([
+    comp.winner_vendor||wRec.vendor_name||'',
+    parseFloat(comp.winner_score||wRec.total_score||0), '',
+    parseFloat(comp.winner_amount||wRec.total_cost||0), '',
+    comp.winner_comment||'', '','',''
+  ]);
+  R.push(new Array(9).fill(''));
+
+  // Signatures section
+  const secSig = R.length;
+  R.push(['COMMITTEE SIGNATURES','','','','','','','','']);
+  const pad = n => [...new Array(Math.max(0, n))].map(()=>'');
+  R.push([...sigs.map(s=>s.role||''),  ...pad(9-sigs.length)]);
+  R.push([...sigs.map(s=>s.name||''),  ...pad(9-sigs.length)]);
+  R.push(new Array(9).fill(''));
+  R.push([...sigs.map(()=>'________________'), ...pad(9-sigs.length)]);
+  R.push(new Array(9).fill(''));
+  const footR = R.length;
+  R.push([`★ ${company}`,'',`PR: ${comp.pr_number||'—'}`,'',`Generated: ${new Date().toLocaleDateString('en-GB')}`,'','','','']);
+
+  // Build worksheet
+  const ws = XLSX.utils.aoa_to_sheet(R);
+  ws['!cols'] = [{wch:42},{wch:20},{wch:16},{wch:16},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12}];
+
+  // Merges
+  const sectionMerges = [secV, secS, secW, secSig].map(r => ({s:{r,c:0},e:{r,c:8}}));
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:8}}, {s:{r:1,c:0},e:{r:1,c:8}},
+    {s:{r:3,c:1},e:{r:3,c:3}}, {s:{r:3,c:5},e:{r:3,c:8}},
+    {s:{r:4,c:1},e:{r:4,c:3}}, {s:{r:4,c:5},e:{r:4,c:8}},
+    {s:{r:5,c:1},e:{r:5,c:3}},
+    {s:{r:6,c:1},e:{r:6,c:3}}, {s:{r:6,c:5},e:{r:6,c:8}},
+    ...sectionMerges,
+    {s:{r:wHdr, c:2},e:{r:wHdr, c:3}}, {s:{r:wHdr, c:5},e:{r:wHdr, c:8}},
+    {s:{r:wData,c:2},e:{r:wData,c:3}}, {s:{r:wData,c:5},e:{r:wData,c:8}},
+    {s:{r:footR,c:0},e:{r:footR,c:1}}, {s:{r:footR,c:2},e:{r:footR,c:3}},
+    {s:{r:footR,c:4},e:{r:footR,c:8}},
+  ];
+
+  // Number formats: vendor Total Cost
+  for (let r = vS; r <= vE; r++) {
+    const costCell = XLSX.utils.encode_cell({r, c:1});
+    if (ws[costCell] && typeof ws[costCell].v === 'number') { ws[costCell].t='n'; ws[costCell].z=currFmt; }
+    for (let c = 2; c <= 7; c++) {
+      const a = XLSX.utils.encode_cell({r, c});
+      if (ws[a] && typeof ws[a].v === 'number') { ws[a].t='n'; ws[a].z='0.0'; }
+    }
+  }
+  // Score columns
+  for (let r = sS; r <= sE; r++) {
+    for (let c = 1; c <= 7; c++) {
+      const a = XLSX.utils.encode_cell({r, c});
+      if (ws[a] && typeof ws[a].v === 'number') { ws[a].t='n'; ws[a].z='0.00'; }
+    }
+    const rank = XLSX.utils.encode_cell({r, c:8});
+    if (ws[rank]) { ws[rank].t='n'; ws[rank].z='0'; }
+  }
+  // Winner score + amount + PR value
+  [[wData,1,'0.00'],[wData,3,currFmt],[5,5,currFmt]].forEach(([r,c,z]) => {
+    const a = XLSX.utils.encode_cell({r, c});
+    if (ws[a] && typeof ws[a].v === 'number') { ws[a].t='n'; ws[a].z=z; }
+  });
+
+  ws['!freeze'] = {xSplit:0, ySplit:2};
+
   const wb = XLSX.utils.book_new();
+  wb.Props = {Title:'Final Bids Comparison', Author:company};
   XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
   XLSX.writeFile(wb, `Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.xlsx`);
-  showToast('Excel exported ✓','success');
+  showToast('Excel exported ✓', 'success');
 }
 
 function _exportPDFFromData(comp, scored, sigs) {
-  if (!window.jspdf){ showToast('jsPDF not loaded','error'); return; }
+  if (!window.jspdf) { showToast('jsPDF not loaded', 'error'); return; }
 
+  const company  = typeof getCompanyName === 'function' ? getCompanyName() : 'Task Tracker';
+  const currency = comp.currency || 'IQD';
   const w = {
-    price: comp.w_price ?? 40,
-    requirements: comp.w_requirements ?? 30,
-    delivery: comp.w_delivery ?? 10,
-    warranty: comp.w_warranty ?? 10,
-    payment: comp.w_payment ?? 5,
-    commitment: comp.w_commitment ?? 5
+    price:        parseFloat(comp.w_price        ?? 40),
+    requirements: parseFloat(comp.w_requirements ?? 30),
+    delivery:     parseFloat(comp.w_delivery     ?? 10),
+    warranty:     parseFloat(comp.w_warranty     ?? 10),
+    payment:      parseFloat(comp.w_payment      ??  5),
+    commitment:   parseFloat(comp.w_commitment   ??  5),
   };
 
   const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const pw  = doc.internal.pageSize.getWidth();
-  const ac  = [99,102,241];
+  // Portrait A4
+  const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  const pw  = doc.internal.pageSize.getWidth();   // 210mm
+  const ph  = doc.internal.pageSize.getHeight();  // 297mm
+  const ML  = 12, MR = 12, CW = pw - ML - MR;
 
-  doc.setFillColor(...ac);
-  doc.rect(0,0,pw,26,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(12); doc.setFont('helvetica','bold');
-  doc.text('Final Bids Comparison — جدول مقارنة العطاءات النهائية', pw/2, 10, {align:'center'});
+  const BLUE   = [79,70,229];
+  const INDIGO = [55,48,163];
+  const GREEN  = [5,150,105];
+  const DARK   = [17,24,39];
+  const GRAY   = [107,114,128];
+  const LGRAY  = [249,250,255];
+  const WHITE  = [255,255,255];
+
+  const fmtDate = d => {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}); }
+    catch { return String(d).split('T')[0]; }
+  };
+  const fmtMoney = n => {
+    const num = parseFloat(n);
+    if (isNaN(num)) return '—';
+    return currency + ' ' + num.toLocaleString('en-US', {
+      minimumFractionDigits: currency==='IQD'?0:2,
+      maximumFractionDigits: currency==='IQD'?0:2
+    });
+  };
+  const fmtN = (n, d=0) => {
+    const num = parseFloat(n);
+    return isNaN(num) ? '—' : num.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+  };
+
+  // ── HEADER BAND ───────────────────────────────────────
+  doc.setFillColor(...BLUE);
+  doc.rect(0, 0, pw, 34, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.text(`★ ${company}`, ML, 8);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Final Bids Comparison Table', pw/2, 16, {align:'center'});
   doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(`PR: ${comp.pr_number||'—'} | ${comp.request_description||'—'} | ${comp.requesting_dept||'—'}`, pw/2, 18, {align:'center'});
-  doc.text(`Date: ${comp.request_date?String(comp.request_date).split('T')[0]:'—'} | Value: ${Number(comp.total_pr_value||0).toLocaleString()} ${comp.currency||''}`, pw/2, 23, {align:'center'});
+  doc.text('Equipment & Services — Final Evaluation Report', pw/2, 22, {align:'center'});
+  doc.setFontSize(7);
+  doc.text(
+    `PR: ${comp.pr_number||'—'}   |   ${comp.request_description||'—'}   |   Dept: ${comp.requesting_dept||'—'}`,
+    pw/2, 29, {align:'center'}
+  );
 
-  let y=32; doc.setTextColor(30,30,50);
+  let y = 40;
 
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Vendors Data',14,y); y+=4;
-  doc.autoTable({startY:y,
-    head:[['Vendor','Total Cost','Spec %','Install %','Delivery Days','Warranty Mo.','Payment %','Commit %']],
-    body:scored.map(v=>[v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''),
-      Number(v.total_cost||0).toLocaleString(),v.spec_compliance??100,v.installation_compliance??100,
-      v.delivery_days||'—',v.warranty_months||'—',v.payment_compliance??100,v.commitment_pct??100]),
-    headStyles:{fillColor:ac,textColor:[255,255,255],fontSize:8,fontStyle:'bold'},
-    bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,255]},
-    margin:{left:14,right:14}});
-  y=doc.lastAutoTable.finalY+8;
+  // ── INFO CARD ─────────────────────────────────────────
+  doc.setFillColor(...LGRAY); doc.setDrawColor(200,204,230);
+  doc.roundedRect(ML, y, CW, 24, 2, 2, 'FD');
+  const c1 = ML+5, c2 = ML+CW/2+5;
+  const info = [
+    ['Request Date:',   fmtDate(comp.request_date),                'Awarding Date:',    fmtDate(comp.awarding_date)],
+    ['Total PR Value:', fmtMoney(comp.total_pr_value),             'Currency:',         currency],
+    ['Delivery Term:',  fmtN(comp.delivery_term_days)+' days',    'Warranty Term:',    fmtN(comp.warranty_term_months)+' months'],
+  ];
+  info.forEach((row, i) => {
+    const ly = y + 7 + i*7;
+    doc.setTextColor(...GRAY);  doc.setFont('helvetica','bold');  doc.setFontSize(7.5);
+    doc.text(row[0], c1, ly);
+    doc.setTextColor(...DARK);  doc.setFont('helvetica','normal');
+    doc.text(row[1], c1+28, ly);
+    doc.setTextColor(...GRAY);  doc.setFont('helvetica','bold');
+    doc.text(row[2], c2, ly);
+    doc.setTextColor(...DARK);  doc.setFont('helvetica','normal');
+    doc.text(row[3], c2+28, ly);
+  });
+  y += 30;
 
-  if(y>155){doc.addPage();y=16;}
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Score Analysis',14,y); y+=4;
-  doc.autoTable({startY:y,
-    head:[[`Vendor`,`Price(${w.price})`,`Req(${w.requirements})`,`Del(${w.delivery})`,`War(${w.warranty})`,`Pay(${w.payment})`,`Com(${w.commitment})`,'TOTAL']],
-    body:scored.map((s,i)=>[(i===0?'🏆 ':'')+s.vendor_name+(s.annex_ref?` (${s.annex_ref})`:''),
-      parseFloat(s.price_score||0).toFixed(1),parseFloat(s.requirements_score||0).toFixed(1),
-      parseFloat(s.delivery_score||0).toFixed(1),parseFloat(s.warranty_score||0).toFixed(1),
-      parseFloat(s.payment_score||0).toFixed(1),parseFloat(s.commitment_score||0).toFixed(1),
-      parseFloat(s.total_score||0).toFixed(2)]),
-    headStyles:{fillColor:ac,textColor:[255,255,255],fontSize:8,fontStyle:'bold'},
-    bodyStyles:{fontSize:8},
-    didParseCell:d=>{if(d.section==='body'&&d.row.index===0){d.cell.styles.fillColor=[232,255,240];d.cell.styles.fontStyle='bold';}},
-    alternateRowStyles:{fillColor:[248,247,255]},
-    margin:{left:14,right:14}});
-  y=doc.lastAutoTable.finalY+8;
+  // Section helper
+  const drawSection = (title, num, color) => {
+    color = color || BLUE;
+    doc.setFillColor(...color); doc.rect(ML, y, 3, 7, 'F');
+    doc.setFillColor(...color); doc.roundedRect(ML+5, y+0.5, 6, 6, 1, 1, 'F');
+    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    doc.text(String(num), ML+8, y+5, {align:'center'});
+    doc.setTextColor(...color); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(title, ML+14, y+5.5);
+    y += 10;
+  };
 
-  if(y>155){doc.addPage();y=16;}
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Winning Bid',14,y); y+=4;
-  const wd=scored[0]||{};
-  doc.autoTable({startY:y,
-    head:[['Winner','Total Score','Amount','Comment']],
-    body:[[comp.winner_vendor||wd.vendor_name||'—',
-      parseFloat(comp.winner_score||wd.total_score||0).toFixed(2),
-      Number(comp.winner_amount||wd.total_cost||0).toLocaleString()+' '+(comp.currency||''),
-      comp.winner_comment||'']],
-    headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontSize:8,fontStyle:'bold'},
-    bodyStyles:{fontSize:9,fontStyle:'bold'},margin:{left:14,right:14}});
-  y=doc.lastAutoTable.finalY+8;
+  // ── 1. VENDORS DATA ──────────────────────────────────
+  drawSection('VENDORS DATA', 1, BLUE);
+  doc.autoTable({
+    startY: y,
+    head:[[
+      {content:'Vendor',          styles:{halign:'left'}},
+      {content:'Total Cost',      styles:{halign:'right'}},
+      'Spec %','Install %','Del\n(Days)','War\n(Mo.)','Pay\n%','Com\n%',
+    ]],
+    body: scored.map(v => [
+      {content: v.vendor_name+(v.annex_ref?`\n${v.annex_ref}`:''), styles:{halign:'left'}},
+      {content: fmtMoney(v.total_cost),   styles:{halign:'right', fontStyle:'bold'}},
+      {content: fmtN(v.spec_compliance,0)+'%',         styles:{halign:'center'}},
+      {content: fmtN(v.installation_compliance,0)+'%', styles:{halign:'center'}},
+      {content: fmtN(v.delivery_days,0),               styles:{halign:'center'}},
+      {content: fmtN(v.warranty_months,0),             styles:{halign:'center'}},
+      {content: fmtN(v.payment_compliance,0)+'%',      styles:{halign:'center'}},
+      {content: fmtN(v.commitment_pct,0)+'%',          styles:{halign:'center'}},
+    ]),
+    headStyles:{fillColor:BLUE,textColor:WHITE,fontSize:8,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
+    bodyStyles:{fontSize:8.5,textColor:DARK,cellPadding:{top:3,bottom:3,left:3,right:3}},
+    columnStyles:{0:{cellWidth:52},1:{cellWidth:26,halign:'right'},2:{cellWidth:14,halign:'center'},3:{cellWidth:14,halign:'center'},4:{cellWidth:14,halign:'center'},5:{cellWidth:14,halign:'center'},6:{cellWidth:13,halign:'center'},7:{cellWidth:13,halign:'center'}},
+    alternateRowStyles:{fillColor:[248,249,255]},
+    tableLineColor:[210,215,235],tableLineWidth:0.25,
+    margin:{left:ML,right:MR},
+  });
+  y = doc.lastAutoTable.finalY + 4;
 
-  if(y>165){doc.addPage();y=16;}
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...ac);
-  doc.text('Committee Signatures',14,y); y+=4;
-  doc.autoTable({startY:y,
-    head:[sigs.map(s=>s.role||'—')],
-    body:[sigs.map(s=>s.name||''),sigs.map(()=>''),sigs.map(()=>'________________')],
-    headStyles:{fillColor:[230,228,255],textColor:[60,50,120],fontSize:7},
-    bodyStyles:{fontSize:8,minCellHeight:10},margin:{left:14,right:14}});
+  // Weights pill
+  doc.setFillColor(235,237,255); doc.setDrawColor(180,190,220);
+  doc.roundedRect(ML, y, CW, 7, 1, 1, 'FD');
+  doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+  doc.text(
+    `Weights:  Price=${w.price}  |  Req=${w.requirements}  |  Del=${w.delivery}  |  War=${w.warranty}  |  Pay=${w.payment}  |  Com=${w.commitment}  |  Total=100`,
+    ML+3, y+4.5
+  );
+  y += 11;
 
-  const tp=doc.internal.getNumberOfPages();
-  for(let i=1;i<=tp;i++){
-    doc.setPage(i); doc.setFontSize(7); doc.setTextColor(160,160,180); doc.setFont('helvetica','normal');
-    doc.text(`Task Tracker · PR ${comp.pr_number||'—'} · Page ${i} of ${tp}`,pw/2,200,{align:'center'});
+  if (y > 200) { doc.addPage(); y = 16; }
+
+  // ── 2. EVALUATION SCORES ─────────────────────────────
+  drawSection('EVALUATION SCORES', 2, [79,70,229]);
+  doc.autoTable({
+    startY: y,
+    head:[[
+      {content:'Vendor', styles:{halign:'left'}},
+      `Price\n(${w.price})`,`Req\n(${w.requirements})`,`Del\n(${w.delivery})`,
+      `War\n(${w.warranty})`,`Pay\n(${w.payment})`,`Com\n(${w.commitment})`,
+      {content:'TOTAL',styles:{fontStyle:'bold'}}, 'Rank'
+    ]],
+    body: scored.map((v,i) => [
+      {content:(i===0?'★ ':'')+v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''), styles:{halign:'left',fontStyle:i===0?'bold':'normal'}},
+      fmtN(v.price_score,2), fmtN(v.requirements_score,2), fmtN(v.delivery_score,2),
+      fmtN(v.warranty_score,2), fmtN(v.payment_score,2), fmtN(v.commitment_score,2),
+      {content:fmtN(v.total_score,2), styles:{fontStyle:'bold',halign:'center'}},
+      {content:'#'+(i+1), styles:{halign:'center'}},
+    ]),
+    headStyles:{fillColor:[79,70,229],textColor:WHITE,fontSize:8,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
+    bodyStyles:{fontSize:8.5,textColor:DARK,halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
+    columnStyles:{0:{cellWidth:52,halign:'left'}},
+    didParseCell:d=>{if(d.section==='body'&&d.row.index===0){d.cell.styles.fillColor=[236,253,245];d.cell.styles.fontStyle='bold';d.cell.styles.textColor=[6,95,70];}},
+    alternateRowStyles:{fillColor:[248,249,255]},
+    tableLineColor:[210,215,235],tableLineWidth:0.25,
+    margin:{left:ML,right:MR},
+  });
+  y = doc.lastAutoTable.finalY + 6;
+
+  if (y > 215) { doc.addPage(); y = 16; }
+
+  // ── 3. WINNING BID ───────────────────────────────────
+  drawSection('WINNING BID', 3, GREEN);
+  const wRec = scored[0]||{};
+  doc.autoTable({
+    startY: y,
+    head:[[
+      {content:'Winning Supplier',styles:{halign:'left'}},
+      {content:'Total Score',     styles:{halign:'center'}},
+      {content:'Total Amount',    styles:{halign:'right'}},
+      {content:'Comment / Recommendation',styles:{halign:'left'}},
+    ]],
+    body:[[
+      {content: comp.winner_vendor||wRec.vendor_name||'—', styles:{fontStyle:'bold',halign:'left',  fontSize:10}},
+      {content: fmtN(comp.winner_score||wRec.total_score||0,2), styles:{fontStyle:'bold',halign:'center',fontSize:10}},
+      {content: fmtMoney(comp.winner_amount||wRec.total_cost||0), styles:{fontStyle:'bold',halign:'right', fontSize:10,textColor:[5,120,80]}},
+      {content: comp.winner_comment||'—', styles:{halign:'left',fontSize:9}},
+    ]],
+    headStyles:{fillColor:GREEN,textColor:WHITE,fontSize:8.5,fontStyle:'bold',cellPadding:{top:3,bottom:3,left:4,right:4}},
+    bodyStyles:{fillColor:[240,255,249],fontSize:10,textColor:DARK,cellPadding:{top:5,bottom:5,left:4,right:4}},
+    columnStyles:{0:{cellWidth:50},1:{cellWidth:22},2:{cellWidth:38}},
+    tableLineColor:[150,210,180],tableLineWidth:0.4,
+    margin:{left:ML,right:MR},
+  });
+  y = doc.lastAutoTable.finalY + 6;
+
+  if (y > 220) { doc.addPage(); y = 16; }
+
+  // ── 4. COMMITTEE SIGNATURES ──────────────────────────
+  drawSection('COMMITTEE SIGNATURES', 4, [100,116,200]);
+  const sigCols = sigs.slice(0, 5); // max 5 per row
+  doc.autoTable({
+    startY: y,
+    head: [sigCols.map(s => ({content: s.role||'—', styles:{halign:'center',fontStyle:'bold',fontSize:7.5}}))],
+    body: [
+      sigCols.map(s => ({content: s.name||'', styles:{halign:'center',fontSize:9,fontStyle:s.name?'bold':'normal'}})),
+      sigCols.map(() => ({content:'', styles:{minCellHeight:10}})),
+      sigCols.map(() => ({content:'______________________', styles:{halign:'center',textColor:[150,150,170],fontSize:8}})),
+    ],
+    headStyles:{fillColor:[230,232,255],textColor:DARK,fontSize:7.5,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
+    bodyStyles:{textColor:DARK,cellPadding:{top:2,bottom:2,left:2,right:2}},
+    tableLineColor:[210,215,235],tableLineWidth:0.2,
+    margin:{left:ML,right:MR},
+  });
+  // Extra signature rows if more than 5
+  if (sigs.length > 5) {
+    y = doc.lastAutoTable.finalY + 4;
+    const sigCols2 = sigs.slice(5);
+    doc.autoTable({
+      startY: y,
+      head:[sigCols2.map(s=>({content:s.role||'—',styles:{halign:'center',fontStyle:'bold',fontSize:7.5}}))],
+      body:[
+        sigCols2.map(s=>({content:s.name||'',styles:{halign:'center',fontSize:9,fontStyle:s.name?'bold':'normal'}})),
+        sigCols2.map(()=>({content:'',styles:{minCellHeight:10}})),
+        sigCols2.map(()=>({content:'______________________',styles:{halign:'center',textColor:[150,150,170],fontSize:8}})),
+      ],
+      headStyles:{fillColor:[230,232,255],textColor:DARK,fontSize:7.5,fontStyle:'bold',halign:'center'},
+      bodyStyles:{textColor:DARK,cellPadding:{top:2,bottom:2,left:2,right:2}},
+      tableLineColor:[210,215,235],tableLineWidth:0.2,
+      margin:{left:ML,right:MR},
+    });
   }
+
+  // ── FOOTER ON ALL PAGES ──────────────────────────────
+  const tp = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= tp; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(...BLUE); doc.setLineWidth(0.4);
+    doc.line(ML, ph-11, pw-MR, ph-11);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.setTextColor(...INDIGO);
+    doc.text(`★ ${company}`, ML, ph-7);
+    doc.setTextColor(...GRAY); doc.setFont('helvetica','normal');
+    doc.text(`PR: ${comp.pr_number||'—'}   |   Generated: ${new Date().toLocaleDateString('en-GB')}`, pw/2, ph-7, {align:'center'});
+    doc.text(`Page ${i} of ${tp}`, pw-MR, ph-7, {align:'right'});
+  }
+
   doc.save(`Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.pdf`);
-  showToast('PDF exported ✓','success');
+  showToast('PDF exported ✓', 'success');
 }
 
 // ── SAVED RECORD EXPORTS ───────────────────────────────

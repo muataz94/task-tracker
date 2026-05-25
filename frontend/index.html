@@ -637,6 +637,10 @@
                   </div>
                 </div>
                 <div class="pref-item">
+                  <div><div class="pref-label">Company Name</div><div class="pref-sub">Logo on PDF &amp; Excel exports</div></div>
+                  <input type="text" id="pref-company" class="pref-select" style="width:155px;" placeholder="My Company" />
+                </div>
+                <div class="pref-item">
                   <div><div class="pref-label" data-i18n="currency">Currency</div><div class="pref-sub" data-i18n="currency_sub">Default for expenses and POs</div></div>
                   <select id="pref-currency" class="pref-select">
                     <option value="USD">USD ($)</option><option value="IQD">IQD</option><option value="EUR">EUR (€)</option>
@@ -751,6 +755,7 @@
                     <div class="about-row"><span data-i18n="about_backend">Backend</span><span>Google Apps Script</span></div>
                     <div class="about-row"><span data-i18n="about_database">Database</span><span>Google Sheets</span></div>
                     <div class="about-row"><span data-i18n="about_auth">Auth</span><span>Google OAuth 2.0</span></div>
+                    <div class="about-row"><span>Company</span><span id="about-company">—</span></div>
                   </div>
                 </div>
               </div>
@@ -1228,6 +1233,12 @@
       const langEl = document.getElementById('pref-language');
       if (langEl) langEl.value = currentLang;
 
+      const compEl   = document.getElementById('pref-company');
+      const storedCo = localStorage.getItem('tt_company') || '';
+      if (compEl)   compEl.value = storedCo;
+      const aboutEl  = document.getElementById('about-company');
+      if (aboutEl)  aboutEl.textContent = storedCo || '—';
+
       const addBtn  = document.getElementById('add-member-btn');
       const saveBtn = document.getElementById('save-prefs-btn');
       if (addBtn)  addBtn.onclick  = addMember;
@@ -1269,8 +1280,16 @@
       };
       localStorage.setItem('tt_prefs', JSON.stringify(prefs));
       localStorage.setItem('tt_budget', document.getElementById('pref-budget')?.value || '0');
+      const compVal = document.getElementById('pref-company')?.value?.trim() || '';
+      localStorage.setItem('tt_company', compVal);
+      const aboutEl = document.getElementById('about-company');
+      if (aboutEl) aboutEl.textContent = compVal || '—';
       const btn = document.getElementById('save-prefs-btn');
       if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = t('save_preferences'); }, 2000); }
+    }
+
+    function getCompanyName() {
+      return localStorage.getItem('tt_company') || 'Task Tracker';
     }
 
     // ── CSV Export ───────────────────────────────────────────────────
