@@ -13,6 +13,9 @@ function kb(bytes) { return (bytes / 1024).toFixed(1) + ' KB'; }
 mkdirSync(DIST, { recursive: true });
 mkdirSync(join(DIST, 'assets'), { recursive: true });
 
+// Required for GitHub Pages — prevents Jekyll from processing the output
+writeFileSync(join(DIST, '.nojekyll'), '');
+
 // Copy SVG assets as-is (already tiny)
 cpSync(join(SRC, 'assets'), join(DIST, 'assets'), { recursive: true });
 console.log('✓ assets copied');
