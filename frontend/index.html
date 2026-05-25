@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <canvas id="particles-canvas" class="particles-canvas"></canvas>
 
   <!-- Liquid glass SVG filter -->
   <svg style="position:absolute;width:0;height:0;overflow:hidden">
@@ -1088,11 +1089,11 @@
     // ── THEME SYSTEM ─────────────────────────────────────────────────
     function initTheme() {
       const saved = localStorage.getItem('tt_theme') || 'dark';
-      applyTheme(saved);
+      document.documentElement.setAttribute('data-theme', saved);
     }
 
     function applyTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+      document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('tt_theme', theme);
       const btn = document.getElementById('theme-toggle');
       if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
@@ -1106,8 +1107,86 @@
     }
 
     function toggleTheme() {
-      const current = localStorage.getItem('tt_theme') || 'dark';
-      applyTheme(current === 'dark' ? 'light' : 'dark');
+      const curr = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = curr === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tt_theme', next);
+
+      const sidebarLogo = document.getElementById('sidebar-logo');
+      const loginIcon   = document.getElementById('login-icon');
+      if (sidebarLogo) sidebarLogo.src = next === 'light' ? 'assets/logo-light.svg' : 'assets/logo-dark.svg';
+      if (loginIcon)   loginIcon.src   = next === 'light' ? 'assets/icon-light.svg' : 'assets/icon-dark.svg';
+      if (typeof refreshChartsFromCache === 'function') refreshChartsFromCache();
+    }
+
+    // ── PARTICLES ─────────────────────────────────────────────────────
+    function initParticles() {
+      const canvas = document.getElementById('particles-canvas');
+      if (!canvas || canvas._init) return;
+      canvas._init = true;
+      const ctx = canvas.getContext('2d');
+      let W = canvas.width  = window.innerWidth;
+      let H = canvas.height = window.innerHeight;
+      window.addEventListener('resize', () => {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }, { passive: true });
+      const pts = Array.from({ length: 48 }, () => ({
+        x:     Math.random() * W,
+        y:     Math.random() * H,
+        r:     Math.random() * 1.1 + 0.2,
+        dx:    (Math.random() - 0.5) * 0.15,
+        dy:    -(Math.random() * 0.20 + 0.03),
+        alpha: Math.random() * 0.40 + 0.07,
+        phase: Math.random() * Math.PI * 2,
+      }));
+      (function draw() {
+        ctx.clearRect(0, 0, W, H);
+        pts.forEach(p => {
+          p.x += p.dx; p.y += p.dy; p.phase += 0.006;
+          if (p.y < -4)    { p.y = H + 4; p.x = Math.random() * W; }
+          if (p.x < -4)    p.x = W + 4;
+          if (p.x > W + 4) p.x = -4;
+          const a = p.alpha * (0.55 + 0.45 * Math.sin(p.phase));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(130, 110, 220, ' + a + ')';
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      })();
+    }
+
+    // ── TOPBAR SCROLL ──────────────────────────────────────────────────
+    function initTopbarScroll() {
+      const main   = document.getElementById('main') ||
+                     document.getElementById('main-content') ||
+                     document.querySelector('main') ||
+                     document.querySelector('.content-area');
+      const topbar = document.getElementById('topbar') || document.querySelector('.topbar');
+      if (!main || !topbar) return;
+      main.addEventListener('scroll', () => {
+        topbar.classList.toggle('scrolled', main.scrollTop > 8);
+      }, { passive: true });
+    }
+
+    // ── RIPPLE ────────────────────────────────────────────────────────
+    function addRipple(e) {
+      const btn  = e.currentTarget;
+      const span = document.createElement('span');
+      const d    = Math.max(btn.clientWidth, btn.clientHeight);
+      const rect = btn.getBoundingClientRect();
+      span.className  = 'ripple';
+      span.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - rect.left - d/2) + 'px;top:' + (e.clientY - rect.top - d/2) + 'px;';
+      const old = btn.querySelector('.ripple');
+      if (old) old.remove();
+      btn.appendChild(span);
+      setTimeout(() => span.remove(), 620);
+    }
+
+    function initRipples() {
+      document.querySelectorAll('.btn-primary,.btn-add,.btn-export,.btn-edit')
+        .forEach(function(b) { b.removeEventListener('click', addRipple); b.addEventListener('click', addRipple); });
     }
 
     // ── Twemoji rendering ─────────────────────────────────────────────
@@ -1195,6 +1274,11 @@
       prefetchAll();
       renderTwemoji(document.body);
 
+      // Init liquid glass enhancements
+      initParticles();
+      initTopbarScroll();
+      initRipples();
+
       // Set greeting and navigate
       setGreeting();
       navigateTo('dashboard');
@@ -1258,8 +1342,14 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
       const viewEl  = document.getElementById('view-' + view);
-      const navItem = document.querySelector(`[data-view="${view}"]`);
-      if (viewEl)  viewEl.classList.add('active');
+      const navItem = document.querySelector('[data-view="' + view + '"]');
+      if (viewEl) {
+        viewEl.classList.add('active');
+        viewEl.classList.remove('view-entering');
+        void viewEl.offsetWidth;
+        viewEl.classList.add('view-entering');
+        setTimeout(function() { viewEl.classList.remove('view-entering'); }, 400);
+      }
       if (navItem) navItem.classList.add('active');
       closeSidebar();
 
@@ -1283,6 +1373,9 @@
 
       // Re-apply translations to the newly shown view
       applyLanguage();
+
+      // Re-attach ripples to any new buttons in the view
+      if (typeof initRipples === 'function') initRipples();
     }
 
     // ── Settings ─────────────────────────────────────────────────────
@@ -1435,16 +1528,33 @@
     }
 
     // ── Toast ────────────────────────────────────────────────────────
-    function showToast(msg, type) {
-      const existing = document.getElementById('app-toast');
-      if (existing) existing.remove();
-      const toast = document.createElement('div');
-      toast.id = 'app-toast';
-      toast.className = 'app-toast app-toast-' + (type || 'info');
-      toast.textContent = msg;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.classList.add('show'), 10);
-      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+    function showToast(message, type, duration) {
+      type     = type     || 'info';
+      duration = duration || 3000;
+      const wrap = document.getElementById('toast-container');
+      if (!wrap) {
+        // fallback: legacy behavior
+        const existing = document.getElementById('app-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'app-toast';
+        toast.className = 'app-toast app-toast-' + type;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
+        return;
+      }
+      const el  = document.createElement('div');
+      el.className = 'app-toast toast-' + type;
+      var icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+      el.innerHTML = '<span style="font-size:14px;">' + icon + '</span> ' +
+        (typeof escapeHtml === 'function' ? escapeHtml(message) : message);
+      wrap.appendChild(el);
+      setTimeout(function() {
+        el.classList.add('hiding');
+        setTimeout(function() { el.remove(); }, 240);
+      }, duration);
     }
 
     // ── escapeHtml (used by loadRecentUsers and chat.js) ────────────
@@ -1577,7 +1687,7 @@
 
     // ── Init on load ──────────────────────────────────────────────────
     window.onload = function() {
-      initTheme();
+      initTheme(); // MUST be first — applies data-theme before anything renders
       initLanguage();
 
       // Initialize Google Auth
@@ -1660,6 +1770,8 @@
     </svg>
     <span class="chat-bubble-badge" id="chat-unread" style="display:none">0</span>
   </div>
+
+  <div id="toast-container"></div>
 
   <!-- Chat panel -->
   <div id="chat-panel" class="chat-panel hidden">
