@@ -3538,3 +3538,212 @@ body { overflow-x: hidden; }
 }
 .qc-scores-highlight { animation: qcScoresPulse 1s ease; }
 
+/* ══════════════════════════════════════════════════════════════════
+   OVERDUE REMINDER BAR
+══════════════════════════════════════════════════════════════════ */
+.reminder-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(245,158,11,0.10));
+  border: 1px solid rgba(239,68,68,0.22);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: reminderSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1);
+}
+.reminder-bar.hidden { display: none; }
+
+@keyframes reminderSlideIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.reminder-bell {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.25);
+  display: flex; align-items: center; justify-content: center;
+  color: #f87171;
+  animation: reminderBell 2.5s ease-in-out infinite;
+}
+@keyframes reminderBell {
+  0%,100% { transform: rotate(0); }
+  10%     { transform: rotate(-12deg); }
+  20%     { transform: rotate(12deg); }
+  30%     { transform: rotate(-8deg); }
+  40%     { transform: rotate(0); }
+}
+
+.reminder-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.reminder-headline {
+  font-size: 12px; font-weight: 700;
+  color: #f87171;
+  letter-spacing: 0.01em;
+}
+.reminder-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.reminder-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.18);
+  font-size: 11px; color: var(--text-2);
+  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reminder-chip em {
+  font-style: normal;
+  color: #f87171;
+  font-size: 10px; font-weight: 600;
+}
+.reminder-chip-more {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--border);
+  color: var(--text-3);
+}
+.reminder-close {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.18);
+  color: #f87171;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+  margin-top: 2px;
+}
+.reminder-close:hover { background: rgba(239,68,68,0.22); }
+
+[data-theme="light"] .reminder-bar {
+  background: linear-gradient(135deg, rgba(239,68,68,0.07), rgba(245,158,11,0.05));
+  border-color: rgba(239,68,68,0.20);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SETTINGS — BENTO GRID
+══════════════════════════════════════════════════════════════════ */
+.settings-bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "pref team"
+    "pref auto"
+    "data notif-about";
+  gap: 1rem;
+}
+
+/* Card placement */
+.scard-pref       { grid-area: pref; }
+.scard-team       { grid-area: team; }
+.scard-auto       { grid-area: auto; }
+.scard-data       { grid-area: data; }
+.scard-notif      { grid-area: notif-about; }
+.scard-about      { display: none; } /* merged into notif row below */
+
+/* Show about inline under notif via a special row */
+.scard-notif,
+.scard-about {
+  grid-area: unset;
+}
+
+/* Override: put notif and about side by side in last row */
+.settings-bento {
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "pref  team"
+    "pref  auto"
+    "data  data"
+    "notif about";
+}
+
+.scard-pref  { grid-area: pref; }
+.scard-team  { grid-area: team; }
+.scard-auto  { grid-area: auto; }
+.scard-data  { grid-area: data; }
+.scard-notif { grid-area: notif; }
+.scard-about { grid-area: about; display: block; }
+
+/* Pref-item icon dot */
+.pref-item-icon {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  margin-right: 2px;
+}
+
+/* Grouped label inside Preferences card */
+.pref-group-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-4);
+  padding: 10px 0 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.pref-group-label:first-of-type {
+  border-top: none; margin-top: 0; padding-top: 4px;
+}
+
+/* Full-width pref item (Sheet URL) */
+.pref-item-full {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.pref-item-full .pref-item-icon {
+  margin-top: 2px;
+}
+
+/* Export tiles (Data Management) */
+.export-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.export-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border-radius: var(--r-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+.export-tile:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--accent);
+  color: var(--text-1);
+  transform: translateY(-2px);
+}
+.export-tile:active { transform: translateY(0); }
+
+/* Responsive: collapse to 1 col on mobile */
+@media (max-width: 720px) {
+  .settings-bento {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "pref"
+      "team"
+      "auto"
+      "data"
+      "notif"
+      "about";
+  }
+  .export-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+

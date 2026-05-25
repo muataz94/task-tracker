@@ -174,6 +174,79 @@ function renderTable(sheetName) {
   if (subEl && !subEl.hasAttribute('data-updated')) {
     subEl.textContent = rows.length + ' records';
   }
+  if (sheetName === 'Tasks' || sheetName === 'POs') updateReminderBar(sheetName);
+}
+
+// ── Overdue reminder bar (Tasks + POs)
+function updateReminderBar(sheetName) {
+  const bar = document.getElementById('reminder-' + sheetName);
+  if (!bar) return;
+  const rows  = tableData[sheetName] || [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  let overdue = [];
+  if (sheetName === 'Tasks') {
+    overdue = rows.filter(r => {
+      if (r.status === 'done') return false;
+      if (!r.due_date) return false;
+      return new Date(String(r.due_date).split('T')[0]) < today;
+    });
+    // Sync nav badge with date-based overdue count
+    const count = overdue.length;
+    ['overdue-badge', 'tasks-overdue-badge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = count;
+      el.style.display = count > 0 ? 'flex' : 'none';
+    });
+  } else if (sheetName === 'POs') {
+    overdue = rows.filter(r => {
+      if (['received', 'cancelled'].includes(r.status)) return false;
+      if (!r.expected_delivery) return false;
+      return new Date(String(r.expected_delivery).split('T')[0]) < today;
+    });
+    const count = overdue.length;
+    const badge = document.getElementById('pos-overdue-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+  }
+
+  if (!overdue.length) { bar.classList.add('hidden'); return; }
+
+  const label = sheetName === 'Tasks' ? 'task' : 'PO';
+  const chips = overdue.slice(0, 6).map(r => {
+    const name = sheetName === 'Tasks'
+      ? (r.title || '—')
+      : (r.po_number ? r.po_number + (r.supplier ? ' · ' + r.supplier : '') : (r.supplier || '—'));
+    const dateStr = (r.due_date || r.expected_delivery || '');
+    const daysAgo = dateStr
+      ? Math.floor((today - new Date(String(dateStr).split('T')[0])) / 86400000)
+      : 0;
+    return `<span class="reminder-chip">${(typeof escapeHtml === 'function' ? escapeHtml(name) : name)}<em> ${daysAgo}d</em></span>`;
+  }).join('');
+  const moreChip = overdue.length > 6
+    ? `<span class="reminder-chip reminder-chip-more">+${overdue.length - 6} more</span>`
+    : '';
+
+  bar.innerHTML = `
+    <div class="reminder-bell">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+      </svg>
+    </div>
+    <div class="reminder-body">
+      <span class="reminder-headline">${overdue.length} ${label}${overdue.length > 1 ? 's' : ''} past deadline</span>
+      <div class="reminder-chips">${chips}${moreChip}</div>
+    </div>
+    <button class="reminder-close" onclick="document.getElementById('reminder-${sheetName}').classList.add('hidden')" title="Dismiss">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>`;
+  bar.classList.remove('hidden');
 }
 
 // ── Format cell display
