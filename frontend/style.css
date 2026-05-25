@@ -342,7 +342,7 @@ body::after {
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
-/* Specular highlight on top edge */
+/* Specular highlight on top edge — z-index 0 so it never covers content */
 .glass::after, .glass-2::after {
   content:    '';
   position:   absolute;
@@ -350,7 +350,7 @@ body::after {
   height:     1px;
   background: linear-gradient(90deg, transparent, var(--specular-sm) 35%, var(--specular) 50%, var(--specular-sm) 65%, transparent);
   pointer-events: none;
-  z-index:    2;
+  z-index:    0;
 }
 
 .glass:hover {
@@ -5137,47 +5137,60 @@ body { overflow-x: hidden; }
    full card width. Pill absolutely anchored top-right.
 ══════════════════════════════════════════════════════════════════ */
 
-/* Column layout: icon → label → value stacked vertically */
+/* Stat card: column layout, explicit color, guaranteed min-height */
 .stat-card {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   padding: 1rem 1.25rem 1.1rem;
   gap: 0;
+  color: var(--text-1);
+  min-height: 110px;
 }
 
-/* Icon sits at top with spacing below */
+/* Lift content above glass::after specular (z-index 2) */
 .stat-icon-wrap {
+  position: relative;
+  z-index: 3;
   margin-bottom: 10px;
 }
 
-/* Body takes full card width — no more squeezing */
+/* Body takes full card width, above pseudo-element layer */
 .stat-body {
+  position: relative;
+  z-index: 3;
   width: 100%;
   gap: 3px;
 }
 
-/* Label now has ~120px+ of space — no truncation needed */
+/* Explicit text colors */
 .stat-label {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+  color: var(--text-3);
 }
-
-/* Value slightly tighter to save vertical space */
 .stat-value {
   font-size: 20px;
   letter-spacing: -0.03em;
+  color: var(--text-1);
 }
+.stat-value.danger { color: var(--accent-red); }
 
-/* Pill anchored top-right, out of flow so it takes zero width */
+/* Pill anchored top-right, above content layer */
 .stat-pill {
   position: absolute;
   top: 10px;
   right: 10px;
+  z-index: 4;
   flex-shrink: unset;
   align-self: unset;
   margin-top: 0;
 }
+
+/* Light mode: stronger label contrast */
+[data-theme="light"] .stat-label { color: var(--text-2); }
+[data-theme="light"] .stat-value  { color: var(--text-1); }
 
 /* ══════════════════════════════════════════════════════════════════
    SHIMMER SKELETON (Part 9)
