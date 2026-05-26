@@ -1243,19 +1243,391 @@ function _exportPDFFromData(comp, scored, sigs) {
 // ── SAVED RECORD EXPORTS ───────────────────────────────
 
 async function exportCompExcel(id) {
-  const comp = _allComparisons.find(c=>c.id===id);
-  if (!comp) return;
-  let vds;
-  try {
-    const r = await getAll('ComparisonVendors');
-    vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
-  } catch(e) { vds = []; }
-  const w = { price:comp.w_price??40, requirements:comp.w_requirements??30,
-    delivery:comp.w_delivery??10, warranty:comp.w_warranty??10,
-    payment:comp.w_payment??5, commitment:comp.w_commitment??5 };
-  const scored = scoreVendors(vds, w);
-  const sigs   = _sigsFromComp(comp);
-  _exportExcelFromData(comp, scored, sigs);
+  const comp = _allComparisons.find(c => c.id === id);
+  if (!comp) { showToast('Comparison not found', 'error'); return; }
+
+  let vds = _compVendors.filter(v => v.comparison_id === id);
+  if (!vds.length) {
+    try {
+      const r = await callAPI('getAll', { sheet: 'ComparisonVendors' });
+      vds = (r.rows || []).filter(v => String(v.comparison_id) === String(id));
+    } catch(e) { showToast('Failed to load vendors: ' + e.message, 'error'); return; }
+  }
+  if (!vds.length) { showToast('No vendor data found', 'info'); return; }
+
+  const w = {
+    price:        parseFloat(comp.w_price        ?? 40),
+    requirements: parseFloat(comp.w_requirements ?? 30),
+    delivery:     parseFloat(comp.w_delivery     ?? 10),
+    warranty:     parseFloat(comp.w_warranty     ?? 10),
+    payment:      parseFloat(comp.w_payment      ??  5),
+    commitment:   parseFloat(comp.w_commitment   ??  5),
+  };
+
+  const scored   = scoreVendors(vds, w);
+  const nVendors = scored.length;
+
+  if (!window.XLSX) { showToast('SheetJS not loaded', 'error'); return; }
+
+  // ── Meta ──────────────────────────────────────────────────────────────────
+  const company  = typeof getCompanyName === 'function' ? getCompanyName() : 'Sama Babil';
+  const currency = comp.currency || 'IQD';
+  const currFmt  = currency === 'IQD' ? '#,##0 "IQD"' :
+                   currency === 'USD' ? '"$ "#,##0.00'  :
+                   currency === 'EUR' ? '"€ "#,##0.00'  : `#,##0 "${currency}"`;
+
+  const fmtDate = d => {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('en-GB',
+      { day: '2-digit', month: 'short', year: 'numeric' }); }
+    catch { return String(d).split('T')[0]; }
+  };
+
+  const genDate = new Date().toLocaleDateString('en-GB',
+    { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // ── Build rows as array-of-arrays ─────────────────────────────────────────
+  // 9 columns: A-I (indices 0-8)
+  const NCOLS = 9;
+  const aoa   = [];
+  const pad   = () => Array(NCOLS).fill(null);
+
+  function row(...cells) {
+    const r = pad();
+    cells.forEach(([ci, val]) => { r[ci] = val; });
+    aoa.push(r);
+    return aoa.length; // 1-based Excel row number
+  }
+
+  // ── ROWS ──────────────────────────────────────────────────────────────────
+
+  // R1: Banner
+  const R1 = row([0, `★ ${company}                                    Generated: ${genDate}`]);
+
+  // R2: Title
+  const R2 = row([0, 'FINAL BIDS COMPARISON TABLE']);
+
+  // R3: Subtitle
+  const R3 = row([0, 'Equipment & Services  —  Procurement Evaluation Report']);
+
+  // R4: spacer
+  aoa.push(pad()); const R4 = aoa.length;
+
+  // R5-R8: Header info
+  const R5 = row([0,'Request Description:'], [1, comp.request_description||''],
+                  [4,'Requesting Department:'], [5, comp.requesting_dept||'']);
+  const R6 = row([0,'PR Number:'],            [1, comp.pr_number||''],
+                  [4,'Awarding Date:'],        [5, fmtDate(comp.awarding_date)]);
+  const R7 = row([0,'Request Date:'],         [1, fmtDate(comp.request_date)],
+                  [4,'Total PR Value:'],       [5, parseFloat(comp.total_pr_value)||0]);
+  const R8 = row([0,'Delivery Term:'],        [1, `${comp.delivery_term_days||35} days`],
+                  [4,'Warranty Term:'],        [5, `${comp.warranty_term_months||12} months`]);
+
+  // R9: spacer
+  aoa.push(pad()); const R9 = aoa.length;
+
+  // ── SECTION 1: VENDORS DATA ───────────────────────────────────────────────
+  const R_S1 = row([0, '  1.  VENDORS DATA TABLE']);
+
+  // Header row 1
+  const R_VH1 = row(
+    [0,'Vendor Name'],
+    [1,'Total Cost'],
+    [2,'Fulfillment'],
+    [4,`Delivery\n(Days)`],
+    [5,`Warranty\n(Mo.)`],
+    [6,`Payment\n(%)`],
+    [7,`Commitment\n(%)`]
+  );
+
+  // Header row 2 (sub-header for Fulfillment)
+  const R_VH2 = row(
+    [2, 'Specification (%)'],
+    [3, 'Installation (%)']
+  );
+
+  // Vendor data rows — ACTUAL NUMBERS
+  const VD_START = aoa.length + 1;
+  scored.forEach(v => {
+    aoa.push([
+      v.vendor_name + (v.annex_ref ? `  (${v.annex_ref})` : ''),  // A: name
+      parseFloat(v.total_cost)             || 0,   // B: cost (number)
+      parseFloat(v.spec_compliance)        / 100,  // C: spec as decimal → 0.0% format
+      parseFloat(v.installation_compliance)/ 100,  // D: install as decimal
+      parseFloat(v.delivery_days)          || 0,   // E: days (integer)
+      parseFloat(v.warranty_months)        || 0,   // F: months (integer)
+      parseFloat(v.payment_compliance)     / 100,  // G: payment as decimal
+      parseFloat(v.commitment_pct)         / 100,  // H: commit as decimal
+      null                                         // I: empty
+    ]);
+  });
+  const VD_END = aoa.length;
+
+  // spacer
+  aoa.push(pad());
+
+  // ── SECTION 2: SCORING WEIGHTS ────────────────────────────────────────────
+  const R_S2 = row([0, '  2.  STANDARD SCORING WEIGHTS']);
+
+  const R_WT = row(
+    [0, `Price\n${w.price}`],
+    [1, `Requirements\n${w.requirements}`],
+    [2, `Delivery\n${w.delivery}`],
+    [3, `Warranty\n${w.warranty}`],
+    [4, `Payment\n${w.payment}`],
+    [5, `Commitment\n${w.commitment}`],
+    [6, `TOTAL\n${(w.price+w.requirements+w.delivery+w.warranty+w.payment+w.commitment).toFixed(1)}`]
+  );
+
+  // spacer
+  aoa.push(pad());
+
+  // ── SECTION 3: SCORES TABLE ───────────────────────────────────────────────
+  const R_S3 = row([0, '  3.  VENDORS SCORES TABLE']);
+
+  // Score header row 1
+  const R_SH1 = row(
+    [0, 'Vendor Name'],
+    [1, `Price Score\n(W=${w.price})`],
+    [2, `Requirements\n(W=${w.requirements})`],
+    [4, `Delivery\n(W=${w.delivery})`],
+    [5, `Warranty\n(W=${w.warranty})`],
+    [6, `Payment\n(W=${w.payment})`],
+    [7, `Commitment\n(W=${w.commitment})`],
+    [8, 'TOTAL SCORE']
+  );
+
+  // Score header row 2 (sub)
+  const R_SH2 = row(
+    [2, 'Spec.\nComponent'],
+    [3, 'Install.\nComponent']
+  );
+
+  // Score data rows — ALL FORMULAS referencing vendor data rows
+  const COST_R = `B${VD_START}:B${VD_END}`;
+  const DEL_R  = `E${VD_START}:E${VD_END}`;
+  const WAR_R  = `F${VD_START}:F${VD_END}`;
+
+  const SD_START = aoa.length + 1;
+  scored.forEach((v, i) => {
+    const vr = VD_START + i;   // corresponding vendor data row
+    const sr = aoa.length + 1; // this score row (Excel 1-based)
+
+    aoa.push([
+      `=A${vr}`,                                           // A: name ref
+      `=(MIN(${COST_R})/B${vr})*${w.price}`,              // B: price score
+      `=C${vr}*${w.requirements / 2}`,                    // C: spec component
+      `=D${vr}*${w.requirements / 2}`,                    // D: install component
+      `=(MIN(${DEL_R})/E${vr})*${w.delivery}`,            // E: delivery score
+      `=(F${vr}/MAX(${WAR_R}))*${w.warranty}`,            // F: warranty score
+      `=G${vr}*${w.payment}`,                             // G: payment score
+      `=H${vr}*${w.commitment}`,                          // H: commit score
+      `=SUM(B${sr}:H${sr})`,                              // I: TOTAL
+    ]);
+  });
+  const SD_END = aoa.length;
+
+  // spacer
+  aoa.push(pad());
+
+  // ── SECTION 4: WINNING BID ────────────────────────────────────────────────
+  const R_S4 = row([0, '  4.  WINNING BID']);
+
+  const R_WH = row(
+    [0, 'Winning Supplier'],
+    [3, 'Total Score'],
+    [4, `Total Amount (${currency})`],
+    [7, 'Comment / Recommendation']
+  );
+
+  const WIN_ROW = SD_START;  // first score row = winner (sorted desc by JS)
+  const R_WD = row(
+    [0, `=A${WIN_ROW}`],
+    [3, `=I${WIN_ROW}`],
+    [4, `=B${VD_START}`],
+    [7, comp.winner_comment || '']
+  );
+
+  // spacer
+  aoa.push(pad());
+
+  // ── SECTION 5: COMMITTEE SIGNATURES ──────────────────────────────────────
+  const R_S5 = row([0, '  5.  COMMITTEE SIGNATURES']);
+
+  const sigs = _sigsFromComp(comp);
+
+  // Titles (2 cols each)
+  const R_ST = row(
+    [0, sigs[0]?.role || 'Head of Committee'],
+    [2, sigs[1]?.role || 'Requester'],
+    [4, sigs[2]?.role || 'Requester Management'],
+    [6, sigs[3]?.role || 'Supply Chain Officer'],
+    [8, sigs[4]?.role || 'Head of Supply Chain']
+  );
+
+  // Names
+  const R_SN = row(
+    [0, sigs[0]?.name || ''],
+    [2, sigs[1]?.name || ''],
+    [4, sigs[2]?.name || ''],
+    [6, sigs[3]?.name || ''],
+    [8, sigs[4]?.name || '']
+  );
+
+  // Signature line
+  const R_SL = row([0,''], [2,''], [4,''], [6,''], [8,'']);
+
+  // spacer
+  aoa.push(pad());
+
+  // Footer
+  const R_FT = row(
+    [0, `★ ${company}  |  Confidential Procurement Document`],
+    [5, `PR: ${comp.pr_number||'—'}  |  Generated: ${genDate}`]
+  );
+
+  // ── Create worksheet ──────────────────────────────────────────────────────
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // ── Fix formula cells (SheetJS needs explicit formula type) ───────────────
+  for (let r = 0; r < aoa.length; r++) {
+    for (let c = 0; c < NCOLS; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[addr];
+      if (!cell) continue;
+      if (typeof cell.v === 'string' && cell.v.startsWith('=')) {
+        const fml = cell.v.slice(1);
+        if (c === 0 || fml.startsWith('A')) {
+          ws[addr] = { t: 's', f: fml, v: '' };   // text formula (name ref)
+        } else {
+          ws[addr] = { t: 'n', f: fml, v: 0 };    // numeric formula
+        }
+      }
+    }
+  }
+
+  // ── Number formats ────────────────────────────────────────────────────────
+  for (let r = VD_START - 1; r < VD_END; r++) {
+    const fmts = { 1: currFmt, 2:'0.0%', 3:'0.0%', 4:'0', 5:'0', 6:'0.0%', 7:'0.0%' };
+    Object.entries(fmts).forEach(([ci, fmt]) => {
+      const addr = XLSX.utils.encode_cell({ r, c: parseInt(ci) });
+      if (ws[addr]) ws[addr].z = fmt;
+    });
+  }
+
+  for (let r = SD_START - 1; r < SD_END; r++) {
+    for (let c = 1; c <= 8; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (ws[addr]) ws[addr].z = '0.00';
+    }
+  }
+
+  // Total PR Value (R7, col F = index 5)
+  const prValAddr = XLSX.utils.encode_cell({ r: R7 - 1, c: 5 });
+  if (ws[prValAddr]) ws[prValAddr].z = currFmt;
+
+  // Winner: score (col D=3) and amount (col E=4)
+  const wScAddr = XLSX.utils.encode_cell({ r: R_WD - 1, c: 3 });
+  const wAmAddr = XLSX.utils.encode_cell({ r: R_WD - 1, c: 4 });
+  if (ws[wScAddr]) ws[wScAddr].z = '0.00';
+  if (ws[wAmAddr]) ws[wAmAddr].z = currFmt;
+
+  // ── Merged cells ──────────────────────────────────────────────────────────
+  const merges = [];
+  const addM = (r1, c1, r2, c2) =>
+    merges.push({ s: {r: r1-1, c: c1-1}, e: {r: r2-1, c: c2-1} });
+
+  // Banner, title, subtitle: full width A-I
+  addM(R1,1, R1,9);
+  addM(R2,1, R2,9);
+  addM(R3,1, R3,9);
+
+  // Info grid: value spans B-D, label2 at E, value2 spans F-I
+  [R5,R6,R7,R8].forEach(r => {
+    addM(r,2, r,4);
+    addM(r,6, r,9);
+  });
+
+  // Section headers: full width
+  [R_S1, R_S2, R_S3, R_S4, R_S5].forEach(r => addM(r,1, r,9));
+
+  // Vendors table header: Fulfillment spans C+D (cols 3-4)
+  addM(R_VH1,3, R_VH1,4);
+  addM(R_VH2,1, R_VH2,2);
+  addM(R_VH2,5, R_VH2,9);
+
+  // Weights row: last cell spans G-I (7-9)
+  addM(R_WT,7, R_WT,9);
+
+  // Scores header: Requirements spans C+D (cols 3-4)
+  addM(R_SH1,3, R_SH1,4);
+  addM(R_SH2,1, R_SH2,2);
+  addM(R_SH2,5, R_SH2,9);
+
+  // Winner header
+  addM(R_WH,1, R_WH,3);
+  addM(R_WH,5, R_WH,6);
+  addM(R_WH,8, R_WH,9);
+
+  // Winner data
+  addM(R_WD,1, R_WD,3);
+  addM(R_WD,5, R_WD,6);
+  addM(R_WD,8, R_WD,9);
+
+  // Signature columns: each title/name spans 2 cols
+  const sigCols = [[1,2],[3,4],[5,6],[7,8],[9,9]];
+  [R_ST, R_SN, R_SL].forEach(r => {
+    sigCols.forEach(([c1,c2]) => { if (c1!==c2) addM(r,c1,r,c2); });
+  });
+
+  // Footer
+  addM(R_FT,1, R_FT,5);
+  addM(R_FT,6, R_FT,9);
+
+  ws['!merges'] = merges;
+
+  // ── Column widths ─────────────────────────────────────────────────────────
+  ws['!cols'] = [
+    {wch:28}, // A
+    {wch:18}, // B
+    {wch:12}, // C
+    {wch:12}, // D
+    {wch:11}, // E
+    {wch:11}, // F
+    {wch:11}, // G
+    {wch:11}, // H
+    {wch:13}, // I
+  ];
+
+  // ── Row heights ───────────────────────────────────────────────────────────
+  ws['!rows'] = [];
+  const rh = (r, h) => { ws['!rows'][r-1] = { hpt: h }; };
+  rh(R1, 22); rh(R2, 26); rh(R3, 15); rh(R4, 5);
+  rh(R5, 17); rh(R6, 17); rh(R7, 17); rh(R8, 17);
+  rh(R9, 6);
+  rh(R_S1, 19);
+  rh(R_VH1, 28); rh(R_VH2, 16);
+  for (let r = VD_START; r <= VD_END; r++) rh(r, 20);
+  rh(R_S2, 19); rh(R_WT, 24);
+  rh(R_S3, 19);
+  rh(R_SH1, 28); rh(R_SH2, 16);
+  for (let r = SD_START; r <= SD_END; r++) rh(r, 20);
+  rh(R_S4, 20); rh(R_WH, 22); rh(R_WD, 24);
+  rh(R_S5, 19);
+  rh(R_ST, 28); rh(R_SN, 22); rh(R_SL, 32);
+  rh(R_FT, 16);
+
+  // ── Freeze panes ──────────────────────────────────────────────────────────
+  ws['!freeze'] = { xSplit: 0, ySplit: 4 };
+
+  // ── Workbook ──────────────────────────────────────────────────────────────
+  const wb = XLSX.utils.book_new();
+  wb.Props = { Title: 'Final Bids Comparison', Author: company, Company: company };
+  XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
+
+  const fname = `Comparison_${(comp.pr_number||'PR').replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast('Excel exported with formulas ✓', 'success');
 }
 
 async function exportCompPDF(id) {
