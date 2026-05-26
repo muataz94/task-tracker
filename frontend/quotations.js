@@ -1007,236 +1007,447 @@ function _exportPDFFromData(comp, scored, sigs) {
   };
 
   const {jsPDF} = window.jspdf;
-  // Portrait A4
-  const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-  const pw  = doc.internal.pageSize.getWidth();   // 210mm
-  const ph  = doc.internal.pageSize.getHeight();  // 297mm
-  const ML  = 12, MR = 12, CW = pw - ML - MR;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw  = doc.internal.pageSize.getWidth();
+  const ph  = doc.internal.pageSize.getHeight();
+  const ML  = 13, MR = 13, CW = pw - ML - MR;
 
-  const BLUE   = [79,70,229];
-  const INDIGO = [55,48,163];
-  const GREEN  = [5,150,105];
-  const DARK   = [17,24,39];
-  const GRAY   = [107,114,128];
-  const LGRAY  = [249,250,255];
-  const WHITE  = [255,255,255];
+  // ── Palette ──────────────────────────────────────────────────────────────
+  const IND    = [99,  102, 241];   // indigo-500 (app accent)
+  const IND_D  = [55,  48,  163];   // indigo-800
+  const IND_XD = [30,  27,  75];    // indigo-950 (header bg)
+  const IND_XL = [238, 239, 255];   // indigo-50
+  const IND_BL = [199, 210, 254];   // indigo-200 (header rule)
+  const GRN    = [16,  185, 129];   // emerald-500
+  const GRN_D  = [6,   78,  59];    // emerald-900
+  const GRN_L  = [209, 250, 229];   // emerald-100
+  const AMB    = [217, 119, 6];     // amber-600
+  const RED    = [220, 38,  38];    // red-600
+  const RED_L  = [254, 226, 226];   // red-100
+  const DARK   = [17,  24,  39];    // gray-900
+  const GRAY   = [107, 114, 128];   // gray-500
+  const GRAY_L = [209, 213, 219];   // gray-300
+  const PALE   = [248, 248, 255];   // near-white with blue tint
+  const BORDER = [220, 221, 240];   // subtle border
+  const WHITE  = [255, 255, 255];
 
   const fmtDate = d => {
     if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}); }
+    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
     catch { return String(d).split('T')[0]; }
   };
   const fmtMoney = n => {
     const num = parseFloat(n);
     if (isNaN(num)) return '—';
     return currency + ' ' + num.toLocaleString('en-US', {
-      minimumFractionDigits: currency==='IQD'?0:2,
-      maximumFractionDigits: currency==='IQD'?0:2
+      minimumFractionDigits: currency === 'IQD' ? 0 : 2,
+      maximumFractionDigits: currency === 'IQD' ? 0 : 2,
     });
   };
-  const fmtN = (n, d=0) => {
+  const fmtN = (n, d = 0) => {
     const num = parseFloat(n);
-    return isNaN(num) ? '—' : num.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+    return isNaN(num) ? '—' : num.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   };
+  const genDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // ── HEADER BAND ───────────────────────────────────────
-  doc.setFillColor(...BLUE);
-  doc.rect(0, 0, pw, 34, 'F');
-  doc.setTextColor(...WHITE);
-  doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.text(`★ ${company}`, ML, 8);
-  doc.setFontSize(14); doc.setFont('helvetica','bold');
-  doc.text('Final Bids Comparison Table', pw/2, 16, {align:'center'});
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text('Equipment & Services — Final Evaluation Report', pw/2, 22, {align:'center'});
+  // ── HEADER BAND (0 → 46mm) ────────────────────────────────────────────────
+  // Base layer — deep indigo
+  doc.setFillColor(...IND_XD);
+  doc.rect(0, 0, pw, 46, 'F');
+
+  // Decorative right panel — slightly lighter
+  doc.setFillColor(40, 36, 90);
+  doc.rect(pw - 56, 0, 56, 46, 'F');
+
+  // Top accent rule
+  doc.setFillColor(...IND);
+  doc.rect(0, 0, pw, 2, 'F');
+
+  // Company name — top left
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.text(
-    `PR: ${comp.pr_number||'—'}   |   ${comp.request_description||'—'}   |   Dept: ${comp.requesting_dept||'—'}`,
-    pw/2, 29, {align:'center'}
-  );
+  doc.setTextColor(...IND_BL);
+  doc.text(`★  ${company.toUpperCase()}`, ML, 9);
 
-  let y = 40;
+  // "PROCUREMENT DOCUMENT" pill — top right
+  doc.setFillColor(...IND_D);
+  doc.roundedRect(pw - MR - 38, 4, 38, 7.5, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.setTextColor(...IND_BL);
+  doc.text('CONFIDENTIAL — PROCUREMENT', pw - MR - 19, 9, { align: 'center' });
 
-  // ── INFO CARD ─────────────────────────────────────────
-  doc.setFillColor(...LGRAY); doc.setDrawColor(200,204,230);
-  doc.roundedRect(ML, y, CW, 24, 2, 2, 'FD');
-  const c1 = ML+5, c2 = ML+CW/2+5;
-  const info = [
-    ['Request Date:',   fmtDate(comp.request_date),                'Awarding Date:',    fmtDate(comp.awarding_date)],
-    ['Total PR Value:', fmtMoney(comp.total_pr_value),             'Currency:',         currency],
-    ['Delivery Term:',  fmtN(comp.delivery_term_days)+' days',    'Warranty Term:',    fmtN(comp.warranty_term_months)+' months'],
+  // Main title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(...WHITE);
+  doc.text('Final Bids Comparison Table', pw / 2, 22, { align: 'center' });
+
+  // Subtitle
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(180, 182, 240);
+  doc.text('Equipment & Services  —  Weighted Procurement Evaluation', pw / 2, 29, { align: 'center' });
+
+  // Divider rule
+  doc.setDrawColor(...IND_D);
+  doc.setLineWidth(0.3);
+  doc.line(ML, 33, pw - MR, 33);
+
+  // Bottom meta line
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(160, 162, 220);
+  const metaLeft = [
+    comp.pr_number       ? `PR: ${comp.pr_number}` : null,
+    comp.requesting_dept ? `Dept: ${comp.requesting_dept}` : null,
+    comp.request_description ? comp.request_description : null,
+  ].filter(Boolean).join('   ·   ');
+  if (metaLeft) doc.text(metaLeft, ML, 40, { maxWidth: CW - 30 });
+  doc.text(`Generated: ${genDate}`, pw - MR, 40, { align: 'right' });
+
+  let y = 52;
+
+  // ── INFO CARD ─────────────────────────────────────────────────────────────
+  const infoH = 34;
+  doc.setFillColor(...IND_XL);
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(ML, y, CW, infoH, 2.5, 2.5, 'FD');
+  // Left accent bar
+  doc.setFillColor(...IND);
+  doc.roundedRect(ML, y, 3.5, infoH, 1.5, 1.5, 'F');
+
+  const iL = ML + 8, iR = ML + CW / 2 + 6;
+  const infoRows = [
+    ['REQUEST DESCRIPTION', comp.request_description || '—', 'REQUESTING DEPT',   comp.requesting_dept || '—'],
+    ['PR NUMBER',           comp.pr_number            || '—', 'TOTAL PR VALUE',    fmtMoney(comp.total_pr_value)],
+    ['REQUEST DATE',        fmtDate(comp.request_date),       'AWARDING DATE',     fmtDate(comp.awarding_date)],
+    ['DELIVERY TERM',       `${comp.delivery_term_days || 35} days`, 'WARRANTY TERM', `${comp.warranty_term_months || 12} months`],
   ];
-  info.forEach((row, i) => {
-    const ly = y + 7 + i*7;
-    doc.setTextColor(...GRAY);  doc.setFont('helvetica','bold');  doc.setFontSize(7.5);
-    doc.text(row[0], c1, ly);
-    doc.setTextColor(...DARK);  doc.setFont('helvetica','normal');
-    doc.text(row[1], c1+28, ly);
-    doc.setTextColor(...GRAY);  doc.setFont('helvetica','bold');
-    doc.text(row[2], c2, ly);
-    doc.setTextColor(...DARK);  doc.setFont('helvetica','normal');
-    doc.text(row[3], c2+28, ly);
+  let iy = y + 8;
+  infoRows.forEach((row, idx) => {
+    if (idx > 0) {
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.2);
+      doc.line(ML + 5, iy - 2, ML + CW - 3, iy - 2);
+    }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRAY);
+    doc.text(row[0], iL, iy);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...DARK);
+    doc.text(String(row[1]), iL, iy + 3.8, { maxWidth: CW / 2 - 10 });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRAY);
+    doc.text(row[2], iR, iy);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...DARK);
+    doc.text(String(row[3]), iR, iy + 3.8, { maxWidth: CW / 2 - 8 });
+    iy += 8.5;
   });
-  y += 30;
+  y += infoH + 6;
 
-  // Section helper
-  const drawSection = (title, num, color) => {
-    color = color || BLUE;
-    doc.setFillColor(...color); doc.rect(ML, y, 3, 7, 'F');
-    doc.setFillColor(...color); doc.roundedRect(ML+5, y+0.5, 6, 6, 1, 1, 'F');
-    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(7);
-    doc.text(String(num), ML+8, y+5, {align:'center'});
-    doc.setTextColor(...color); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.text(title, ML+14, y+5.5);
-    y += 10;
+  // ── Section header helper ─────────────────────────────────────────────────
+  let secNum = 0;
+  const drawSection = (title, color) => {
+    secNum++;
+    color = color || IND;
+    if (y > ph - 55) { doc.addPage(); y = 14; }
+    // Number badge
+    doc.setFillColor(...color);
+    doc.roundedRect(ML, y, 7, 7, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
+    doc.text(String(secNum), ML + 3.5, y + 5.5, { align: 'center' });
+    // Title
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...color);
+    doc.text(title, ML + 10, y + 5.5);
+    // Rule
+    doc.setDrawColor(...color); doc.setLineWidth(0.5);
+    doc.line(ML, y + 9, ML + 45, y + 9);
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+    doc.line(ML + 45, y + 9, pw - MR, y + 9);
+    y += 13;
   };
 
-  // ── 1. VENDORS DATA ──────────────────────────────────
-  drawSection('VENDORS DATA', 1, BLUE);
-  doc.autoTable({
-    startY: y,
-    head:[[
-      {content:'Vendor',          styles:{halign:'left'}},
-      {content:'Total Cost',      styles:{halign:'right'}},
-      'Spec %','Install %','Del\n(Days)','War\n(Mo.)','Pay\n%','Com\n%',
-    ]],
-    body: scored.map(v => [
-      {content: v.vendor_name+(v.annex_ref?`\n${v.annex_ref}`:''), styles:{halign:'left'}},
-      {content: fmtMoney(v.total_cost),   styles:{halign:'right', fontStyle:'bold'}},
-      {content: fmtN(v.spec_compliance,0)+'%',         styles:{halign:'center'}},
-      {content: fmtN(v.installation_compliance,0)+'%', styles:{halign:'center'}},
-      {content: fmtN(v.delivery_days,0),               styles:{halign:'center'}},
-      {content: fmtN(v.warranty_months,0),             styles:{halign:'center'}},
-      {content: fmtN(v.payment_compliance,0)+'%',      styles:{halign:'center'}},
-      {content: fmtN(v.commitment_pct,0)+'%',          styles:{halign:'center'}},
-    ]),
-    headStyles:{fillColor:BLUE,textColor:WHITE,fontSize:8,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
-    bodyStyles:{fontSize:8.5,textColor:DARK,cellPadding:{top:3,bottom:3,left:3,right:3}},
-    columnStyles:{0:{cellWidth:52},1:{cellWidth:26,halign:'right'},2:{cellWidth:14,halign:'center'},3:{cellWidth:14,halign:'center'},4:{cellWidth:14,halign:'center'},5:{cellWidth:14,halign:'center'},6:{cellWidth:13,halign:'center'},7:{cellWidth:13,halign:'center'}},
-    alternateRowStyles:{fillColor:[248,249,255]},
-    tableLineColor:[210,215,235],tableLineWidth:0.25,
-    margin:{left:ML,right:MR},
-  });
-  y = doc.lastAutoTable.finalY + 4;
+  // ── 1. VENDORS DATA ───────────────────────────────────────────────────────
+  drawSection('VENDORS DATA', IND);
 
-  // Weights pill
-  doc.setFillColor(235,237,255); doc.setDrawColor(180,190,220);
-  doc.roundedRect(ML, y, CW, 7, 1, 1, 'FD');
-  doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+  // Weights summary bar
+  doc.setFillColor(235, 237, 255);
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(ML, y - 3, CW, 7.5, 1, 1, 'FD');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...IND_D);
+  doc.text('WEIGHTS', ML + 3, y + 1);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(...GRAY);
   doc.text(
-    `Weights:  Price=${w.price}  |  Req=${w.requirements}  |  Del=${w.delivery}  |  War=${w.warranty}  |  Pay=${w.payment}  |  Com=${w.commitment}  |  Total=100`,
-    ML+3, y+4.5
+    `Price: ${w.price}   ·   Requirements: ${w.requirements}   ·   Delivery: ${w.delivery}   ·   Warranty: ${w.warranty}   ·   Payment: ${w.payment}   ·   Commitment: ${w.commitment}`,
+    ML + 18, y + 1
   );
-  y += 11;
+  y += 8;
 
-  if (y > 200) { doc.addPage(); y = 16; }
-
-  // ── 2. EVALUATION SCORES ─────────────────────────────
-  drawSection('EVALUATION SCORES', 2, [79,70,229]);
   doc.autoTable({
     startY: y,
-    head:[[
-      {content:'Vendor', styles:{halign:'left'}},
-      `Price\n(${w.price})`,`Req\n(${w.requirements})`,`Del\n(${w.delivery})`,
-      `War\n(${w.warranty})`,`Pay\n(${w.payment})`,`Com\n(${w.commitment})`,
-      {content:'TOTAL',styles:{fontStyle:'bold'}}, 'Rank'
+    head: [[
+      { content: 'Vendor',     styles: { halign: 'left' } },
+      { content: 'Total Cost', styles: { halign: 'right' } },
+      'Spec %', 'Install %',
+      { content: 'Del.\n(Days)', styles: { halign: 'center' } },
+      { content: 'War.\n(Mo.)',  styles: { halign: 'center' } },
+      'Pay %', 'Com %',
     ]],
-    body: scored.map((v,i) => [
-      {content:(i===0?'★ ':'')+v.vendor_name+(v.annex_ref?` (${v.annex_ref})`:''), styles:{halign:'left',fontStyle:i===0?'bold':'normal'}},
-      fmtN(v.price_score,2), fmtN(v.requirements_score,2), fmtN(v.delivery_score,2),
-      fmtN(v.warranty_score,2), fmtN(v.payment_score,2), fmtN(v.commitment_score,2),
-      {content:fmtN(v.total_score,2), styles:{fontStyle:'bold',halign:'center'}},
-      {content:'#'+(i+1), styles:{halign:'center'}},
+    body: scored.map((v, i) => [
+      { content: v.vendor_name + (v.annex_ref ? `\n${v.annex_ref}` : ''), styles: { halign: 'left' } },
+      { content: fmtMoney(v.total_cost), styles: { halign: 'right', fontStyle: 'bold', textColor: i === 0 ? GRN : AMB } },
+      { content: fmtN(v.spec_compliance, 0) + '%',          styles: { halign: 'center' } },
+      { content: fmtN(v.installation_compliance, 0) + '%',  styles: { halign: 'center' } },
+      { content: fmtN(v.delivery_days, 0),                  styles: { halign: 'center' } },
+      { content: fmtN(v.warranty_months, 0),                styles: { halign: 'center' } },
+      { content: fmtN(v.payment_compliance, 0) + '%',       styles: { halign: 'center' } },
+      { content: fmtN(v.commitment_pct, 0) + '%',           styles: { halign: 'center' } },
     ]),
-    headStyles:{fillColor:[79,70,229],textColor:WHITE,fontSize:8,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
-    bodyStyles:{fontSize:8.5,textColor:DARK,halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
-    columnStyles:{0:{cellWidth:52,halign:'left'}},
-    didParseCell:d=>{if(d.section==='body'&&d.row.index===0){d.cell.styles.fillColor=[236,253,245];d.cell.styles.fontStyle='bold';d.cell.styles.textColor=[6,95,70];}},
-    alternateRowStyles:{fillColor:[248,249,255]},
-    tableLineColor:[210,215,235],tableLineWidth:0.25,
-    margin:{left:ML,right:MR},
+    headStyles: {
+      fillColor: IND, textColor: WHITE,
+      fontSize: 7.5, fontStyle: 'bold', halign: 'center',
+      cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+    },
+    bodyStyles: { fontSize: 8.5, textColor: DARK, cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 } },
+    columnStyles: {
+      0: { cellWidth: 50 }, 1: { cellWidth: 28, halign: 'right' },
+      2: { cellWidth: 14, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' },
+      4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 14, halign: 'center' },
+      6: { cellWidth: 13, halign: 'center' }, 7: { cellWidth: 13, halign: 'center' },
+    },
+    didParseCell(d) {
+      if (d.section !== 'body') return;
+      if (d.row.index === 0) {
+        d.cell.styles.fillColor = GRN_L;
+        d.cell.styles.textColor = GRN_D;
+        d.cell.styles.fontStyle = 'bold';
+      }
+    },
+    tableLineColor: BORDER, tableLineWidth: 0.25,
+    margin: { left: ML, right: MR },
   });
   y = doc.lastAutoTable.finalY + 6;
 
-  if (y > 215) { doc.addPage(); y = 16; }
+  if (y > 205) { doc.addPage(); y = 14; }
 
-  // ── 3. WINNING BID ───────────────────────────────────
-  drawSection('WINNING BID', 3, GREEN);
-  const wRec = scored[0]||{};
+  // ── 2. EVALUATION SCORES ──────────────────────────────────────────────────
+  drawSection('EVALUATION SCORES', IND_D);
+
+  // Legend
+  doc.setFillColor(...GRN_L);
+  doc.roundedRect(ML, y - 3, 26, 6, 1, 1, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRN);
+  doc.text('●  Best score', ML + 3, y + 1);
+  doc.setFillColor(...RED_L);
+  doc.roundedRect(ML + 29, y - 3, 26, 6, 1, 1, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...RED);
+  doc.text('●  Lowest score', ML + 32, y + 1);
+  y += 7;
+
+  // Precompute min/max per score column for cell coloring
+  const SKEYS = ['price_score','requirements_score','delivery_score','warranty_score','payment_score','commitment_score'];
+  const sMM = SKEYS.map(k => {
+    const vals = scored.map(s => parseFloat(s[k]) || 0);
+    return { min: Math.min(...vals), max: Math.max(...vals) };
+  });
+  const totVals = scored.map(s => parseFloat(s.total_score) || 0);
+  const totMM   = { min: Math.min(...totVals), max: Math.max(...totVals) };
+
   doc.autoTable({
     startY: y,
-    head:[[
-      {content:'Winning Supplier',styles:{halign:'left'}},
-      {content:'Total Score',     styles:{halign:'center'}},
-      {content:'Total Amount',    styles:{halign:'right'}},
-      {content:'Comment / Recommendation',styles:{halign:'left'}},
+    head: [[
+      { content: 'Vendor', styles: { halign: 'left' } },
+      `Price\n(${w.price})`, `Req.\n(${w.requirements})`, `Del.\n(${w.delivery})`,
+      `War.\n(${w.warranty})`, `Pay.\n(${w.payment})`, `Com.\n(${w.commitment})`,
+      { content: 'TOTAL', styles: { fontStyle: 'bold' } },
+      'Rank',
     ]],
-    body:[[
-      {content: comp.winner_vendor||wRec.vendor_name||'—', styles:{fontStyle:'bold',halign:'left',  fontSize:10}},
-      {content: fmtN(comp.winner_score||wRec.total_score||0,2), styles:{fontStyle:'bold',halign:'center',fontSize:10}},
-      {content: fmtMoney(comp.winner_amount||wRec.total_cost||0), styles:{fontStyle:'bold',halign:'right', fontSize:10,textColor:[5,120,80]}},
-      {content: comp.winner_comment||'—', styles:{halign:'left',fontSize:9}},
-    ]],
-    headStyles:{fillColor:GREEN,textColor:WHITE,fontSize:8.5,fontStyle:'bold',cellPadding:{top:3,bottom:3,left:4,right:4}},
-    bodyStyles:{fillColor:[240,255,249],fontSize:10,textColor:DARK,cellPadding:{top:5,bottom:5,left:4,right:4}},
-    columnStyles:{0:{cellWidth:50},1:{cellWidth:22},2:{cellWidth:38}},
-    tableLineColor:[150,210,180],tableLineWidth:0.4,
-    margin:{left:ML,right:MR},
+    body: scored.map((v, i) => [
+      { content: (i === 0 ? '★  ' : '') + v.vendor_name + (v.annex_ref ? ` (${v.annex_ref})` : ''), styles: { halign: 'left', fontStyle: i === 0 ? 'bold' : 'normal' } },
+      fmtN(v.price_score, 2), fmtN(v.requirements_score, 2), fmtN(v.delivery_score, 2),
+      fmtN(v.warranty_score, 2), fmtN(v.payment_score, 2), fmtN(v.commitment_score, 2),
+      { content: fmtN(v.total_score, 2), styles: { fontStyle: 'bold', halign: 'center' } },
+      { content: '#' + (i + 1), styles: { halign: 'center' } },
+    ]),
+    headStyles: {
+      fillColor: IND_D, textColor: WHITE,
+      fontSize: 7.5, fontStyle: 'bold', halign: 'center',
+      cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 },
+    },
+    bodyStyles: { fontSize: 8.5, textColor: DARK, halign: 'center', cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 } },
+    columnStyles: { 0: { cellWidth: 50, halign: 'left' }, 7: { cellWidth: 18 }, 8: { cellWidth: 11 } },
+    didParseCell(d) {
+      if (d.section !== 'body') return;
+      const ri = d.row.index, ci = d.column.index;
+      // Winner row — full green tint
+      if (ri === 0) {
+        d.cell.styles.fillColor = [236, 253, 245];
+        d.cell.styles.textColor = GRN_D;
+        d.cell.styles.fontStyle = 'bold';
+        return;
+      }
+      // Individual score cells (cols 1-6) — highlight best & lowest per column
+      if (ci >= 1 && ci <= 6) {
+        const mm = sMM[ci - 1];
+        const val = parseFloat(scored[ri][SKEYS[ci - 1]]) || 0;
+        if (mm.max > mm.min) {
+          if (Math.abs(val - mm.max) < 0.001) {
+            d.cell.styles.fillColor = GRN_L;
+            d.cell.styles.textColor = GRN;
+            d.cell.styles.fontStyle = 'bold';
+          } else if (Math.abs(val - mm.min) < 0.001) {
+            d.cell.styles.fillColor = RED_L;
+            d.cell.styles.textColor = RED;
+          }
+        }
+      }
+      // Total score — color-code lowest
+      if (ci === 7 && scored.length > 1) {
+        const val = parseFloat(scored[ri].total_score) || 0;
+        if (Math.abs(val - totMM.min) < 0.001) d.cell.styles.textColor = RED;
+      }
+      // Rank badge tint
+      if (ci === 8) d.cell.styles.textColor = GRAY;
+    },
+    tableLineColor: BORDER, tableLineWidth: 0.25,
+    margin: { left: ML, right: MR },
   });
-  y = doc.lastAutoTable.finalY + 6;
+  y = doc.lastAutoTable.finalY + 7;
 
-  if (y > 220) { doc.addPage(); y = 16; }
+  if (y > 220) { doc.addPage(); y = 14; }
 
-  // ── 4. COMMITTEE SIGNATURES ──────────────────────────
-  drawSection('COMMITTEE SIGNATURES', 4, [100,116,200]);
-  const sigCols = sigs.slice(0, 5); // max 5 per row
-  doc.autoTable({
-    startY: y,
-    head: [sigCols.map(s => ({content: s.role||'—', styles:{halign:'center',fontStyle:'bold',fontSize:7.5}}))],
-    body: [
-      sigCols.map(s => ({content: s.name||'', styles:{halign:'center',fontSize:9,fontStyle:s.name?'bold':'normal'}})),
-      sigCols.map(() => ({content:'', styles:{minCellHeight:10}})),
-      sigCols.map(() => ({content:'______________________', styles:{halign:'center',textColor:[150,150,170],fontSize:8}})),
-    ],
-    headStyles:{fillColor:[230,232,255],textColor:DARK,fontSize:7.5,fontStyle:'bold',halign:'center',cellPadding:{top:3,bottom:3,left:2,right:2}},
-    bodyStyles:{textColor:DARK,cellPadding:{top:2,bottom:2,left:2,right:2}},
-    tableLineColor:[210,215,235],tableLineWidth:0.2,
-    margin:{left:ML,right:MR},
-  });
-  // Extra signature rows if more than 5
-  if (sigs.length > 5) {
-    y = doc.lastAutoTable.finalY + 4;
-    const sigCols2 = sigs.slice(5);
+  // ── 3. WINNING BID ────────────────────────────────────────────────────────
+  drawSection('WINNING BID', GRN);
+
+  const wRec     = scored[0] || {};
+  const winName  = comp.winner_vendor || wRec.vendor_name || '—';
+  const winScore = parseFloat(comp.winner_score  || wRec.total_score || 0);
+  const winCost  = parseFloat(comp.winner_amount || wRec.total_cost  || 0);
+
+  // Custom winner card (not autoTable — more design control)
+  const cardH = comp.winner_comment ? 40 : 32;
+  doc.setFillColor(...GRN_L);
+  doc.setDrawColor(134, 239, 172); // emerald-300
+  doc.setLineWidth(0.4);
+  doc.roundedRect(ML, y, CW, cardH, 2.5, 2.5, 'FD');
+  // Left thick accent bar
+  doc.setFillColor(...GRN);
+  doc.roundedRect(ML, y, 5, cardH, 2, 2, 'F');
+
+  // Trophy star
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...GRN);
+  doc.text('★', ML + 14, y + cardH / 2 + 4, { align: 'center' });
+
+  // "AWARDED VENDOR" label
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRN);
+  doc.text('AWARDED VENDOR', ML + 22, y + 9);
+
+  // Vendor name
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...GRN_D);
+  doc.text(winName, ML + 22, y + 16, { maxWidth: CW - 80 });
+
+  // Comment
+  if (comp.winner_comment) {
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(6, 95, 70);
+    const lines = doc.splitTextToSize(comp.winner_comment, CW - 82);
+    doc.text(lines.slice(0, 2), ML + 22, y + 22);
+  }
+
+  // Score pill (right side)
+  const pillX = pw - MR - 50;
+  doc.setFillColor(...GRN);
+  doc.roundedRect(pillX, y + 5, 22, 11, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...WHITE);
+  doc.text(fmtN(winScore, 2), pillX + 11, y + 13, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(134, 239, 172);
+  doc.text('/ 100  SCORE', pillX + 11, y + 18, { align: 'center' });
+
+  // Amount block
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRAY);
+  doc.text('CONTRACT AMOUNT', pw - MR - 24, y + 8, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...GRN_D);
+  doc.text(fmtMoney(winCost), pw - MR - 24, y + 15, { align: 'center' });
+
+  y += cardH + 5;
+
+  // Runner-up strip
+  if (scored.length > 1) {
+    const rank2 = scored[1];
+    doc.setFillColor(...PALE);
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(ML, y, CW, 10, 1.5, 1.5, 'FD');
+    doc.setFillColor(...GRAY_L);
+    doc.roundedRect(ML, y, 3, 10, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRAY);
+    doc.text('RUNNER-UP', ML + 6, y + 6.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
+    doc.text(rank2.vendor_name || '—', ML + 32, y + 6.5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GRAY);
+    doc.text(`Score: ${fmtN(rank2.total_score, 2)}   ·   Cost: ${fmtMoney(rank2.total_cost)}`, pw - MR, y + 6.5, { align: 'right' });
+    y += 14;
+  }
+
+  if (y > 225) { doc.addPage(); y = 14; }
+
+  // ── 4. COMMITTEE SIGNATURES ───────────────────────────────────────────────
+  drawSection('COMMITTEE SIGNATURES', [100, 116, 200]);
+
+  const renderSigTable = (cols, startY) => {
     doc.autoTable({
-      startY: y,
-      head:[sigCols2.map(s=>({content:s.role||'—',styles:{halign:'center',fontStyle:'bold',fontSize:7.5}}))],
-      body:[
-        sigCols2.map(s=>({content:s.name||'',styles:{halign:'center',fontSize:9,fontStyle:s.name?'bold':'normal'}})),
-        sigCols2.map(()=>({content:'',styles:{minCellHeight:10}})),
-        sigCols2.map(()=>({content:'______________________',styles:{halign:'center',textColor:[150,150,170],fontSize:8}})),
+      startY,
+      head: [cols.map(s => ({
+        content: s.role || '—',
+        styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, textColor: IND_D },
+      }))],
+      body: [
+        cols.map(s => ({
+          content: s.name || '',
+          styles: { halign: 'center', fontSize: 9, fontStyle: s.name ? 'bold' : 'normal' },
+        })),
+        cols.map(() => ({ content: '', styles: { minCellHeight: 13 } })),
+        cols.map(() => ({
+          content: '__________________',
+          styles: { halign: 'center', textColor: GRAY_L, fontSize: 8 },
+        })),
       ],
-      headStyles:{fillColor:[230,232,255],textColor:DARK,fontSize:7.5,fontStyle:'bold',halign:'center'},
-      bodyStyles:{textColor:DARK,cellPadding:{top:2,bottom:2,left:2,right:2}},
-      tableLineColor:[210,215,235],tableLineWidth:0.2,
-      margin:{left:ML,right:MR},
+      headStyles: {
+        fillColor: IND_XL, textColor: DARK,
+        fontSize: 7, fontStyle: 'bold', halign: 'center',
+        cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 },
+      },
+      bodyStyles: { textColor: DARK, cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 } },
+      tableLineColor: BORDER, tableLineWidth: 0.2,
+      margin: { left: ML, right: MR },
     });
+  };
+
+  renderSigTable(sigs.slice(0, 5), y);
+  if (sigs.length > 5) {
+    renderSigTable(sigs.slice(5), doc.lastAutoTable.finalY + 5);
   }
 
-  // ── FOOTER ON ALL PAGES ──────────────────────────────
-  const tp = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= tp; i++) {
+  // ── FOOTER — ALL PAGES ────────────────────────────────────────────────────
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setDrawColor(...BLUE); doc.setLineWidth(0.4);
-    doc.line(ML, ph-11, pw-MR, ph-11);
-    doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.setTextColor(...INDIGO);
-    doc.text(`★ ${company}`, ML, ph-7);
-    doc.setTextColor(...GRAY); doc.setFont('helvetica','normal');
-    doc.text(`PR: ${comp.pr_number||'—'}   |   Generated: ${new Date().toLocaleDateString('en-GB')}`, pw/2, ph-7, {align:'center'});
-    doc.text(`Page ${i} of ${tp}`, pw-MR, ph-7, {align:'right'});
+    // Dark footer band
+    doc.setFillColor(...IND_XD);
+    doc.rect(0, ph - 12, pw, 12, 'F');
+    doc.setFillColor(...IND);
+    doc.rect(0, ph - 12, pw, 1.5, 'F');
+    // Left — company
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...IND_BL);
+    doc.text(`★  ${company}`, ML, ph - 5);
+    // Center — PR + confidential
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(140, 142, 200);
+    doc.text(`PR: ${comp.pr_number || '—'}   ·   Confidential Procurement Document`, pw / 2, ph - 5, { align: 'center' });
+    // Right — page number
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...IND_BL);
+    doc.text(`${i} / ${totalPages}`, pw - MR, ph - 5, { align: 'right' });
   }
 
-  doc.save(`Comparison_${comp.pr_number||'PR'}_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`Comparison_${comp.pr_number || 'PR'}_${new Date().toISOString().split('T')[0]}.pdf`);
   showToast('PDF exported ✓', 'success');
 }
 
