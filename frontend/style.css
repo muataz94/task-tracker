@@ -786,6 +786,8 @@ body::after {
   margin-bottom: 1.25rem;
 }
 
+.stat-card--link { cursor: pointer; }
+
 .stat-card {
   border-radius: var(--r-lg);
   padding: 1.1rem 1.25rem;

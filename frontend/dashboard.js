@@ -36,8 +36,7 @@ async function loadDashboard() {
     const cPre  = _cPre[prefs.currency] !== undefined ? _cPre[prefs.currency] : ((prefs.currency || 'USD') + ' ');
     const cSuf  = _cSuf[prefs.currency] || '';
 
-    animateCountUp('stat-open',    dashData.taskSummary.open);
-    animateCountUp('stat-overdue', dashData.taskSummary.overdue);
+    animateCountUp('stat-open',      dashData.taskSummary.open);
     animateCountUp('stat-spend',      dashData.poSpend || 0,       cPre, cSuf);
     animateCountUp('stat-progress',   dashData.avgProgress || 0,   '',   '%');
     animateCountUp('stat-expenses',   dashData.totalExpenses || 0, cPre, cSuf);
@@ -62,6 +61,8 @@ async function loadDashboard() {
     renderPivotExpenses(expenses);
     renderPivotActivity(tasks, expenses, milestones);
     autoMarkOverdue(tasks, 'Tasks');
+    // Recompute overdue count from local data (after autoMarkOverdue mutates statuses)
+    animateCountUp('stat-overdue', tasks.filter(t => t.status === 'overdue').length);
     updateOverdueBadge(tasks);
 
     const countEl = document.getElementById('pivot-count');
@@ -517,8 +518,8 @@ function renderActivityFeed(tasks, expenses) {
 function renderDashboardOverdueReminders(tasks) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const overdue = (tasks || []).filter(r =>
-    r.status !== 'done' && r.due_date &&
-    new Date(String(r.due_date).split('T')[0]) < today
+    r.status === 'overdue' ||
+    (r.status !== 'done' && r.due_date && new Date(String(r.due_date).split('T')[0]) < today)
   );
   renderDashOverduePanel('tasks', overdue, true);
   syncOverdueRowVisibility();
@@ -605,4 +606,15 @@ function requestNotifPermission(sheetName) {
       updateNotifBtn(sheetName);
     }
   });
+}
+
+// Navigate to a tab and optionally pre-set a status filter
+function navigateDashStat(view, statusFilter) {
+  const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
+  const sheet = sheetMap[view];
+  if (sheet && statusFilter) {
+    const filterEl = document.getElementById('filter-' + sheet);
+    if (filterEl) filterEl.value = statusFilter;
+  }
+  navigateTo(view);
 }
