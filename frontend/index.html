@@ -15,7 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <canvas id="particles-canvas" class="particles-canvas"></canvas>
@@ -33,22 +33,38 @@
   <!-- ── LOGIN SCREEN ── -->
   <div id="login-screen">
     <div class="login-bg-glow"></div>
-    <div class="login-card">
-      <div class="login-logo">
+    <div class="login-card" id="login-card">
+      <!-- Brand -->
+      <div class="login-brand">
         <div class="login-logo-icon">
-          <img id="login-icon" src="assets/icon-dark.svg" alt="Task Tracker" width="44" height="44" style="border-radius:10px;">
+          <img id="login-icon" src="assets/icon-dark.svg" alt="Task Tracker" width="40" height="40" style="border-radius:10px;">
         </div>
-        <span class="login-logo-text">Task Tracker</span>
+        <div class="login-brand-name">Task Tracker</div>
       </div>
+
+      <!-- Headline -->
       <h1 class="login-title" data-i18n="welcome_back">Welcome back</h1>
       <p class="login-sub" data-i18n="sign_in_subtitle">Sign in to continue to your workspace</p>
+
+      <!-- Access denied error -->
       <div id="login-access-error" class="login-access-error hidden"></div>
+
+      <!-- Google sign-in -->
       <div id="g-signin-btn"></div>
+
+      <!-- Recent logins -->
       <div id="recent-logins" class="hidden">
         <div class="recent-label" data-i18n="continue_as">Continue as</div>
         <div id="recent-list"></div>
       </div>
-      <p class="login-footer" data-i18n="secured_by">Secured with Google OAuth 2.0</p>
+
+      <!-- Footer -->
+      <div class="login-footer-wrap">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-4)">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <p class="login-footer" data-i18n="secured_by">Secured with Google OAuth 2.0</p>
+      </div>
     </div>
   </div>
 
@@ -190,13 +206,20 @@
 
         <!-- Dashboard -->
         <div id="view-dashboard" class="view active">
-          <div class="dashboard-greeting glass" style="border-radius: var(--r-lg); padding: 1.5rem; border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem;">
-            <div class="greeting-emoji-wrap" style="width: 48px; height: 48px; border-radius: 50%; background: var(--grad-primary); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(99,102,241,0.3); flex-shrink: 0; animation: cardFloat 3s ease-in-out infinite;">
-              👋
-            </div>
-            <div class="greeting-left">
-              <h2 id="dashboard-greeting-text" style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0;">Good morning</h2>
-              <p class="greeting-sub" style="font-size: 13px; color: var(--text-3); margin-top: 2px;">Here's what's happening with your projects today.</p>
+          <!-- Daily quote -->
+          <div class="dash-quote-card glass" id="dash-quote-card">
+            <div class="quote-mark">&ldquo;</div>
+            <div class="quote-content">
+              <p class="quote-text loading" id="quote-text">Loading inspiration&hellip;</p>
+              <div class="quote-footer">
+                <span class="quote-author" id="quote-author"></span>
+                <button class="quote-refresh" id="quote-refresh" onclick="loadDailyQuote(true)" title="New quote" aria-label="Refresh quote">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -931,10 +954,15 @@
   <script src="tables.js"></script>
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
-  <script src="chat.js"></script>
+  <script src="chat.js?v=2"></script>
   <script src="quotations.js"></script>
   <script>
     var idToken = null;
+
+    // ── Admin & permissions ──────────────────────────────────────────
+    const ADMIN_EMAIL = 'muatazthaaer@gmail.com';
+    let currentUserIsAdmin = false;
+    let currentUserPermissions = {};
 
     // ── JWT decode (base64url-safe) ──────────────────────────────────
     function decodeJwt(token) {
@@ -1073,19 +1101,95 @@
       );
     }
 
+    // ── Chat filter state ─────────────────────────────────────────────
+    let _chatFilterText = '';
+    let _chatFilterType = 'all';
+
+    function filterChatMessages(query) {
+      _chatFilterText = (query || '').toLowerCase().trim();
+      const clearBtn = document.getElementById('chat-filter-clear');
+      if (clearBtn) clearBtn.classList.toggle('hidden', !_chatFilterText);
+      _applyChatFilter();
+    }
+
+    function clearChatFilter() {
+      const inp = document.getElementById('chat-filter-input');
+      if (inp) inp.value = '';
+      _chatFilterText = '';
+      const clearBtn = document.getElementById('chat-filter-clear');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      _applyChatFilter();
+    }
+
+    function setChatFilterType(type, btn) {
+      _chatFilterType = type;
+      document.querySelectorAll('.chat-chip').forEach(c => c.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      _applyChatFilter();
+    }
+
+    function _applyChatFilter() {
+      const msgs = document.querySelectorAll('#chat-messages .chat-message');
+      msgs.forEach(el => {
+        let show = true;
+        if (_chatFilterText) {
+          const text = (el.textContent || '').toLowerCase();
+          show = text.includes(_chatFilterText);
+        }
+        if (show && _chatFilterType === 'mine') {
+          show = el.classList.contains('mine');
+        }
+        if (show && _chatFilterType === 'files') {
+          show = !!el.querySelector('.msg-file-link, .msg-image');
+        }
+        el.style.display = show ? '' : 'none';
+      });
+      // Show no-results if all hidden
+      const visible = [...msgs].filter(m => m.style.display !== 'none');
+      let noRes = document.getElementById('chat-filter-empty');
+      if (visible.length === 0 && msgs.length > 0 && (_chatFilterText || _chatFilterType !== 'all')) {
+        if (!noRes) {
+          noRes = document.createElement('div');
+          noRes.id = 'chat-filter-empty';
+          noRes.className = 'chat-filter-empty';
+          noRes.textContent = 'No messages match your filter.';
+          document.getElementById('chat-messages').appendChild(noRes);
+        }
+      } else if (noRes) {
+        noRes.remove();
+      }
+    }
+
     // ── Toggle floating chat panel ────────────────────────────────────
     function toggleChatPanel() {
-      const panel = document.getElementById('chat-panel');
-      const isHidden = panel.classList.contains('hidden');
-      panel.classList.toggle('hidden');
-      if (isHidden) {
+      const panel   = document.getElementById('chat-panel');
+      const tab     = document.getElementById('chat-tab');
+      const isOpen  = panel.classList.contains('is-open');
+
+      if (!isOpen) {
+        panel.classList.add('is-open');
+        if (tab) tab.classList.add('is-open');
         loadChat();
         document.getElementById('chat-unread').style.display = 'none';
         document.getElementById('chat-unread').textContent = '0';
       } else {
+        panel.classList.remove('is-open');
+        if (tab) tab.classList.remove('is-open');
         stopChatPolling();
       }
     }
+
+    // ── Close chat when clicking outside ─────────────────────────────
+    document.addEventListener('click', function(e) {
+      const panel = document.getElementById('chat-panel');
+      const tab   = document.getElementById('chat-tab');
+      if (!panel || !panel.classList.contains('is-open')) return;
+      if (!panel.contains(e.target) && !tab.contains(e.target)) {
+        panel.classList.remove('is-open');
+        if (tab) tab.classList.remove('is-open');
+        stopChatPolling();
+      }
+    }, true);
 
     // ── THEME SYSTEM ─────────────────────────────────────────────────
     function initTheme() {
@@ -1108,16 +1212,21 @@
     }
 
     function toggleTheme() {
+      // Suppress transitions for instant theme switch
+      document.documentElement.classList.add('no-transition');
       const curr = document.documentElement.getAttribute('data-theme') || 'dark';
       const next = curr === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('tt_theme', next);
-
       const sidebarLogo = document.getElementById('sidebar-logo');
       const loginIcon   = document.getElementById('login-icon');
       if (sidebarLogo) sidebarLogo.src = next === 'light' ? 'assets/logo-light.svg' : 'assets/logo-dark.svg';
       if (loginIcon)   loginIcon.src   = next === 'light' ? 'assets/icon-light.svg' : 'assets/icon-dark.svg';
       if (typeof refreshChartsFromCache === 'function') refreshChartsFromCache();
+      // Re-enable transitions after the next two paint frames
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.documentElement.classList.remove('no-transition');
+      }));
     }
 
     // ── PARTICLES ─────────────────────────────────────────────────────
@@ -1227,12 +1336,72 @@
       requestAnimationFrame(step);
     }
 
-    // ── Greeting ─────────────────────────────────────────────────────
-    function setGreeting() {
-      const hour = new Date().getHours();
-      const key  = hour < 12 ? 'good_morning' : hour < 17 ? 'good_afternoon' : 'good_evening';
-      const el   = document.getElementById('dashboard-greeting-text');
-      if (el) el.textContent = t(key);
+    // ── Daily quote ──────────────────────────────────────────────────
+    const QUOTE_FALLBACK = [
+      { content: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+      { content: "It always seems impossible until it's done.", author: "Nelson Mandela" },
+      { content: "Your time is limited, so don't waste it living someone else's life.", author: "Steve Jobs" },
+      { content: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+      { content: "In the middle of every difficulty lies opportunity.", author: "Albert Einstein" },
+      { content: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
+      { content: "Strive not to be a success, but rather to be of value.", author: "Albert Einstein" },
+      { content: "The best time to plant a tree was 20 years ago. The second best time is now.", author: "Chinese Proverb" },
+      { content: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
+      { content: "Either you run the day, or the day runs you.", author: "Jim Rohn" },
+      { content: "The harder I work, the luckier I get.", author: "Samuel Goldwyn" },
+      { content: "Energy and persistence conquer all things.", author: "Benjamin Franklin" },
+      { content: "Act as if what you do makes a difference. It does.", author: "William James" },
+      { content: "You miss 100% of the shots you don't take.", author: "Wayne Gretzky" },
+      { content: "Whether you think you can or you think you can't, you're right.", author: "Henry Ford" },
+    ];
+
+    async function loadDailyQuote(forceNew = false) {
+      const textEl   = document.getElementById('quote-text');
+      const authorEl = document.getElementById('quote-author');
+      const refreshBtn = document.getElementById('quote-refresh');
+      if (!textEl) return;
+
+      if (!forceNew) {
+        try {
+          const cached = localStorage.getItem('tt_daily_quote');
+          if (cached) {
+            const { date, content, author } = JSON.parse(cached);
+            if (date === new Date().toDateString()) {
+              textEl.textContent = content;
+              textEl.classList.remove('loading');
+              if (authorEl) authorEl.textContent = '— ' + author;
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+
+      textEl.classList.add('loading');
+      textEl.textContent = 'Loading inspiration…';
+      if (authorEl) authorEl.textContent = '';
+      if (refreshBtn) { refreshBtn.classList.add('spinning'); refreshBtn.disabled = true; }
+
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch('https://api.quotable.io/quotes/random?tags=wisdom%7Cinspirational%7Clife&minLength=40&maxLength=180', { signal: controller.signal });
+        clearTimeout(tid);
+        if (!res.ok) throw new Error('API failed');
+        const arr  = await res.json();
+        const data = Array.isArray(arr) ? arr[0] : arr;
+        const q    = { content: data.content, author: data.author };
+        textEl.textContent = q.content;
+        textEl.classList.remove('loading');
+        if (authorEl) authorEl.textContent = '— ' + q.author;
+        localStorage.setItem('tt_daily_quote', JSON.stringify({ date: new Date().toDateString(), ...q }));
+      } catch (_) {
+        const q = QUOTE_FALLBACK[Math.floor(Math.random() * QUOTE_FALLBACK.length)];
+        textEl.textContent = q.content;
+        textEl.classList.remove('loading');
+        if (authorEl) authorEl.textContent = '— ' + q.author;
+      } finally {
+        if (refreshBtn) { refreshBtn.classList.remove('spinning'); refreshBtn.disabled = false; }
+      }
     }
 
     // ── Handle sign-in response ──────────────────────────────────────
@@ -1252,7 +1421,8 @@
       const errEl = document.getElementById('login-access-error');
       if (errEl) errEl.classList.add('hidden');
 
-      // Show loading screen while verifying authorization
+      // Animate login card out, then show loading screen
+      const loginCard     = document.getElementById('login-card');
       const loadingScreen = document.getElementById('loading-screen');
       const loadAvatar    = document.getElementById('loading-avatar');
       const loadName      = document.getElementById('loading-name');
@@ -1261,8 +1431,11 @@
       if (loadAvatar && profile.picture) loadAvatar.src = profile.picture;
       if (loadName)  loadName.textContent  = profile.name;
       if (loadEmail) loadEmail.textContent = profile.email;
-      if (loadSub)   loadSub.textContent   = 'Verifying access...';
+      if (loadSub)   loadSub.textContent   = 'Verifying access…';
+      if (loginCard) loginCard.classList.add('login-exiting');
+      await new Promise(r => setTimeout(r, 230));
       document.getElementById('login-screen').classList.add('hidden');
+      if (loginCard) loginCard.classList.remove('login-exiting');
       loadingScreen.classList.remove('hidden');
 
       // ── Authorization check against Users sheet ──────────────────
@@ -1288,18 +1461,29 @@
         document.getElementById('login-screen').classList.remove('hidden');
         if (errEl) {
           errEl.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <div>
-              <strong>Access denied</strong>
-              <span>${escapeHtml(profile.email)} is not authorized for this workspace. Contact your administrator to request access.</span>
+            <div class="access-err-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <div class="access-err-text">
+              <div class="access-err-title">Access denied</div>
+              <div class="access-err-body"><strong>${escapeHtml(profile.email)}</strong> is not in the authorized user list. Contact your administrator to request access.</div>
             </div>`;
           errEl.classList.remove('hidden');
         }
         return;
+      }
+
+      // ── Authorized — set admin flag and permissions ───────────────
+      currentUserIsAdmin = profile.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const userRecord = users.find(u => (u.email || '').toLowerCase().trim() === profile.email.toLowerCase().trim());
+      if (!currentUserIsAdmin && userRecord?.permissions) {
+        try { currentUserPermissions = JSON.parse(userRecord.permissions); } catch(_) { currentUserPermissions = {}; }
+      } else {
+        currentUserPermissions = { can_edit: true, can_delete: currentUserIsAdmin, can_manage_team: currentUserIsAdmin };
       }
 
       // ── Authorized — enter the app ────────────────────────────────
@@ -1319,7 +1503,6 @@
       initParticles();
       initTopbarScroll();
       initRipples();
-      setGreeting();
       navigateTo('dashboard');
       applyLanguage();
     }
@@ -1404,7 +1587,7 @@
 
       const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
 
-      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
+      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); loadDailyQuote(); }
       else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
       else if (view === 'settings')   { stopDashboardRefresh(); loadSettings(); }
       else if (view === 'quotations') { stopDashboardRefresh(); loadQuotations(); }
@@ -1420,24 +1603,52 @@
     // ── Settings ─────────────────────────────────────────────────────
     async function loadSettings() {
       stopChatPolling();
-      try {
-        const result = await getAll('Users');
-        const users  = result.rows || [];
-        const list   = document.getElementById('team-list');
-        if (list) {
-          list.innerHTML = users.map(u => `
-            <div class="team-member-row">
-              <div class="team-avatar">${(u.email || '?').charAt(0).toUpperCase()}</div>
-              <div class="team-info">
-                <div class="team-email">${u.email}</div>
-                <div class="team-role">${u.role || 'editor'}</div>
-              </div>
-              ${u.email !== currentUserEmail
-                ? `<button class="btn-delete" onclick="removeMember('${u.email}')">${t('remove')}</button>`
-                : `<span class="team-you">${t('you')}</span>`}
-            </div>`).join('');
-        }
-      } catch (e) { console.error('Settings load error:', e); }
+
+      // Show/hide admin-only cards
+      const teamCard = document.querySelector('.scard-team');
+      if (teamCard) teamCard.style.display = currentUserIsAdmin ? '' : 'none';
+
+      if (currentUserIsAdmin) {
+        try {
+          const result = await getAll('Users');
+          const users  = result.rows || [];
+          const list   = document.getElementById('team-list');
+          if (list) {
+            list.innerHTML = users.map(u => {
+              const isOwner      = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+              const isCurrentUser = u.email === currentUserEmail;
+              return `
+                <div class="team-member-row">
+                  <div class="team-avatar">${(u.email || '?').charAt(0).toUpperCase()}</div>
+                  <div class="team-info">
+                    <div class="team-email">${escapeHtml(u.email)}
+                      ${isOwner ? '<span class="team-owner-badge">Owner</span>' : ''}
+                      ${isCurrentUser && !isOwner ? '<span class="team-you">You</span>' : ''}
+                    </div>
+                    <div class="team-role">${escapeHtml(u.role || 'editor')}</div>
+                  </div>
+                  <div class="team-actions">
+                    ${isOwner
+                      ? `<span class="team-owner-chip">
+                           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                           Full Access
+                         </span>`
+                      : `<button class="btn-edit-perms" onclick="editMemberPermissions('${escapeHtml(u.email)}')">
+                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                           Permissions
+                         </button>
+                         ${!isCurrentUser
+                           ? `<button class="btn-delete btn-sm-del" onclick="removeMember('${escapeHtml(u.email)}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                                ${t('remove')}
+                              </button>`
+                           : ''}`}
+                  </div>
+                </div>`;
+            }).join('');
+          }
+        } catch (e) { console.error('Settings load error:', e); }
+      }
 
       const prefs  = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
       const fields = ['pref-currency','pref-dateformat','pref-sheet-url','pref-refresh','pref-assignee','pref-project'];
@@ -1469,14 +1680,105 @@
     }
 
     async function addMember() {
-      const email = document.getElementById('new-member-email')?.value.trim();
+      const emailInput = document.getElementById('new-member-email');
+      const email = emailInput?.value.trim();
       const role  = document.getElementById('new-member-role')?.value || 'editor';
       if (!email) return;
+      showPermissionsPopup(email, role, {}, async (permissions) => {
+        try {
+          await addRow('Users', {
+            email, name: email.split('@')[0], role,
+            added_at: new Date().toISOString(),
+            permissions: JSON.stringify(permissions)
+          });
+          if (emailInput) emailInput.value = '';
+          loadSettings();
+          showToast('Member added successfully', 'success');
+        } catch (e) { showToast('Failed to add member: ' + e.message, 'error'); }
+      });
+    }
+
+    async function editMemberPermissions(email) {
       try {
-        await addRow('Users', { email, name: email.split('@')[0], role, added_at: new Date().toISOString() });
-        document.getElementById('new-member-email').value = '';
-        loadSettings();
-      } catch (e) { showToast('Failed to add member: ' + e.message, 'error'); }
+        const result = await getAll('Users');
+        const user   = (result.rows || []).find(u => u.email === email);
+        if (!user) return;
+        let existing = {};
+        if (user.permissions) { try { existing = JSON.parse(user.permissions); } catch(_) {} }
+        showPermissionsPopup(email, user.role || 'editor', existing, async (permissions) => {
+          try {
+            await updateRow('Users', user.id, { permissions: JSON.stringify(permissions) });
+            loadSettings();
+            showToast('Permissions updated', 'success');
+          } catch(e) { showToast('Failed to update permissions: ' + e.message, 'error'); }
+        });
+      } catch(e) { showToast('Failed to load user: ' + e.message, 'error'); }
+    }
+
+    function showPermissionsPopup(email, role, existing, onConfirm) {
+      const prev = document.getElementById('perm-popup-overlay');
+      if (prev) prev.remove();
+
+      const defaults = {
+        can_edit_tasks: true, can_delete_tasks: false,
+        can_edit_pos: true,   can_delete_pos: false,
+        can_edit_expenses: true, can_delete_expenses: false,
+        can_edit_quotations: true,
+        can_access_settings: false,
+        can_export: true
+      };
+      const perms = { ...defaults, ...existing };
+
+      const rows = [
+        { key: 'can_edit_tasks',      label: 'Edit Tasks',       section: 'Tasks' },
+        { key: 'can_delete_tasks',    label: 'Delete Tasks',     section: null },
+        { key: 'can_edit_pos',        label: 'Edit POs',         section: 'Purchase Orders' },
+        { key: 'can_delete_pos',      label: 'Delete POs',       section: null },
+        { key: 'can_edit_expenses',   label: 'Edit Expenses',    section: 'Expenses' },
+        { key: 'can_delete_expenses', label: 'Delete Expenses',  section: null },
+        { key: 'can_edit_quotations', label: 'Edit Quotations',  section: 'More' },
+        { key: 'can_access_settings', label: 'Access Settings',  section: null },
+        { key: 'can_export',          label: 'Export Data',      section: null },
+      ];
+
+      const bodyHtml = rows.map(r => `
+        ${r.section ? `<div class="perm-section-label">${escapeHtml(r.section)}</div>` : ''}
+        <div class="perm-toggle-row">
+          <span class="perm-toggle-label">${escapeHtml(r.label)}</span>
+          <label class="toggle-switch">
+            <input type="checkbox" name="${r.key}" ${perms[r.key] ? 'checked' : ''} />
+            <span></span>
+          </label>
+        </div>`).join('');
+
+      const overlay = document.createElement('div');
+      overlay.id        = 'perm-popup-overlay';
+      overlay.className = 'perm-popup-overlay';
+      overlay.innerHTML = `
+        <div class="perm-popup glass">
+          <div class="perm-popup-hd">
+            <div class="perm-popup-title">Set Permissions</div>
+            <div class="perm-popup-email">${escapeHtml(email)}</div>
+          </div>
+          <div class="perm-popup-body">${bodyHtml}</div>
+          <div class="perm-popup-ft">
+            <button class="perm-btn-cancel">Cancel</button>
+            <button class="btn-primary perm-btn-confirm">Confirm</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+      setTimeout(() => overlay.classList.add('is-in'), 10);
+
+      const close = () => { overlay.classList.remove('is-in'); setTimeout(() => overlay.remove(), 220); };
+      overlay.querySelector('.perm-btn-cancel').onclick = close;
+      overlay.querySelector('.perm-btn-confirm').onclick = () => {
+        const result = {};
+        overlay.querySelectorAll('input[type="checkbox"]').forEach(cb => { result[cb.name] = cb.checked; });
+        close();
+        onConfirm(result);
+      };
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
     function removeMember(email) {
@@ -1802,18 +2104,23 @@
     </div>
   </div>
 
-  <!-- Floating chat bubble -->
-  <div id="chat-bubble" class="chat-bubble" onclick="toggleChatPanel()">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+  <!-- Chat tab — sticks out from right edge -->
+  <div id="chat-tab" onclick="toggleChatPanel()">
+    <div class="chat-tab-arrow" id="chat-tab-arrow">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
     </svg>
-    <span class="chat-bubble-badge" id="chat-unread" style="display:none">0</span>
+    <span class="chat-tab-badge" id="chat-unread" style="display:none">0</span>
   </div>
 
   <div id="toast-container"></div>
 
-  <!-- Chat panel -->
-  <div id="chat-panel" class="chat-panel hidden">
+  <!-- Chat panel — slides in from right -->
+  <div id="chat-panel" class="chat-panel">
     <div class="chat-panel-header">
       <div class="chat-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1826,10 +2133,32 @@
         <button class="chat-panel-close-btn" onclick="toggleChatPanel()">✕</button>
       </div>
     </div>
+    <!-- Filter bar -->
+    <div class="chat-filter-bar">
+      <div class="chat-filter-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-filter-icon">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="chat-filter-input" class="chat-filter-input" type="text" placeholder="Filter messages..." autocomplete="off" oninput="filterChatMessages(this.value)" />
+        <button class="chat-filter-clear hidden" id="chat-filter-clear" onclick="clearChatFilter()" title="Clear filter">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chat-filter-chips">
+        <button class="chat-chip active" data-filter-type="all" onclick="setChatFilterType('all', this)">All</button>
+        <button class="chat-chip" data-filter-type="mine" onclick="setChatFilterType('mine', this)">Mine</button>
+        <button class="chat-chip" data-filter-type="files" onclick="setChatFilterType('files', this)">Files</button>
+      </div>
+    </div>
     <div id="chat-messages"></div>
-    <div class="chat-input-bar">
+    <!-- @mention autocomplete + input bar wrapper -->
+    <div class="chat-input-wrap">
+      <div id="chat-mention-dropdown" class="chat-mention-dropdown hidden"></div>
+      <div class="chat-input-bar">
       <img id="chat-avatar" src="" class="chat-input-avatar" alt="" />
-      <label class="chat-attach-btn" title="Attach file">
+      <label class="chat-attach-btn" id="chat-attach-label" title="Attach file">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
         </svg>
@@ -1843,7 +2172,8 @@
           <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
         </svg>
       </button>
-    </div>
-  </div>
+      </div><!-- /.chat-input-bar -->
+    </div><!-- /.chat-input-wrap -->
+  </div><!-- /#chat-panel -->
 </body>
 </html>
