@@ -533,18 +533,22 @@ function scoreVendors(vendors, weights) {
     const pay     = parseFloat(v.payment_compliance) ?? 100;
     const commit  = parseFloat(v.commitment_pct) ?? 100;
 
-    const pScore      = (cost>0 && minCost>0)         ? (minCost/cost)*weights.price                : 0;
-    const rScore      = ((spec+install)/2/100)         * weights.requirements;
-    const dScore      = (deliv>0 && minDelivery>0)     ? (minDelivery/deliv)*weights.delivery        : 0;
-    const wScore      = (warr>0 && maxWarranty>0)      ? (warr/maxWarranty)*weights.warranty         : 0;
-    const payScore    = (pay/100)                      * weights.payment;
-    const commitScore = (commit/100)                   * weights.commitment;
+    const pScore      = (cost>0 && minCost>0)     ? (minCost/cost)*weights.price         : 0;
+    const specScore   = (spec    / 100)             * (weights.requirements / 2);
+    const installScore= (install / 100)             * (weights.requirements / 2);
+    const rScore      = specScore + installScore;
+    const dScore      = (deliv>0 && minDelivery>0)  ? (minDelivery/deliv)*weights.delivery : 0;
+    const wScore      = (warr>0 && maxWarranty>0)   ? (warr/maxWarranty)*weights.warranty  : 0;
+    const payScore    = (pay/100)                   * weights.payment;
+    const commitScore = (commit/100)                * weights.commitment;
 
     const total = pScore+rScore+dScore+wScore+payScore+commitScore;
     return {
       ...v,
       price_score:          parseFloat(pScore.toFixed(4)),
       requirements_score:   parseFloat(rScore.toFixed(4)),
+      spec_score:           parseFloat(specScore.toFixed(4)),
+      install_score:        parseFloat(installScore.toFixed(4)),
       delivery_score:       parseFloat(dScore.toFixed(4)),
       warranty_score:       parseFloat(wScore.toFixed(4)),
       payment_score:        parseFloat(payScore.toFixed(4)),
@@ -856,10 +860,10 @@ function _exportExcelFromData(comp, scored, sigs) {
     payment:      parseFloat(comp.w_payment      ??  5),
     commitment:   parseFloat(comp.w_commitment   ??  5),
   };
+  const halfReq = w.requirements / 2;
   const currFmt = currency === 'IQD' ? '#,##0 "IQD"' :
                   currency === 'USD' ? '"$ "#,##0.00'  :
                   currency === 'EUR' ? '"EUR "#,##0.00' : `#,##0 "${currency}"`;
-
   const fmtDate = d => {
     if (!d) return '';
     try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
@@ -870,32 +874,32 @@ function _exportExcelFromData(comp, scored, sigs) {
   const NCOLS = 9;
   const aoa   = [];
   const epad  = () => Array(NCOLS).fill(null);
-
-  function row(...cells) {
+  const row   = (...cells) => {
     const r = epad();
-    cells.forEach(([ci, val]) => { r[ci] = val; });
+    cells.forEach(([ci, val]) => { if (ci < NCOLS) r[ci] = val; });
     aoa.push(r);
     return aoa.length;
-  }
+  };
 
   // Rows 1-3: Banner, Title, Subtitle
-  const R1 = row([0, `${company}  —  Final Bids Comparison Table`]);
+  const R1 = row([0, `${company}  |  Final Bids Comparison Table  |  Generated: ${genDate}`]);
   const R2 = row([0, 'FINAL BIDS COMPARISON TABLE']);
-  const R3 = row([0, 'Equipment & Services  —  Procurement Evaluation Report']);
+  const R3 = row([0, 'Equipment & Services  -  Weighted Procurement Evaluation Report']);
   aoa.push(epad()); const R4 = aoa.length;
 
+  // Info header (R5-R8)
   const R5 = row([0,'Request Description:'], [1, comp.request_description||''],
-                  [4,'Requesting Department:'], [5, comp.requesting_dept||'']);
-  const R6 = row([0,'PR Number:'], [1, comp.pr_number||''],
-                  [4,'Awarding Date:'], [5, fmtDate(comp.awarding_date)]);
-  const R7 = row([0,'Request Date:'], [1, fmtDate(comp.request_date)],
-                  [4,'Total PR Value:'], [5, parseFloat(comp.total_pr_value)||0]);
-  const R8 = row([0,'Delivery Term:'], [1, `${comp.delivery_term_days||35} days`],
-                  [4,'Warranty Term:'], [5, `${comp.warranty_term_months||12} months`]);
+                  [4,'Requesting Dept.:'],   [5, comp.requesting_dept||'']);
+  const R6 = row([0,'PR Number:'],           [1, comp.pr_number||''],
+                  [4,'Awarding Date:'],      [5, fmtDate(comp.awarding_date)]);
+  const R7 = row([0,'Request Date:'],        [1, fmtDate(comp.request_date)],
+                  [4,'Total PR Value:'],     [5, parseFloat(comp.total_pr_value)||0]);
+  const R8 = row([0,'Delivery Term:'],       [1, `${comp.delivery_term_days||35} days`],
+                  [4,'Warranty Term:'],      [5, `${comp.warranty_term_months||12} months`]);
   aoa.push(epad()); const R9 = aoa.length;
 
   // Section 1: Vendors Data
-  const R_S1 = row([0, '  1.  VENDORS DATA TABLE']);
+  const R_S1  = row([0, '  1.  VENDORS DATA TABLE']);
   const R_VH1 = row(
     [0,'Vendor Name'], [1,'Total Cost'], [2,'Fulfillment'],
     [4,'Delivery (Days)'], [5,'Warranty (Mo.)'], [6,'Payment (%)'], [7,'Commitment (%)']
@@ -905,7 +909,7 @@ function _exportExcelFromData(comp, scored, sigs) {
   const VD_START = aoa.length + 1;
   scored.forEach(v => {
     aoa.push([
-      v.vendor_name + (v.annex_ref ? `  (${v.annex_ref})` : ''),
+      v.vendor_name + (v.annex_ref ? `\n(${v.annex_ref})` : ''),
       parseFloat(v.total_cost)              || 0,
       parseFloat(v.spec_compliance)         / 100,
       parseFloat(v.installation_compliance) / 100,
@@ -919,18 +923,21 @@ function _exportExcelFromData(comp, scored, sigs) {
   const VD_END = aoa.length;
   aoa.push(epad());
 
-  // Section 2: Scoring Weights
-  const R_S2 = row([0, '  2.  STANDARD SCORING WEIGHTS']);
-  const R_WT = row(
-    [0, `Price: ${w.price}`], [1, `Requirements: ${w.requirements}`],
-    [2, `Delivery: ${w.delivery}`], [3, `Warranty: ${w.warranty}`],
-    [4, `Payment: ${w.payment}`], [5, `Commitment: ${w.commitment}`],
-    [6, `TOTAL: ${(w.price+w.requirements+w.delivery+w.warranty+w.payment+w.commitment).toFixed(0)}`]
+  // Section 2: Scoring Weights — label row + value row (numbers, not text)
+  const R_S2 = row([0, '  2.  SCORING WEIGHTS  (must total 100)']);
+  const R_WL = row(
+    [0,'PRICE'], [1,'REQUIREMENTS'], [2,'DELIVERY'], [3,'WARRANTY'],
+    [4,'PAYMENT'], [5,'COMMITMENT'], [7,'TOTAL']
+  );
+  const R_WV = row(
+    [0, w.price], [1, w.requirements], [2, w.delivery], [3, w.warranty],
+    [4, w.payment], [5, w.commitment],
+    [7, w.price + w.requirements + w.delivery + w.warranty + w.payment + w.commitment]
   );
   aoa.push(epad());
 
   // Section 3: Scores Table — ALL FORMULAS
-  const R_S3 = row([0, '  3.  VENDORS SCORES TABLE']);
+  const R_S3  = row([0, '  3.  VENDORS SCORES TABLE']);
   const R_SH1 = row(
     [0, 'Vendor Name'],
     [1, `Price Score (W=${w.price})`], [2, `Requirements (W=${w.requirements})`],
@@ -951,8 +958,8 @@ function _exportExcelFromData(comp, scored, sigs) {
     aoa.push([
       `=A${vr}`,
       `=(MIN(${COST_R})/B${vr})*${w.price}`,
-      `=C${vr}*${w.requirements / 2}`,
-      `=D${vr}*${w.requirements / 2}`,
+      `=C${vr}*${halfReq}`,
+      `=D${vr}*${halfReq}`,
       `=(MIN(${DEL_R})/E${vr})*${w.delivery}`,
       `=(F${vr}/MAX(${WAR_R}))*${w.warranty}`,
       `=G${vr}*${w.payment}`,
@@ -961,9 +968,28 @@ function _exportExcelFromData(comp, scored, sigs) {
     ]);
   });
   const SD_END = aoa.length;
+
+  // Score statistics rows
+  aoa.push(epad());
+  const R_STATS = aoa.length + 1;
+  aoa.push([
+    'SCORE STATISTICS',
+    `=MAX(B${SD_START}:B${SD_END})`, null, null,
+    `=MAX(E${SD_START}:E${SD_END})`,
+    `=MAX(F${SD_START}:F${SD_END})`,
+    `=MAX(G${SD_START}:G${SD_END})`,
+    `=MAX(H${SD_START}:H${SD_END})`,
+    `=MAX(I${SD_START}:I${SD_END})`,
+  ]);
+  const R_COST_DIFF = aoa.length + 1;
+  aoa.push([
+    'COST DIFFERENTIAL',
+    null, null, null, null, null, null, null,
+    `=MAX(${COST_R})-MIN(${COST_R})`,
+  ]);
   aoa.push(epad());
 
-  // Section 4: Winning Bid — formulas reference score rows
+  // Section 4: Winning Bid
   const R_S4 = row([0, '  4.  WINNING BID']);
   const R_WH = row(
     [0, 'Winning Supplier'], [3, 'Total Score'],
@@ -974,6 +1000,22 @@ function _exportExcelFromData(comp, scored, sigs) {
     [0, `=A${WIN_ROW}`], [3, `=I${WIN_ROW}`],
     [4, `=B${VD_START}`], [7, comp.winner_comment || '']
   );
+
+  // Runner-up row (if multiple vendors)
+  let R_RU = null;
+  if (scored.length > 1) {
+    const RU_SR = SD_START + 1;
+    const RU_VR = VD_START + 1;
+    R_RU = aoa.length + 1;
+    aoa.push([
+      `=A${RU_SR}`, null, null,
+      `=I${RU_SR}`,
+      `=B${RU_VR}`,
+      null, null,
+      `=B${RU_VR}-B${VD_START}`,
+      null
+    ]);
+  }
   aoa.push(epad());
 
   // Section 5: Signatures
@@ -999,7 +1041,7 @@ function _exportExcelFromData(comp, scored, sigs) {
   // ── Create worksheet ──────────────────────────────────────────────────────
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // Fix formula cells — SheetJS needs explicit {t,f} for formulas
+  // Fix formula cells — SheetJS needs explicit {t,f}
   for (let r = 0; r < aoa.length; r++) {
     for (let c = 0; c < NCOLS; c++) {
       const addr = XLSX.utils.encode_cell({ r, c });
@@ -1007,14 +1049,14 @@ function _exportExcelFromData(comp, scored, sigs) {
       if (!cell) continue;
       if (typeof cell.v === 'string' && cell.v.startsWith('=')) {
         const fml = cell.v.slice(1);
-        ws[addr] = (c === 0 || fml.startsWith('A'))
+        ws[addr] = (c === 0 || fml.match(/^A\d+$/))
           ? { t: 's', f: fml, v: '' }
           : { t: 'n', f: fml, v: 0 };
       }
     }
   }
 
-  // Number formats — vendor data rows
+  // Number formats — vendor rows
   for (let r = VD_START - 1; r < VD_END; r++) {
     const fmts = { 1: currFmt, 2:'0.0%', 3:'0.0%', 4:'0', 5:'0', 6:'0.0%', 7:'0.0%' };
     Object.entries(fmts).forEach(([ci, fmt]) => {
@@ -1023,7 +1065,13 @@ function _exportExcelFromData(comp, scored, sigs) {
     });
   }
 
-  // Number formats — score rows
+  // Number formats — weight value row
+  for (let c = 0; c <= 7; c++) {
+    const addr = XLSX.utils.encode_cell({ r: R_WV - 1, c });
+    if (ws[addr] && typeof ws[addr].v === 'number') ws[addr].z = '0.0';
+  }
+
+  // Number formats — score rows B-I
   for (let r = SD_START - 1; r < SD_END; r++) {
     for (let c = 1; c <= 8; c++) {
       const addr = XLSX.utils.encode_cell({ r, c });
@@ -1031,13 +1079,31 @@ function _exportExcelFromData(comp, scored, sigs) {
     }
   }
 
-  // Total PR Value, winner score, winner amount
+  // Number formats — stats rows
+  for (let c = 1; c <= 8; c++) {
+    const a1 = XLSX.utils.encode_cell({ r: R_STATS - 1, c });
+    if (ws[a1]) ws[a1].z = '0.00';
+  }
+  const costDiffAddr = XLSX.utils.encode_cell({ r: R_COST_DIFF - 1, c: 8 });
+  if (ws[costDiffAddr]) ws[costDiffAddr].z = currFmt;
+
+  // Total PR Value, winner score+amount
   const prValAddr = XLSX.utils.encode_cell({ r: R7 - 1, c: 5 });
   if (ws[prValAddr]) ws[prValAddr].z = currFmt;
   const wScAddr = XLSX.utils.encode_cell({ r: R_WD - 1, c: 3 });
   const wAmAddr = XLSX.utils.encode_cell({ r: R_WD - 1, c: 4 });
   if (ws[wScAddr]) ws[wScAddr].z = '0.00';
   if (ws[wAmAddr]) ws[wAmAddr].z = currFmt;
+
+  // Runner-up number formats
+  if (R_RU) {
+    const ruSc = XLSX.utils.encode_cell({ r: R_RU - 1, c: 3 });
+    const ruAm = XLSX.utils.encode_cell({ r: R_RU - 1, c: 4 });
+    const ruDf = XLSX.utils.encode_cell({ r: R_RU - 1, c: 7 });
+    if (ws[ruSc]) ws[ruSc].z = '0.00';
+    if (ws[ruAm]) ws[ruAm].z = currFmt;
+    if (ws[ruDf]) ws[ruDf].z = currFmt;
+  }
 
   // ── Merged cells ──────────────────────────────────────────────────────────
   const merges = [];
@@ -1049,11 +1115,14 @@ function _exportExcelFromData(comp, scored, sigs) {
   [R_S1, R_S2, R_S3, R_S4, R_S5].forEach(r => addM(r,1, r,9));
   addM(R_VH1,3, R_VH1,4);
   addM(R_VH2,1, R_VH2,2); addM(R_VH2,5, R_VH2,9);
-  addM(R_WT,7, R_WT,9);
+  addM(R_WL,8, R_WL,9); addM(R_WV,8, R_WV,9);
   addM(R_SH1,3, R_SH1,4);
   addM(R_SH2,1, R_SH2,2); addM(R_SH2,5, R_SH2,9);
+  addM(R_STATS,1, R_STATS,2); addM(R_STATS,3, R_STATS,5);
+  addM(R_COST_DIFF,1, R_COST_DIFF,8);
   addM(R_WH,1, R_WH,3); addM(R_WH,5, R_WH,6); addM(R_WH,8, R_WH,9);
   addM(R_WD,1, R_WD,3); addM(R_WD,5, R_WD,6); addM(R_WD,8, R_WD,9);
+  if (R_RU) { addM(R_RU,1, R_RU,3); addM(R_RU,6, R_RU,7); }
   const sigCols = [[1,2],[3,4],[5,6],[7,8],[9,9]];
   [R_ST, R_SN, R_SL].forEach(r => {
     sigCols.forEach(([c1,c2]) => { if (c1 !== c2) addM(r,c1,r,c2); });
@@ -1063,22 +1132,24 @@ function _exportExcelFromData(comp, scored, sigs) {
 
   // ── Column widths ─────────────────────────────────────────────────────────
   ws['!cols'] = [
-    {wch:28},{wch:18},{wch:12},{wch:12},
-    {wch:11},{wch:11},{wch:11},{wch:11},{wch:13},
+    {wch:30},{wch:18},{wch:12},{wch:12},
+    {wch:11},{wch:11},{wch:11},{wch:11},{wch:14},
   ];
 
   // ── Row heights ───────────────────────────────────────────────────────────
   ws['!rows'] = [];
   const rh = (r, h) => { ws['!rows'][r-1] = { hpt: h }; };
-  rh(R1, 22); rh(R2, 26); rh(R3, 15); rh(R4, 5);
+  rh(R1, 22); rh(R2, 28); rh(R3, 16); rh(R4, 5);
   rh(R5, 17); rh(R6, 17); rh(R7, 17); rh(R8, 17); rh(R9, 6);
-  rh(R_S1, 19); rh(R_VH1, 28); rh(R_VH2, 16);
-  for (let r = VD_START; r <= VD_END; r++) rh(r, 20);
-  rh(R_S2, 19); rh(R_WT, 24); rh(R_S3, 19);
-  rh(R_SH1, 28); rh(R_SH2, 16);
-  for (let r = SD_START; r <= SD_END; r++) rh(r, 20);
-  rh(R_S4, 20); rh(R_WH, 22); rh(R_WD, 24);
-  rh(R_S5, 19); rh(R_ST, 28); rh(R_SN, 22); rh(R_SL, 32); rh(R_FT, 16);
+  rh(R_S1, 20); rh(R_VH1, 30); rh(R_VH2, 18);
+  for (let r = VD_START; r <= VD_END; r++) rh(r, 24);
+  rh(R_S2, 20); rh(R_WL, 20); rh(R_WV, 22);
+  rh(R_S3, 20); rh(R_SH1, 30); rh(R_SH2, 18);
+  for (let r = SD_START; r <= SD_END; r++) rh(r, 22);
+  rh(R_STATS, 18); rh(R_COST_DIFF, 18);
+  rh(R_S4, 20); rh(R_WH, 22); rh(R_WD, 28);
+  if (R_RU) rh(R_RU, 18);
+  rh(R_S5, 20); rh(R_ST, 30); rh(R_SN, 22); rh(R_SL, 40); rh(R_FT, 16);
 
   ws['!freeze'] = { xSplit: 0, ySplit: 4 };
 
@@ -1092,7 +1163,7 @@ function _exportExcelFromData(comp, scored, sigs) {
 function _exportPDFFromData(comp, scored, sigs) {
   if (!window.jspdf) { showToast('jsPDF not loaded', 'error'); return; }
 
-  const company  = typeof getCompanyName === 'function' ? getCompanyName() : 'Task Tracker';
+  const company  = typeof getCompanyName === 'function' ? getCompanyName() : 'Sama Babil';
   const currency = comp.currency || 'IQD';
   const w = {
     price:        parseFloat(comp.w_price        ?? 40),
@@ -1102,433 +1173,422 @@ function _exportPDFFromData(comp, scored, sigs) {
     payment:      parseFloat(comp.w_payment      ??  5),
     commitment:   parseFloat(comp.w_commitment   ??  5),
   };
+  const nV = scored.length;
 
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pw  = doc.internal.pageSize.getWidth();
   const ph  = doc.internal.pageSize.getHeight();
-  const ML  = 13, MR = 13, CW = pw - ML - MR;
+  const ML  = 11, MR = 11, CW = pw - ML - MR;
 
   // ── Palette ──────────────────────────────────────────────────────────────
-  const IND    = [99,  102, 241];   // indigo-500 (app accent)
-  const IND_D  = [55,  48,  163];   // indigo-800
-  const IND_XD = [30,  27,  75];    // indigo-950 (header bg)
-  const IND_XL = [238, 239, 255];   // indigo-50
-  const IND_BL = [199, 210, 254];   // indigo-200 (header rule)
-  const GRN    = [16,  185, 129];   // emerald-500
-  const GRN_D  = [6,   78,  59];    // emerald-900
-  const GRN_L  = [209, 250, 229];   // emerald-100
-  const AMB    = [217, 119, 6];     // amber-600
-  const RED    = [220, 38,  38];    // red-600
-  const RED_L  = [254, 226, 226];   // red-100
-  const DARK   = [17,  24,  39];    // gray-900
-  const GRAY   = [107, 114, 128];   // gray-500
-  const GRAY_L = [209, 213, 219];   // gray-300
-  const PALE   = [248, 248, 255];   // near-white with blue tint
-  const BORDER = [220, 221, 240];   // subtle border
+  const NAVY   = [10,  18,  55];
+  const INDIGO = [37,  58, 150];
+  const BLUE   = [55,  90, 205];
+  const GREEN  = [8,   95,  55];
+  const AMBER  = [160, 105, 10];
+  const RED    = [180, 35,  35];
+  const VIOLET = [120, 80, 210];
+  const LGRAY  = [244, 246, 255];
+  const MGRAY  = [220, 226, 245];
+  const SIGG   = [232, 236, 255];
   const WHITE  = [255, 255, 255];
+  const DARK   = [15,  20,  45];
+  const GRAY   = [95, 105, 130];
 
-  const fmtDate = d => {
-    if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  const fmtDate  = d => {
+    if (!d) return '-';
+    try { return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
     catch { return String(d).split('T')[0]; }
   };
   const fmtMoney = n => {
     const num = parseFloat(n);
-    if (isNaN(num)) return '—';
-    return currency + ' ' + num.toLocaleString('en-US', {
-      minimumFractionDigits: currency === 'IQD' ? 0 : 2,
-      maximumFractionDigits: currency === 'IQD' ? 0 : 2,
-    });
+    if (isNaN(num)) return '-';
+    const dec = currency === 'IQD' ? 0 : 2;
+    return `${currency} ${num.toLocaleString('en-US', { minimumFractionDigits:dec, maximumFractionDigits:dec })}`;
   };
-  const fmtN = (n, d = 0) => {
-    const num = parseFloat(n);
-    return isNaN(num) ? '—' : num.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-  };
-  const genDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmtNum = (n, dec=0) => isNaN(parseFloat(n)) ? '-' :
+    parseFloat(n).toLocaleString('en-US', { minimumFractionDigits:dec, maximumFractionDigits:dec });
+  const genDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
-  // ── HEADER BAND (0 → 46mm) ────────────────────────────────────────────────
-  // Base layer — deep indigo
-  doc.setFillColor(...IND_XD);
-  doc.rect(0, 0, pw, 46, 'F');
+  let y = 0;
 
-  // Decorative right panel — slightly lighter
-  doc.setFillColor(40, 36, 90);
-  doc.rect(pw - 56, 0, 56, 46, 'F');
+  // ── HEADER BAND ──────────────────────────────────────────────────────────
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pw, 42, 'F');
+  doc.setFillColor(...INDIGO);
+  doc.rect(0, 36, pw, 6, 'F');
 
-  // Top accent rule
-  doc.setFillColor(...IND);
-  doc.rect(0, 0, pw, 2, 'F');
-
-  // Company name — top left
+  // Company top-left
+  doc.setTextColor(...VIOLET);
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text(company.toUpperCase(), ML, 8);
+
+  // Confidential label top-right
+  doc.setTextColor(150, 160, 200);
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...IND_BL);
-  doc.text(company.toUpperCase(), ML, 9);
-
-  // "PROCUREMENT DOCUMENT" pill — top right
-  doc.setFillColor(...IND_D);
-  doc.roundedRect(pw - MR - 38, 4, 38, 7.5, 1.5, 1.5, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.setTextColor(...IND_BL);
-  doc.text('CONFIDENTIAL — PROCUREMENT', pw - MR - 19, 9, { align: 'center' });
+  doc.text('CONFIDENTIAL - PROCUREMENT', pw - MR, 8, { align:'right' });
 
   // Main title
+  doc.setTextColor(...WHITE);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.setTextColor(...WHITE);
-  doc.text('Final Bids Comparison Table', pw / 2, 22, { align: 'center' });
+  doc.text('Final Bids Comparison Table', pw/2, 18, { align:'center' });
 
   // Subtitle
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(180, 182, 240);
-  doc.text('Equipment & Services  —  Weighted Procurement Evaluation', pw / 2, 29, { align: 'center' });
+  doc.text('Equipment & Services - Weighted Procurement Evaluation', pw/2, 25, { align:'center' });
 
-  // Divider rule
-  doc.setDrawColor(...IND_D);
-  doc.setLineWidth(0.3);
-  doc.line(ML, 33, pw - MR, 33);
-
-  // Bottom meta line
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(160, 162, 220);
-  const metaLeft = [
+  // Info line in header
+  doc.setFontSize(7.5);
+  doc.setTextColor(180, 190, 220);
+  const metaParts = [
     comp.pr_number       ? `PR: ${comp.pr_number}` : null,
     comp.requesting_dept ? `Dept: ${comp.requesting_dept}` : null,
-    comp.request_description ? comp.request_description : null,
-  ].filter(Boolean).join('   ·   ');
-  if (metaLeft) doc.text(metaLeft, ML, 40, { maxWidth: CW - 30 });
-  doc.text(`Generated: ${genDate}`, pw - MR, 40, { align: 'right' });
+    comp.request_description || null,
+    `Generated: ${genDate}`,
+  ].filter(Boolean);
+  doc.text(metaParts.join('  |  '), pw/2, 31, { align:'center', maxWidth: CW });
 
-  let y = 52;
+  y = 48;
 
   // ── INFO CARD ─────────────────────────────────────────────────────────────
-  const infoH = 34;
-  doc.setFillColor(...IND_XL);
-  doc.setDrawColor(...BORDER);
+  doc.setFillColor(...LGRAY);
+  doc.setDrawColor(...MGRAY);
   doc.setLineWidth(0.3);
-  doc.roundedRect(ML, y, CW, infoH, 2.5, 2.5, 'FD');
-  // Left accent bar
-  doc.setFillColor(...IND);
-  doc.roundedRect(ML, y, 3.5, infoH, 1.5, 1.5, 'F');
+  doc.roundedRect(ML, y, CW, 30, 2, 2, 'FD');
 
-  const iL = ML + 8, iR = ML + CW / 2 + 6;
+  const ic1 = ML + 4, ic2 = ML + CW/2 + 4;
   const infoRows = [
-    ['REQUEST DESCRIPTION', comp.request_description || '—', 'REQUESTING DEPT',   comp.requesting_dept || '—'],
-    ['PR NUMBER',           comp.pr_number            || '—', 'TOTAL PR VALUE',    fmtMoney(comp.total_pr_value)],
-    ['REQUEST DATE',        fmtDate(comp.request_date),       'AWARDING DATE',     fmtDate(comp.awarding_date)],
-    ['DELIVERY TERM',       `${comp.delivery_term_days || 35} days`, 'WARRANTY TERM', `${comp.warranty_term_months || 12} months`],
+    ['REQUEST DESCRIPTION', comp.request_description||'-',   'REQUESTING DEPT',  comp.requesting_dept||'-'],
+    ['PR NUMBER',           comp.pr_number||'-',              'AWARDING DATE',    fmtDate(comp.awarding_date)],
+    ['REQUEST DATE',        fmtDate(comp.request_date),       'TOTAL PR VALUE',   fmtMoney(comp.total_pr_value)],
+    ['DELIVERY TERM',       `${comp.delivery_term_days||35} days`, 'WARRANTY TERM', `${comp.warranty_term_months||12} months`],
   ];
-  let iy = y + 8;
-  infoRows.forEach((row, idx) => {
-    if (idx > 0) {
-      doc.setDrawColor(...BORDER);
-      doc.setLineWidth(0.2);
-      doc.line(ML + 5, iy - 2, ML + CW - 3, iy - 2);
-    }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRAY);
-    doc.text(row[0], iL, iy);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...DARK);
-    doc.text(String(row[1]), iL, iy + 3.8, { maxWidth: CW / 2 - 10 });
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRAY);
-    doc.text(row[2], iR, iy);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...DARK);
-    doc.text(String(row[3]), iR, iy + 3.8, { maxWidth: CW / 2 - 8 });
-    iy += 8.5;
+  infoRows.forEach((r, i) => {
+    const ly = y + 6 + i * 6.5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...GRAY);
+    doc.text(r[0], ic1, ly);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...DARK);
+    doc.text(String(r[1]), ic1, ly + 3.5, { maxWidth: CW/2 - 8 });
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...GRAY);
+    doc.text(r[2], ic2, ly);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...DARK);
+    doc.text(String(r[3]), ic2, ly + 3.5, { maxWidth: CW/2 - 8 });
   });
-  y += infoH + 6;
+  y += 36;
 
-  // ── Section header helper ─────────────────────────────────────────────────
+  // ── SECTION HEADER HELPER (full-width colored band) ───────────────────────
   let secNum = 0;
-  const drawSection = (title, color) => {
+  const sectionHeader = (label, color) => {
+    color = color || BLUE;
+    if (y > ph - 50) { doc.addPage(); y = 14; }
     secNum++;
-    color = color || IND;
-    if (y > ph - 55) { doc.addPage(); y = 14; }
-    // Number badge
     doc.setFillColor(...color);
-    doc.roundedRect(ML, y, 7, 7, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
-    doc.text(String(secNum), ML + 3.5, y + 5.5, { align: 'center' });
-    // Title
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...color);
-    doc.text(title, ML + 10, y + 5.5);
-    // Rule
-    doc.setDrawColor(...color); doc.setLineWidth(0.5);
-    doc.line(ML, y + 9, ML + 45, y + 9);
-    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
-    doc.line(ML + 45, y + 9, pw - MR, y + 9);
-    y += 13;
+    doc.rect(ML, y, CW, 9, 'F');
+    // Number pill
+    doc.setFillColor(...WHITE);
+    doc.roundedRect(ML + 2, y + 1.5, 7, 6, 1, 1, 'F');
+    doc.setTextColor(...color);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    doc.text(String(secNum), ML + 5.5, y + 5.8, { align:'center' });
+    doc.setTextColor(...WHITE);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+    doc.text(label, ML + 13, y + 6.3);
+    y += 12;
   };
 
   // ── 1. VENDORS DATA ───────────────────────────────────────────────────────
-  drawSection('VENDORS DATA', IND);
+  sectionHeader('VENDORS DATA', INDIGO);
 
-  // Weights summary bar
-  doc.setFillColor(235, 237, 255);
-  doc.setDrawColor(...BORDER);
+  // Weights strip — amber tinted
+  doc.setFillColor(255, 248, 220);
+  doc.setDrawColor(200, 160, 50);
   doc.setLineWidth(0.25);
-  doc.roundedRect(ML, y - 3, CW, 7.5, 1, 1, 'FD');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...IND_D);
-  doc.text('WEIGHTS', ML + 3, y + 1);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(...GRAY);
+  doc.roundedRect(ML, y, CW, 7, 1, 1, 'FD');
+  doc.setTextColor(...AMBER);
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
   doc.text(
-    `Price: ${w.price}   ·   Requirements: ${w.requirements}   ·   Delivery: ${w.delivery}   ·   Warranty: ${w.warranty}   ·   Payment: ${w.payment}   ·   Commitment: ${w.commitment}`,
-    ML + 18, y + 1
+    `WEIGHTS  |  Price: ${w.price}  |  Requirements: ${w.requirements}  |  Delivery: ${w.delivery}  |  Warranty: ${w.warranty}  |  Payment: ${w.payment}  |  Commitment: ${w.commitment}`,
+    ML + 3, y + 4.5
   );
-  y += 8;
+  y += 10;
 
   doc.autoTable({
     startY: y,
     head: [[
-      { content: 'Vendor',     styles: { halign: 'left' } },
-      { content: 'Total Cost', styles: { halign: 'right' } },
-      'Spec %', 'Install %',
-      { content: 'Del.\n(Days)', styles: { halign: 'center' } },
-      { content: 'War.\n(Mo.)',  styles: { halign: 'center' } },
-      'Pay %', 'Com %',
+      { content:'Vendor', styles:{halign:'left'} },
+      { content:`Total Cost\n(${currency})`, styles:{halign:'right'} },
+      { content:'Spec\n%', styles:{halign:'center'} },
+      { content:'Install\n%', styles:{halign:'center'} },
+      { content:'Delivery\n(Days)', styles:{halign:'center'} },
+      { content:'Warranty\n(Mo.)', styles:{halign:'center'} },
+      { content:'Payment\n%', styles:{halign:'center'} },
+      { content:'Commit\n%', styles:{halign:'center'} },
     ]],
     body: scored.map((v, i) => [
-      { content: v.vendor_name + (v.annex_ref ? `\n${v.annex_ref}` : ''), styles: { halign: 'left' } },
-      { content: fmtMoney(v.total_cost), styles: { halign: 'right', fontStyle: 'bold', textColor: i === 0 ? GRN : AMB } },
-      { content: fmtN(v.spec_compliance, 0) + '%',          styles: { halign: 'center' } },
-      { content: fmtN(v.installation_compliance, 0) + '%',  styles: { halign: 'center' } },
-      { content: fmtN(v.delivery_days, 0),                  styles: { halign: 'center' } },
-      { content: fmtN(v.warranty_months, 0),                styles: { halign: 'center' } },
-      { content: fmtN(v.payment_compliance, 0) + '%',       styles: { halign: 'center' } },
-      { content: fmtN(v.commitment_pct, 0) + '%',           styles: { halign: 'center' } },
+      { content: v.vendor_name + (v.annex_ref ? `\n${v.annex_ref}` : ''),
+        styles:{ halign:'left', fontStyle:'bold', fontSize:8.5 } },
+      { content: fmtMoney(v.total_cost),
+        styles:{ halign:'right', fontStyle:'bold', fontSize:8.5,
+                 textColor: i === 0 ? [0,120,60] : [160,80,10] } },
+      { content:`${fmtNum(v.spec_compliance)}%`,           styles:{halign:'center'} },
+      { content:`${fmtNum(v.installation_compliance)}%`,  styles:{halign:'center'} },
+      { content:fmtNum(v.delivery_days),                   styles:{halign:'center'} },
+      { content:fmtNum(v.warranty_months),                 styles:{halign:'center'} },
+      { content:`${fmtNum(v.payment_compliance)}%`,        styles:{halign:'center'} },
+      { content:`${fmtNum(v.commitment_pct)}%`,            styles:{halign:'center'} },
     ]),
-    headStyles: {
-      fillColor: IND, textColor: WHITE,
-      fontSize: 7.5, fontStyle: 'bold', halign: 'center',
-      cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+    headStyles:{
+      fillColor:BLUE, textColor:WHITE, fontSize:8, fontStyle:'bold',
+      halign:'center', cellPadding:{top:3,bottom:3,left:2,right:2},
+      lineWidth:0.3, lineColor:INDIGO,
     },
-    bodyStyles: { fontSize: 8, textColor: DARK, cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 } },
-    columnStyles: {
-      0: { cellWidth: 48 }, 1: { cellWidth: 28, halign: 'right' },
-      2: { cellWidth: 14, halign: 'center' }, 3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 14, halign: 'center' }, 5: { cellWidth: 14, halign: 'center' },
-      6: { cellWidth: 16, halign: 'center' }, 7: { cellWidth: 16, halign: 'center' },
+    bodyStyles:{
+      fontSize:8.5, textColor:DARK,
+      cellPadding:{top:4,bottom:4,left:3,right:2},
+      lineWidth:0.2, lineColor:[190,200,230],
     },
+    columnStyles:{
+      0:{cellWidth:46}, 1:{cellWidth:27,halign:'right'},
+      2:{cellWidth:14,halign:'center'}, 3:{cellWidth:14,halign:'center'},
+      4:{cellWidth:16,halign:'center'}, 5:{cellWidth:15,halign:'center'},
+      6:{cellWidth:14,halign:'center'}, 7:{cellWidth:14,halign:'center'},
+    },
+    alternateRowStyles:{ fillColor:LGRAY },
+    margin:{left:ML, right:MR},
+    tableLineColor:INDIGO, tableLineWidth:0.3,
     didParseCell(d) {
       if (d.section !== 'body') return;
       if (d.row.index === 0) {
-        d.cell.styles.fillColor = GRN_L;
-        d.cell.styles.textColor = GRN_D;
-        d.cell.styles.fontStyle = 'bold';
+        d.cell.styles.fillColor = [220, 252, 231];
+        d.cell.styles.textColor = GREEN;
       }
     },
-    tableLineColor: BORDER, tableLineWidth: 0.25,
-    margin: { left: ML, right: MR },
+    didDrawCell: data => {
+      if (data.section === 'body' && data.column.index === 0) {
+        const col = data.row.index === 0 ? GREEN : INDIGO;
+        doc.setFillColor(...col);
+        doc.rect(data.cell.x, data.cell.y, 1.5, data.cell.height, 'F');
+      }
+    },
   });
   y = doc.lastAutoTable.finalY + 6;
-
-  if (y > 205) { doc.addPage(); y = 14; }
+  if (y > 210) { doc.addPage(); y = 14; }
 
   // ── 2. EVALUATION SCORES ──────────────────────────────────────────────────
-  drawSection('EVALUATION SCORES', IND_D);
+  sectionHeader('EVALUATION SCORES', BLUE);
 
   // Legend
-  doc.setFillColor(...GRN_L);
-  doc.roundedRect(ML, y - 3, 26, 6, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRN);
-  doc.text('●  Best score', ML + 3, y + 1);
-  doc.setFillColor(...RED_L);
-  doc.roundedRect(ML + 29, y - 3, 26, 6, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...RED);
-  doc.text('●  Lowest score', ML + 32, y + 1);
-  y += 7;
+  doc.setFillColor(230,255,238); doc.setDrawColor(60,160,80); doc.setLineWidth(0.25);
+  doc.roundedRect(ML, y, CW/2 - 2, 6, 1, 1, 'FD');
+  doc.setTextColor(0, 120, 60); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+  doc.text('Best score per column', ML + 3, y + 4);
+  doc.setFillColor(255,240,240); doc.setDrawColor(160,50,50);
+  doc.roundedRect(ML + CW/2 + 2, y, CW/2 - 2, 6, 1, 1, 'FD');
+  doc.setTextColor(170, 40, 40); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+  doc.text('Lowest score per column', ML + CW/2 + 5, y + 4);
+  y += 9;
 
-  // Precompute min/max per score column for cell coloring
-  const SKEYS = ['price_score','requirements_score','delivery_score','warranty_score','payment_score','commitment_score'];
-  const sMM = SKEYS.map(k => {
-    const vals = scored.map(s => parseFloat(s[k]) || 0);
-    return { min: Math.min(...vals), max: Math.max(...vals) };
-  });
-  const totVals = scored.map(s => parseFloat(s.total_score) || 0);
-  const totMM   = { min: Math.min(...totVals), max: Math.max(...totVals) };
+  const scoreKeys = ['price_score','requirements_score','delivery_score',
+                     'warranty_score','payment_score','commitment_score','total_score'];
+  const colMaxV = scoreKeys.map(k => Math.max(...scored.map(s => parseFloat(s[k]||0))));
+  const colMinV = scoreKeys.map(k => Math.min(...scored.map(s => parseFloat(s[k]||0))));
 
   doc.autoTable({
     startY: y,
     head: [[
-      { content: 'Vendor', styles: { halign: 'left' } },
-      `Price\n(${w.price})`, `Req.\n(${w.requirements})`, `Del.\n(${w.delivery})`,
-      `War.\n(${w.warranty})`, `Pay.\n(${w.payment})`, `Com.\n(${w.commitment})`,
-      { content: 'TOTAL', styles: { fontStyle: 'bold' } },
-      'Rank',
+      { content:'Vendor', styles:{halign:'left'} },
+      { content:`Price\n(${w.price})`,          styles:{halign:'center'} },
+      { content:`Req.\n(${w.requirements})`,     styles:{halign:'center'} },
+      { content:`Del.\n(${w.delivery})`,         styles:{halign:'center'} },
+      { content:`War.\n(${w.warranty})`,         styles:{halign:'center'} },
+      { content:`Pay.\n(${w.payment})`,          styles:{halign:'center'} },
+      { content:`Com.\n(${w.commitment})`,       styles:{halign:'center'} },
+      { content:'TOTAL',  styles:{halign:'center', fontStyle:'bold'} },
+      { content:'Rank',   styles:{halign:'center'} },
     ]],
-    body: scored.map((v, i) => [
-      { content: (i === 0 ? '#1  ' : '') + v.vendor_name + (v.annex_ref ? ` (${v.annex_ref})` : ''), styles: { halign: 'left', fontStyle: i === 0 ? 'bold' : 'normal' } },
-      fmtN(v.price_score, 2), fmtN(v.requirements_score, 2), fmtN(v.delivery_score, 2),
-      fmtN(v.warranty_score, 2), fmtN(v.payment_score, 2), fmtN(v.commitment_score, 2),
-      { content: fmtN(v.total_score, 2), styles: { fontStyle: 'bold', halign: 'center' } },
-      { content: '#' + (i + 1), styles: { halign: 'center' } },
+    body: scored.map((v, ri) => [
+      { content:(ri===0 ? '#1  ' : '') + v.vendor_name + (v.annex_ref ? '\n'+v.annex_ref : ''),
+        styles:{halign:'left', fontStyle:'bold', fontSize:8.5} },
+      { content:fmtNum(v.price_score,2),        styles:{halign:'center'} },
+      { content:fmtNum(v.requirements_score,2), styles:{halign:'center'} },
+      { content:fmtNum(v.delivery_score,2),     styles:{halign:'center'} },
+      { content:fmtNum(v.warranty_score,2),     styles:{halign:'center'} },
+      { content:fmtNum(v.payment_score,2),      styles:{halign:'center'} },
+      { content:fmtNum(v.commitment_score,2),   styles:{halign:'center'} },
+      { content:fmtNum(v.total_score,2), styles:{halign:'center', fontStyle:'bold'} },
+      { content:`#${ri+1}`,              styles:{halign:'center'} },
     ]),
-    headStyles: {
-      fillColor: IND_D, textColor: WHITE,
-      fontSize: 7.5, fontStyle: 'bold', halign: 'center',
-      cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 },
+    headStyles:{
+      fillColor:BLUE, textColor:WHITE, fontSize:8, fontStyle:'bold',
+      halign:'center', cellPadding:{top:3,bottom:3,left:2,right:2},
+      lineWidth:0.3, lineColor:INDIGO,
     },
-    bodyStyles: { fontSize: 8.5, textColor: DARK, halign: 'center', cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 } },
-    columnStyles: { 0: { cellWidth: 50, halign: 'left' }, 7: { cellWidth: 18 }, 8: { cellWidth: 11 } },
-    didParseCell(d) {
-      if (d.section !== 'body') return;
-      const ri = d.row.index, ci = d.column.index;
-      // Winner row — full green tint
+    bodyStyles:{
+      fontSize:8.5, textColor:DARK, halign:'center',
+      cellPadding:{top:4,bottom:4,left:2,right:2},
+      lineWidth:0.2, lineColor:[190,200,230],
+    },
+    columnStyles:{ 0:{cellWidth:48, halign:'left'}, 7:{fontStyle:'bold'} },
+    alternateRowStyles:{ fillColor:LGRAY },
+    margin:{left:ML, right:MR},
+    tableLineColor:INDIGO, tableLineWidth:0.3,
+    didParseCell: data => {
+      if (data.section !== 'body') return;
+      const ri = data.row.index, ci = data.column.index;
       if (ri === 0) {
-        d.cell.styles.fillColor = [236, 253, 245];
-        d.cell.styles.textColor = GRN_D;
-        d.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [220, 252, 231];
+        data.cell.styles.textColor = GREEN;
         return;
       }
-      // Individual score cells (cols 1-6) — highlight best & lowest per column
-      if (ci >= 1 && ci <= 6) {
-        const mm = sMM[ci - 1];
-        const val = parseFloat(scored[ri][SKEYS[ci - 1]]) || 0;
-        if (mm.max > mm.min) {
-          if (Math.abs(val - mm.max) < 0.001) {
-            d.cell.styles.fillColor = GRN_L;
-            d.cell.styles.textColor = GRN;
-            d.cell.styles.fontStyle = 'bold';
-          } else if (Math.abs(val - mm.min) < 0.001) {
-            d.cell.styles.fillColor = RED_L;
-            d.cell.styles.textColor = RED;
+      if (ci >= 1 && ci <= 6 && nV > 1) {
+        const ki  = ci - 1;
+        const val = parseFloat(scored[ri][scoreKeys[ki]] || 0);
+        const mx  = colMaxV[ki], mn = colMinV[ki];
+        if (Math.abs(mx - mn) > 0.001) {
+          if (Math.abs(val - mx) < 0.001) {
+            data.cell.styles.textColor = [0, 130, 60];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (Math.abs(val - mn) < 0.001) {
+            data.cell.styles.textColor = [180, 30, 30];
           }
         }
       }
-      // Total score — color-code lowest
-      if (ci === 7 && scored.length > 1) {
-        const val = parseFloat(scored[ri].total_score) || 0;
-        if (Math.abs(val - totMM.min) < 0.001) d.cell.styles.textColor = RED;
-      }
-      // Rank badge tint
-      if (ci === 8) d.cell.styles.textColor = GRAY;
+      if (ci === 7) data.cell.styles.fontStyle = 'bold';
+      if (ci === 8) data.cell.styles.textColor = GRAY;
     },
-    tableLineColor: BORDER, tableLineWidth: 0.25,
-    margin: { left: ML, right: MR },
+    didDrawCell: data => {
+      if (data.section === 'body' && data.column.index === 0) {
+        const col = data.row.index === 0 ? GREEN : INDIGO;
+        doc.setFillColor(...col);
+        doc.rect(data.cell.x, data.cell.y, 1.5, data.cell.height, 'F');
+      }
+    },
   });
-  y = doc.lastAutoTable.finalY + 7;
 
-  if (y > 220) { doc.addPage(); y = 14; }
+  // Score summary strip
+  const ft = doc.lastAutoTable.finalY;
+  doc.setFillColor(235, 238, 255);
+  doc.setDrawColor(...INDIGO);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(ML, ft + 3, CW, 8, 1, 1, 'FD');
+  doc.setTextColor(...INDIGO);
+  doc.setFont('helvetica','bold'); doc.setFontSize(7);
+  const topScore = fmtNum(scored[0]?.total_score || 0, 2);
+  const costVals = scored.map(s => parseFloat(s.total_cost || 0));
+  const costSpread = costVals.length > 1 ? Math.abs(Math.max(...costVals) - Math.min(...costVals)) : 0;
+  doc.text(
+    `Winner: ${scored[0]?.vendor_name || '-'}  |  Score: ${topScore} / 100  |  Cost spread: ${fmtMoney(costSpread)}`,
+    ML + 3, ft + 7.5
+  );
+  y = ft + 14;
+  if (y > 210) { doc.addPage(); y = 14; }
 
   // ── 3. WINNING BID ────────────────────────────────────────────────────────
-  drawSection('WINNING BID', GRN);
+  sectionHeader('WINNING BID', GREEN);
 
-  const wRec     = scored[0] || {};
-  const winName  = comp.winner_vendor || wRec.vendor_name || '—';
-  const winScore = parseFloat(comp.winner_score  || wRec.total_score || 0);
-  const winCost  = parseFloat(comp.winner_amount || wRec.total_cost  || 0);
+  const winV    = scored[0] || {};
+  const runnerV = scored[1] || null;
+  const winName = comp.winner_vendor || winV.vendor_name || '-';
 
-  // Custom winner card (not autoTable — more design control)
-  const cardH = comp.winner_comment ? 42 : 38;
-  doc.setFillColor(...GRN_L);
-  doc.setDrawColor(134, 239, 172); // emerald-300
+  const cardH = runnerV ? 34 : 24;
+  doc.setFillColor(220, 252, 231);
+  doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.4);
-  doc.roundedRect(ML, y, CW, cardH, 2.5, 2.5, 'FD');
-  // Left thick accent bar
-  doc.setFillColor(...GRN);
-  doc.roundedRect(ML, y, 5, cardH, 2, 2, 'F');
+  doc.roundedRect(ML, y, CW, cardH, 3, 3, 'FD');
 
-  // Left: #1 badge + vendor info
-  doc.setFillColor(...GRN);
-  doc.roundedRect(ML + 8, y + (cardH/2) - 5, 10, 10, 1.5, 1.5, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
-  doc.text('#1', ML + 13, y + (cardH/2) + 2, { align: 'center' });
+  // Circle #1 badge
+  doc.setFillColor(...GREEN);
+  doc.circle(ML + 14, y + 12, 8, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('#1', ML + 14, y + 15.5, { align:'center' });
 
-  // "AWARDED VENDOR" label
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRN);
-  doc.text('AWARDED VENDOR', ML + 22, y + 9);
+  // Vendor name + details
+  const wx = ML + 27;
+  doc.setTextColor(5, 60, 35);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('AWARDED VENDOR', wx, y + 7);
+  doc.setFontSize(14);
+  doc.text(winName, wx, y + 16, { maxWidth: pw - MR - 60 - wx });
 
-  // Vendor name
-  const rightEdge = pw - MR - 54;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...GRN_D);
-  doc.text(winName, ML + 22, y + 17, { maxWidth: rightEdge - ML - 22 });
+  // Score + amount (right side)
+  const rx = pw - MR - 4;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+  doc.setTextColor(60, 100, 70);
+  doc.text('TOTAL SCORE', rx, y + 6, { align:'right' });
+  doc.setFontSize(22); doc.setTextColor(...GREEN);
+  doc.text(fmtNum(winV.total_score || 0, 2), rx, y + 16, { align:'right' });
+  doc.setFontSize(7.5); doc.setTextColor(60, 100, 70);
+  doc.text('CONTRACT AMOUNT', rx, y + 20, { align:'right' });
+  doc.setFontSize(10); doc.setTextColor(...DARK);
+  doc.text(fmtMoney(winV.total_cost || 0), rx, y + 26, { align:'right' });
 
-  // Comment
+  if (runnerV) {
+    doc.setDrawColor(...GREEN); doc.setLineWidth(0.3);
+    doc.line(ML + 4, y + cardH - 12, ML + CW - 4, y + cardH - 12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(60, 100, 70);
+    doc.text(
+      `Runner-Up:  ${runnerV.vendor_name || '-'}  |  Score: ${fmtNum(runnerV.total_score || 0, 2)}  |  Cost: ${fmtMoney(runnerV.total_cost || 0)}`,
+      ML + 6, y + cardH - 5
+    );
+  }
+  y += cardH + 6;
+
+  // Comment box if present
   if (comp.winner_comment) {
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(6, 95, 70);
-    const lines = doc.splitTextToSize(comp.winner_comment, rightEdge - ML - 22);
-    doc.text(lines.slice(0, 2), ML + 22, y + 25);
-  }
-
-  // Right panel: score + amount stacked vertically (no overlap)
-  const rpX  = pw - MR - 50;
-  const rpCX = rpX + 25; // center of right panel
-
-  // Score label
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRN);
-  doc.text('TOTAL SCORE', rpCX, y + 8, { align: 'center' });
-  // Score pill
-  doc.setFillColor(...GRN);
-  doc.roundedRect(rpX + 4, y + 10, 42, 10, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...WHITE);
-  doc.text(fmtN(winScore, 2), rpCX, y + 18, { align: 'center' });
-
-  // Divider between score and amount
-  doc.setDrawColor(134, 239, 172);
-  doc.setLineWidth(0.3);
-  doc.line(rpX + 6, y + 22, rpX + 44, y + 22);
-
-  // Amount label
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(...GRAY);
-  doc.text('CONTRACT AMOUNT', rpCX, y + 27, { align: 'center' });
-  // Amount value
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...GRN_D);
-  doc.text(fmtMoney(winCost), rpCX, y + 33, { align: 'center', maxWidth: 48 });
-
-  y += cardH + 5;
-
-  // Runner-up strip
-  if (scored.length > 1) {
-    const rank2 = scored[1];
-    doc.setFillColor(...PALE);
-    doc.setDrawColor(...BORDER);
+    doc.setFillColor(245, 248, 255);
+    doc.setDrawColor(180, 195, 235);
     doc.setLineWidth(0.2);
-    doc.roundedRect(ML, y, CW, 10, 1.5, 1.5, 'FD');
-    doc.setFillColor(...GRAY_L);
-    doc.roundedRect(ML, y, 3, 10, 1.5, 1.5, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...GRAY);
-    doc.text('RUNNER-UP', ML + 6, y + 6.5);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
-    doc.text(rank2.vendor_name || '—', ML + 32, y + 6.5);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GRAY);
-    doc.text(`Score: ${fmtN(rank2.total_score, 2)}   ·   Cost: ${fmtMoney(rank2.total_cost)}`, pw - MR, y + 6.5, { align: 'right' });
-    y += 14;
+    doc.roundedRect(ML, y, CW, 12, 1, 1, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...GRAY);
+    doc.text('RECOMMENDATION', ML + 4, y + 5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...DARK);
+    const cLines = doc.splitTextToSize(comp.winner_comment, CW - 8);
+    doc.text(cLines.slice(0, 2), ML + 4, y + 9);
+    y += 16;
   }
 
-  if (y > 225) { doc.addPage(); y = 14; }
+  if (y > 210) { doc.addPage(); y = 14; }
 
   // ── 4. COMMITTEE SIGNATURES ───────────────────────────────────────────────
-  drawSection('COMMITTEE SIGNATURES', [100, 116, 200]);
+  sectionHeader('COMMITTEE SIGNATURES', [70, 80, 170]);
 
+  const sigW = CW / Math.min(sigs.length || 5, 5);
   const renderSigTable = (cols, startY) => {
     doc.autoTable({
       startY,
       head: [cols.map(s => ({
-        content: s.role || '—',
-        styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, textColor: IND_D },
+        content: s.role || '-',
+        styles: { halign:'center', fontStyle:'bold', fontSize:7.5 },
       }))],
       body: [
         cols.map(s => ({
           content: s.name || '',
-          styles: { halign: 'center', fontSize: 9, fontStyle: s.name ? 'bold' : 'normal' },
+          styles: { halign:'center', fontSize:9, fontStyle: s.name ? 'bold' : 'normal' },
         })),
-        cols.map(() => ({ content: '', styles: { minCellHeight: 13 } })),
-        cols.map(() => ({
-          content: '__________________',
-          styles: { halign: 'center', textColor: GRAY_L, fontSize: 8 },
-        })),
+        Array(cols.length).fill({ content:'', styles:{ minCellHeight:18 } }),
+        Array(cols.length).fill({
+          content:'________________________',
+          styles:{ halign:'center', textColor:[180,185,200], fontSize:8 },
+        }),
       ],
-      headStyles: {
-        fillColor: IND_XL, textColor: DARK,
-        fontSize: 7, fontStyle: 'bold', halign: 'center',
-        cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 },
+      headStyles:{
+        fillColor:SIGG, textColor:DARK, fontSize:7.5, fontStyle:'bold',
+        halign:'center', cellPadding:{top:4,bottom:4,left:2,right:2},
+        lineWidth:0.2, lineColor:[180,190,220],
       },
-      bodyStyles: { textColor: DARK, cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 } },
-      tableLineColor: BORDER, tableLineWidth: 0.2,
-      margin: { left: ML, right: MR },
+      bodyStyles:{
+        textColor:DARK, cellPadding:{top:3,bottom:3,left:2,right:2},
+        lineWidth:0.2, lineColor:[180,190,220],
+      },
+      columnStyles: Object.fromEntries(cols.map((_,i) => [i, { cellWidth: sigW }])),
+      margin:{left:ML, right:MR},
+      tableLineColor:[180,190,220], tableLineWidth:0.2,
     });
   };
 
@@ -1537,27 +1597,20 @@ function _exportPDFFromData(comp, scored, sigs) {
     renderSigTable(sigs.slice(5), doc.lastAutoTable.finalY + 5);
   }
 
-  // ── FOOTER — ALL PAGES ────────────────────────────────────────────────────
+  // ── FOOTER ON ALL PAGES ───────────────────────────────────────────────────
   const totalPages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    // Dark footer band
-    doc.setFillColor(...IND_XD);
-    doc.rect(0, ph - 12, pw, 12, 'F');
-    doc.setFillColor(...IND);
-    doc.rect(0, ph - 12, pw, 1.5, 'F');
-    // Left — company
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...IND_BL);
-    doc.text(company, ML, ph - 5);
-    // Center — PR + confidential
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(140, 142, 200);
-    doc.text(`PR: ${comp.pr_number || '—'}   ·   Confidential Procurement Document`, pw / 2, ph - 5, { align: 'center' });
-    // Right — page number
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...IND_BL);
-    doc.text(`${i} / ${totalPages}`, pw - MR, ph - 5, { align: 'right' });
+    doc.setDrawColor(...INDIGO); doc.setLineWidth(0.5);
+    doc.line(ML, ph - 12, pw - MR, ph - 12);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...VIOLET);
+    doc.text(company, ML, ph - 7.5);
+    doc.setTextColor(...GRAY); doc.setFont('helvetica','normal');
+    doc.text(`PR: ${comp.pr_number || '-'}  |  Confidential Procurement Document`, pw/2, ph - 7.5, { align:'center' });
+    doc.text(`${i} / ${totalPages}`, pw - MR, ph - 7.5, { align:'right' });
   }
 
-  doc.save(`Comparison_${comp.pr_number || 'PR'}_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`Comparison_${(comp.pr_number||'PR').replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   showToast('PDF exported ✓', 'success');
 }
 
