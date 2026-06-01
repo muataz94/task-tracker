@@ -15,7 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
   <canvas id="particles-canvas" class="particles-canvas"></canvas>
@@ -954,7 +954,7 @@
   <script src="tables.js"></script>
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
-  <script src="chat.js?v=2"></script>
+  <script src="chat.js?v=3"></script>
   <script src="quotations.js"></script>
   <script>
     var idToken = null;
@@ -2121,27 +2121,42 @@
 
   <!-- Chat panel — slides in from right -->
   <div id="chat-panel" class="chat-panel">
+
+    <!-- Header -->
     <div class="chat-panel-header">
-      <div class="chat-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      <div class="chat-ph-brand">
+        <div class="chat-ph-icon-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </div>
+        <div class="chat-ph-info">
+          <span class="chat-ph-title" data-i18n="team_chat">Team Chat</span>
+          <span class="chat-ph-status">
+            <span class="chat-live-pulse"></span>
+            <span data-i18n="live">Live</span>
+          </span>
+        </div>
+      </div>
+      <button class="chat-panel-close-btn" onclick="toggleChatPanel()" title="Close">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
-        <span data-i18n="team_chat">Team Chat</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="chat-status">● <span data-i18n="live">Live</span></span>
-        <button class="chat-panel-close-btn" onclick="toggleChatPanel()">✕</button>
-      </div>
+      </button>
     </div>
+
+    <!-- Topic tabs -->
+    <div class="chat-topics-bar" id="chat-topics-bar"></div>
+
     <!-- Filter bar -->
     <div class="chat-filter-bar">
       <div class="chat-filter-wrap">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-filter-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-filter-icon">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input id="chat-filter-input" class="chat-filter-input" type="text" placeholder="Filter messages..." autocomplete="off" oninput="filterChatMessages(this.value)" />
-        <button class="chat-filter-clear hidden" id="chat-filter-clear" onclick="clearChatFilter()" title="Clear filter">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <input id="chat-filter-input" class="chat-filter-input" type="text" placeholder="Search messages..." autocomplete="off" oninput="filterChatMessages(this.value)" />
+        <button class="chat-filter-clear hidden" id="chat-filter-clear" onclick="clearChatFilter()" title="Clear">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
@@ -2152,28 +2167,31 @@
         <button class="chat-chip" data-filter-type="files" onclick="setChatFilterType('files', this)">Files</button>
       </div>
     </div>
+
+    <!-- Messages -->
     <div id="chat-messages"></div>
-    <!-- @mention autocomplete + input bar wrapper -->
+
+    <!-- @mention autocomplete + input -->
     <div class="chat-input-wrap">
       <div id="chat-mention-dropdown" class="chat-mention-dropdown hidden"></div>
       <div class="chat-input-bar">
-      <img id="chat-avatar" src="" class="chat-input-avatar" alt="" />
-      <label class="chat-attach-btn" id="chat-attach-label" title="Attach file">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-        </svg>
-        <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.xlsx,.txt" style="display:none" />
-      </label>
-      <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" data-i18n-placeholder="message_placeholder" />
-      <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
-      <div id="emoji-picker" class="emoji-picker hidden"></div>
-      <button id="chat-send">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
-        </svg>
-      </button>
-      </div><!-- /.chat-input-bar -->
-    </div><!-- /.chat-input-wrap -->
+        <label class="chat-attach-btn" id="chat-attach-label" title="Attach image">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+          <input type="file" id="chat-file-input" accept="image/*" style="display:none" />
+        </label>
+        <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" data-i18n-placeholder="message_placeholder" />
+        <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
+        <div id="emoji-picker" class="emoji-picker hidden"></div>
+        <button id="chat-send">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
   </div><!-- /#chat-panel -->
 </body>
 </html>

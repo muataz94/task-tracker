@@ -29,6 +29,20 @@ DEFAULT_TOPICS.forEach(t => {
   sessionFileMap[t.id] = [];
 });
 
+function renderTopicTabs() {
+  const bar = document.getElementById('chat-topics-bar');
+  if (!bar) return;
+  bar.innerHTML = DEFAULT_TOPICS.map(t => `
+    <button class="chat-topic-tab ${t.id === currentTopic ? 'active' : ''}"
+            data-topic="${t.id}"
+            onclick="switchTopic('${t.id}')"
+            title="${escapeHtml(t.description)}">
+      <span class="topic-icon" style="width:13px;height:13px;display:flex;align-items:center">${t.icon}</span>
+      <span>${escapeHtml(t.label)}</span>
+    </button>
+  `).join('');
+}
+
 function initChat(email, name, avatar) {
   currentUserEmail  = email;
   currentUserName   = name;
@@ -37,7 +51,7 @@ function initChat(email, name, avatar) {
   const avatarEl = document.getElementById('chat-avatar');
   if (avatarEl) avatarEl.src = avatar || '';
 
-  if (_chatInitialized) { renderTopicSidebar(); return; }
+  if (_chatInitialized) { renderTopicTabs(); renderTopicSidebar(); return; }
   _chatInitialized = true;
 
   const sendBtn = document.getElementById('chat-send');
@@ -70,6 +84,7 @@ function initChat(email, name, avatar) {
 
   initEmojiPicker();
   initFileAttachment();
+  renderTopicTabs();
   renderTopicSidebar();
 }
 
@@ -94,6 +109,7 @@ function renderTopicSidebar() {
 
 function switchTopic(topicId) {
   currentTopic = topicId;
+  renderTopicTabs();
   renderTopicSidebar();
   const topicObj = DEFAULT_TOPICS.find(t => t.id === topicId) || { label: topicId, icon: '' };
   const nameEl = document.getElementById('chat-topic-name');
