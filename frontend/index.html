@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Task Tracker</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="apple-touch-icon" href="assets/icon-solid.svg">
@@ -15,7 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <canvas id="particles-canvas" class="particles-canvas"></canvas>
@@ -749,18 +752,26 @@
 
             <!-- Team Members -->
             <div class="settings-card glass scard-team">
-              <div class="settings-card-hd">
-                <div class="settings-card-icon" style="background:rgba(99,102,241,0.15)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+              <div class="settings-card-hd" style="justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div class="settings-card-icon" style="background:rgba(99,102,241,0.15)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="settings-card-title" data-i18n="team_members">Team Members</div>
+                    <div class="settings-card-sub" data-i18n="workspace_access_sub">Control workspace access</div>
+                  </div>
+                </div>
+                <button class="btn-manage-perms-hub" onclick="showPermissionsHub()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   </svg>
-                </div>
-                <div>
-                  <div class="settings-card-title" data-i18n="team_members">Team Members</div>
-                  <div class="settings-card-sub" data-i18n="workspace_access_sub">Control workspace access</div>
-                </div>
+                  Manage Permissions
+                </button>
               </div>
               <div id="team-list"></div>
               <div class="add-member-row">
@@ -954,7 +965,7 @@
   <script src="tables.js"></script>
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
-  <script src="chat.js?v=3"></script>
+  <script src="chat.js?v=4"></script>
   <script src="quotations.js"></script>
   <script>
     var idToken = null;
@@ -1779,6 +1790,125 @@
         onConfirm(result);
       };
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    }
+
+    // ── Permissions Hub ──────────────────────────────────────────────
+
+    const PERM_HUB_LABELS = {
+      can_edit_tasks:      'Edit Tasks',
+      can_delete_tasks:    'Delete Tasks',
+      can_edit_pos:        'Edit POs',
+      can_delete_pos:      'Delete POs',
+      can_edit_expenses:   'Edit Expenses',
+      can_delete_expenses: 'Delete Expenses',
+      can_edit_quotations: 'Edit Quotes',
+      can_access_settings: 'Settings',
+      can_export:          'Export',
+    };
+
+    async function renderPermissionsHubBody() {
+      const body = document.getElementById('perms-hub-body');
+      if (!body) return;
+      body.innerHTML = '<div class="perms-hub-loading">Loading team members…</div>';
+      try {
+        const result = await getAll('Users');
+        const users  = (result.rows || []).filter(u =>
+          (u.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()
+        );
+        if (!users.length) {
+          body.innerHTML = '<div class="perms-hub-empty">No team members yet. Add someone from the team list above.</div>';
+          return;
+        }
+        body.innerHTML = users.map(u => {
+          let perms = {};
+          if (u.permissions) { try { perms = JSON.parse(u.permissions); } catch(_) {} }
+          const chips = Object.entries(PERM_HUB_LABELS).map(([k, lbl]) =>
+            `<span class="perm-chip ${perms[k] ? 'perm-on' : 'perm-off'}">${escapeHtml(lbl)}</span>`
+          ).join('');
+          return `
+            <div class="perms-hub-row">
+              <div class="perms-hub-row-top">
+                <div class="perms-hub-av">${(u.email || '?').charAt(0).toUpperCase()}</div>
+                <div class="perms-hub-info">
+                  <div class="perms-hub-email">${escapeHtml(u.email)}
+                    ${u.email === currentUserEmail ? '<span class="team-you">You</span>' : ''}
+                  </div>
+                  <div class="perms-hub-role">${escapeHtml(u.role || 'editor')}</div>
+                </div>
+                <button class="btn-edit-perms" onclick="editPermFromHub('${escapeHtml(u.email)}')">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  Edit
+                </button>
+              </div>
+              <div class="perms-hub-chips">${chips}</div>
+            </div>`;
+        }).join('');
+      } catch(e) {
+        const body2 = document.getElementById('perms-hub-body');
+        if (body2) body2.innerHTML = `<div class="perms-hub-empty">Failed to load: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function showPermissionsHub() {
+      const prev = document.getElementById('perms-hub-overlay');
+      if (prev) prev.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id        = 'perms-hub-overlay';
+      overlay.className = 'perms-hub-overlay';
+      overlay.innerHTML = `
+        <div class="perms-hub-modal glass">
+          <div class="perms-hub-header">
+            <div class="perms-hub-title">
+              <div class="perms-hub-title-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em">Manage Permissions</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px">Control what each team member can do</div>
+              </div>
+            </div>
+            <button class="perms-hub-close" onclick="(()=>{const o=document.getElementById('perms-hub-overlay');o.classList.remove('is-in');setTimeout(()=>o.remove(),220)})()">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="perms-hub-body" id="perms-hub-body"></div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+      setTimeout(() => overlay.classList.add('is-in'), 10);
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+          overlay.classList.remove('is-in');
+          setTimeout(() => overlay.remove(), 220);
+        }
+      });
+      renderPermissionsHubBody();
+    }
+
+    async function editPermFromHub(email) {
+      try {
+        const result = await getAll('Users');
+        const user   = (result.rows || []).find(u => u.email === email);
+        if (!user) return;
+        let existing = {};
+        if (user.permissions) { try { existing = JSON.parse(user.permissions); } catch(_) {} }
+        showPermissionsPopup(email, user.role || 'editor', existing, async (permissions) => {
+          try {
+            await updateRow('Users', user.id, { permissions: JSON.stringify(permissions) });
+            showToast('Permissions updated', 'success');
+            loadSettings();
+            renderPermissionsHubBody();
+          } catch(e) { showToast('Failed to update: ' + e.message, 'error'); }
+        });
+      } catch(e) { showToast('Failed to load user: ' + e.message, 'error'); }
     }
 
     function removeMember(email) {

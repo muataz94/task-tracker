@@ -5818,3 +5818,108 @@ body { overflow-x: hidden; }
 .perm-btn-cancel:hover { background: var(--hover-bg); border-color: var(--text-3); }
 
 /* ADMIN TEAM MANAGEMENT — styles moved to team-member-row block above */
+
+/* ══════════════════════════════════════════════════════════════════
+   PERMISSIONS HUB MODAL
+══════════════════════════════════════════════════════════════════ */
+.btn-manage-perms-hub {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--grad-primary); color: white;
+  border: none; padding: 8px 14px; border-radius: var(--r-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif; white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(99,102,241,0.35);
+  transition: transform 200ms cubic-bezier(0.2,0,0,1), box-shadow 200ms cubic-bezier(0.2,0,0,1);
+}
+.btn-manage-perms-hub:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(99,102,241,0.5); }
+.btn-manage-perms-hub:active { transform: scale(0.97); transition-duration: 100ms; }
+
+.perms-hub-overlay {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 220ms ease;
+  padding: 1rem;
+}
+.perms-hub-overlay.is-in { opacity: 1; }
+
+.perms-hub-modal {
+  width: min(560px, calc(100vw - 2rem));
+  max-height: 80vh;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--glass-border);
+  display: flex; flex-direction: column; overflow: hidden;
+  transform: scale(0.93) translateY(12px);
+  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.perms-hub-overlay.is-in .perms-hub-modal { transform: scale(1) translateY(0); }
+
+.perms-hub-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, transparent 60%);
+}
+.perms-hub-title { display: flex; align-items: center; gap: 12px; }
+.perms-hub-title-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(99,102,241,0.12); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border: 1px solid rgba(99,102,241,0.2);
+}
+.perms-hub-close {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--glass-bg); border: 1px solid var(--border);
+  color: var(--text-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 150ms ease, color 150ms ease, transform 150ms cubic-bezier(0.2,0,0,1);
+}
+.perms-hub-close:hover { background: var(--glass-bg-hover); color: var(--text-1); transform: scale(1.08); }
+.perms-hub-close:active { transform: scale(0.92); transition-duration: 100ms; }
+
+.perms-hub-body {
+  overflow-y: auto; padding: 8px 16px 16px; flex: 1;
+}
+.perms-hub-body::-webkit-scrollbar { width: 4px; }
+.perms-hub-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.perms-hub-loading, .perms-hub-empty {
+  text-align: center; padding: 2.5rem 1rem; color: var(--text-4);
+  font-size: 13px; font-style: italic;
+}
+
+.perms-hub-row {
+  padding: 14px 0; border-bottom: 1px solid var(--border);
+}
+.perms-hub-row:last-child { border-bottom: none; }
+.perms-hub-row-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.perms-hub-av {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--grad-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.perms-hub-info { flex: 1; min-width: 0; }
+.perms-hub-email {
+  font-size: 12px; font-weight: 600; color: var(--text-1);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.perms-hub-role {
+  font-size: 10px; color: var(--text-3); text-transform: capitalize; margin-top: 2px;
+}
+
+.perms-hub-chips { display: flex; flex-wrap: wrap; gap: 5px; padding-left: 44px; }
+.perm-chip {
+  font-size: 10px; font-weight: 600; padding: 3px 9px;
+  border-radius: 20px; border: 1px solid; white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.perm-chip.perm-on {
+  background: rgba(16,185,129,0.10); color: var(--accent-green);
+  border-color: rgba(16,185,129,0.25);
+}
+.perm-chip.perm-off {
+  background: rgba(239,68,68,0.08); color: var(--accent-red);
+  border-color: rgba(239,68,68,0.18);
+}
