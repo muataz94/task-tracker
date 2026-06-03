@@ -23,7 +23,7 @@ console.log('✓ assets copied');
 // Minify JS — keep top-level names intact (called from HTML/other scripts)
 const jsFiles = [
   'config.js', 'i18n.js', 'cache.js', 'api.js',
-  'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js'
+  'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js', 'invoices.js'
 ];
 for (const file of jsFiles) {
   const src = readFileSync(join(SRC, file), 'utf8');
