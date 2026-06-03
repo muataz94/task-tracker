@@ -41,6 +41,10 @@ function doPost(e) {
       case 'saveComparison':   return respond(saveComparison(body.data, body.vendors, user.email));
       case 'updateComparison': return respond(updateComparison(body.id, body.data, body.vendors, user.email));
       case 'deleteComparison': return respond(deleteComparisonFull(body.id));
+      case 'getInvoices':      return respond(getInvoices());
+      case 'saveInvoice':      return respond(saveInvoice(body));
+      case 'updateInvoice':    return respond(updateInvoice(body));
+      case 'deleteInvoice':    return respond(deleteInvoice(body.id));
       default:                 return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
@@ -471,6 +475,86 @@ function deleteComparisonFull(id) {
     }
   }
   return { success: true };
+}
+
+// ── INVOICES ──────────────────────────────────────────────────────
+
+function ensureInvoicesSheet() {
+  const ss = getSpreadsheet();
+  let sh = ss.getSheetByName('Invoices');
+  if (!sh) {
+    sh = ss.insertSheet('Invoices');
+    const headers = [
+      'id','invoice_number','vendor','amount','currency','invoice_date','due_date',
+      'po_reference','status','description','payment_date','payment_method',
+      'bank_account','approved_by','notes','attachment_url',
+      'created_at','created_by','updated_at','linked_po_id'
+    ];
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function getInvoices() {
+  try {
+    ensureInvoicesSheet();
+    const sh   = getSpreadsheet().getSheetByName('Invoices');
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return { rows: [] };
+    const headers = data[0];
+    const rows    = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]) : ''; });
+      return obj;
+    }).filter(r => r.id);
+    return { rows };
+  } catch(e) { return { error: e.message }; }
+}
+
+function saveInvoice(data) {
+  try {
+    ensureInvoicesSheet();
+    const sh      = getSpreadsheet().getSheetByName('Invoices');
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    const id      = 'INV-' + Date.now();
+    const now     = new Date().toISOString();
+    const rowObj  = Object.assign({ id, created_at: now, updated_at: now }, data);
+    const row     = headers.map(h => rowObj[h] !== undefined ? rowObj[h] : '');
+    sh.appendRow(row);
+    return { success: true, id };
+  } catch(e) { return { error: e.message }; }
+}
+
+function updateInvoice(data) {
+  try {
+    ensureInvoicesSheet();
+    const sh      = getSpreadsheet().getSheetByName('Invoices');
+    const allData = sh.getDataRange().getValues();
+    const headers = allData[0];
+    const idCol   = headers.indexOf('id');
+    const rowIdx  = allData.findIndex((r, i) => i > 0 && String(r[idCol]) === String(data.id));
+    if (rowIdx === -1) return { error: 'Invoice not found' };
+    data.updated_at = new Date().toISOString();
+    headers.forEach((h, ci) => {
+      if (data[h] !== undefined) sh.getRange(rowIdx + 1, ci + 1).setValue(data[h]);
+    });
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+function deleteInvoice(id) {
+  try {
+    ensureInvoicesSheet();
+    const sh      = getSpreadsheet().getSheetByName('Invoices');
+    const allData = sh.getDataRange().getValues();
+    const headers = allData[0];
+    const idCol   = headers.indexOf('id');
+    const rowIdx  = allData.findIndex((r, i) => i > 0 && String(r[idCol]) === String(id));
+    if (rowIdx === -1) return { error: 'Not found' };
+    sh.deleteRow(rowIdx + 1);
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
 }
 
 // ── RESPONSE ──────────────────────────────────────────────────────

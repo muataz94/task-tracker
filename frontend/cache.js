@@ -8,7 +8,8 @@ const CACHE_TTL = new Map([
   ['dashboard',           30 * 1000],
   ['Chat',                 5 * 1000],
   ['Comparisons',        120 * 1000],
-  ['ComparisonVendors',  120 * 1000]
+  ['ComparisonVendors',  120 * 1000],
+  ['Invoices',            60 * 1000]
 ]);
 
 const _cache = new Map();
@@ -62,4 +63,5 @@ function prefetchAll() {
   // Prefetch quotation comparisons and vendors in parallel for instant data load
   callAPI('getAll', { sheet: 'Comparisons' }).then(d => cacheSet('Comparisons', d)).catch(() => {});
   callAPI('getAll', { sheet: 'ComparisonVendors' }).then(d => cacheSet('ComparisonVendors', d)).catch(() => {});
+  callAPI('getInvoices').then(d => cacheSet('Invoices', d)).catch(() => {});
 }

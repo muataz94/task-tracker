@@ -138,6 +138,16 @@ const TRANSLATIONS = {
 
     quotations:     'Quotations',
     quotations_sub: 'Final Bids Comparison Table',
+
+    invoices:        'Invoices',
+    invoice_tracker: 'Invoice Tracker',
+    new_invoice:     'New Invoice',
+    invoice_number:  'Invoice Number',
+    payment_date:    'Payment Date',
+    payment_method:  'Payment Method',
+    bank_account:    'Bank / Account',
+    approved_by:     'Approved By',
+    partially_paid:  'Partially Paid',
   },
 
   ar: {
@@ -279,6 +289,16 @@ const TRANSLATIONS = {
 
     quotations:     'مقارنة العطاءات',
     quotations_sub: 'جدول مقارنة العطاءات النهائية',
+
+    invoices:        'الفواتير',
+    invoice_tracker: 'متتبع الفواتير',
+    new_invoice:     'فاتورة جديدة',
+    invoice_number:  'رقم الفاتورة',
+    payment_date:    'تاريخ الدفع',
+    payment_method:  'طريقة الدفع',
+    bank_account:    'البنك / الحساب',
+    approved_by:     'معتمد من',
+    partially_paid:  'مدفوع جزئياً',
   }
 };
 

@@ -88,6 +88,23 @@ async function loadDashboard() {
       }).catch(() => {});
     }
 
+    // Load invoice dashboard widgets
+    callAPI('getInvoices').then(res => {
+      if (!res || !res.rows) return;
+      const invs = res.rows;
+      if (typeof autoMarkOverdueInvoices  === 'function') autoMarkOverdueInvoices(invs);
+      if (typeof renderInvoiceStatCards    === 'function') renderInvoiceStatCards(invs);
+      if (typeof renderInvoiceChart        === 'function') renderInvoiceChart(invs);
+      if (typeof renderOverdueInvoiceBanner=== 'function') renderOverdueInvoiceBanner(invs);
+      if (typeof renderRecentInvoices      === 'function') renderRecentInvoices(invs);
+      if (typeof updateInvoiceSidebarBadge === 'function') updateInvoiceSidebarBadge();
+      // Sync with invoices.js local array so sidebar badge stays accurate
+      if (typeof _allInvoices !== 'undefined') {
+        _allInvoices.length = 0;
+        invs.forEach(i => _allInvoices.push(i));
+      }
+    }).catch(() => {});
+
   } catch (e) {
     console.error('Dashboard error:', e);
     statIds.forEach(id => {
