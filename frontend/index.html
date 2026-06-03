@@ -1525,11 +1525,12 @@
 
       // ── Authorization check against Users sheet ──────────────────
       let authorized = false;
+      let users = [];
       try {
         // Bypass cache — always fetch fresh list for security
         const result = await callAPI('getAll', { sheet: 'Users' });
-        const users  = result.rows || [];
-        authorized   = users.some(u =>
+        users      = result.rows || [];
+        authorized = users.some(u =>
           (u.email || '').toLowerCase().trim() === profile.email.toLowerCase().trim()
         );
       } catch (e) {
