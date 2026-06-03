@@ -309,29 +309,6 @@
             </div>
           </div>
 
-          <!-- Invoice stat cards -->
-          <div style="margin-top:14px;">
-            <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px;">Invoice Summary</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
-              <div class="glass-card" style="border-radius:var(--r-md);padding:1rem 1.1rem;">
-                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Total Invoices</div>
-                <div id="inv-stat-total" style="font-size:22px;font-weight:800;color:var(--accent);">—</div>
-              </div>
-              <div class="glass-card" style="border-radius:var(--r-md);padding:1rem 1.1rem;">
-                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Paid Amount</div>
-                <div id="inv-stat-paid" style="font-size:22px;font-weight:800;color:var(--accent-green);">—</div>
-              </div>
-              <div class="glass-card" style="border-radius:var(--r-md);padding:1rem 1.1rem;">
-                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Outstanding</div>
-                <div id="inv-stat-outstanding" style="font-size:22px;font-weight:800;color:#f59e0b;">—</div>
-              </div>
-              <div class="glass-card" style="border-radius:var(--r-md);padding:1rem 1.1rem;">
-                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Overdue</div>
-                <div id="inv-stat-overdue" style="font-size:22px;font-weight:800;color:var(--accent-red);">—</div>
-              </div>
-            </div>
-          </div>
-
           <!-- Overdue reminder panels -->
           <div class="dash-overdue-row" id="dash-overdue-row">
             <div class="dash-overdue-panel glass" id="dash-overdue-tasks">
@@ -374,9 +351,6 @@
               <button class="dop-view-all" onclick="navigateTo('pos')">View all POs →</button>
             </div>
           </div>
-
-          <!-- Invoice overdue banner -->
-          <div id="inv-overdue-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;margin-bottom:0;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.25);border-radius:var(--r-md);color:#fca5a5;font-size:13px;font-weight:500;margin-top:12px;"></div>
 
           <!-- Tabbed pivot table -->
           <div class="pivot-section glass" style="border-radius:var(--r-md);margin-bottom:1rem;overflow:hidden;">
@@ -461,21 +435,6 @@
               <div style="position:relative;height:140px;">
                 <canvas id="chart-pos"></canvas>
               </div>
-            </div>
-          </div>
-
-          <!-- Invoice chart + recent invoices -->
-          <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:14px;">
-            <div class="glass-card" style="border-radius:var(--r-md);padding:1rem;">
-              <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Invoice Split</div>
-              <canvas id="inv-chart-canvas" height="160"></canvas>
-            </div>
-            <div class="glass-card" style="border-radius:var(--r-md);padding:1rem;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;">Recent Invoices</div>
-                <button onclick="navigateTo('invoices')" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-weight:500;">View all →</button>
-              </div>
-              <div id="recent-invoices-list"></div>
             </div>
           </div>
 
@@ -818,7 +777,7 @@
                     <div class="settings-card-sub" data-i18n="workspace_access_sub">Control workspace access</div>
                   </div>
                 </div>
-                <button class="btn-manage-perms-hub" onclick="showPermissionsHub()">
+                <button class="btn-manage-perms-hub" id="btn-manage-perms-hub" onclick="showPermissionsHub()">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   </svg>
@@ -1912,13 +1871,19 @@
                   </div>
                   <div class="perms-hub-role">${escapeHtml(u.role || 'editor')}</div>
                 </div>
-                <button class="btn-edit-perms" onclick="editPermFromHub('${escapeHtml(u.email)}')">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  Edit
-                </button>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button class="btn-edit-perms" onclick="editPermFromHub('${escapeHtml(u.email)}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit
+                  </button>
+                  ${u.email !== currentUserEmail ? `<button class="btn-delete btn-sm-del" onclick="(()=>{const o=document.getElementById('perms-hub-overlay');o.classList.remove('is-in');setTimeout(()=>{o.remove();removeMember('${escapeHtml(u.email)}');},220)})()">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                    Remove
+                  </button>` : ''}
+                </div>
               </div>
               <div class="perms-hub-chips">${chips}</div>
             </div>`;
