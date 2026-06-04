@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ─────────────────────────────────────────────────
    LIQUID GLASS DESIGN SYSTEM — TASK TRACKER
@@ -5668,19 +5668,74 @@ body { overflow-x: hidden; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   FILTER SELECT INPUT UPDATES (Part 14 extension)
+   UNIVERSAL SELECT / DROPDOWN STYLING
+   Covers every <select> in the app — dark glass by default
 ══════════════════════════════════════════════════════════════════ */
+
+/* Base for ALL select elements */
+select {
+  background:    var(--g2-bg, rgba(255,255,255,0.06));
+  border:        1px solid var(--glass-border, rgba(255,255,255,0.10));
+  color:         var(--text-1);
+  border-radius: var(--r-sm);
+  font-size:     13px;
+  font-family:   'Inter', sans-serif;
+  outline:       none;
+  color-scheme:  dark;
+  cursor:        pointer;
+  transition:    border-color var(--dur-base) ease, box-shadow var(--dur-base) ease, background var(--dur-base) ease;
+}
+select:focus {
+  border-color: var(--accent);
+  box-shadow:   0 0 0 3px rgba(var(--accent-rgb), 0.14);
+}
+
+/* Native dropdown option items — dark background so text is visible */
+select option {
+  background:  var(--bg-elevated, #18182a);
+  color:       var(--text-1);
+  font-family: 'Inter', sans-serif;
+  font-size:   13px;
+}
+
+/* Class-specific refinements */
 .filter-select, .pref-select {
   background: var(--g2-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border); color: var(--text-1); padding: 9px 12px;
   border-radius: var(--r-sm); font-size: 13px; outline: none; font-family: 'Inter', sans-serif;
+  color-scheme: dark;
   transition: border-color var(--dur-base) ease, box-shadow var(--dur-base) ease, background var(--dur-base) ease;
 }
-
 .filter-select:focus, .pref-select:focus {
   border-color: var(--accent);
   background:   var(--g3-bg);
   box-shadow:   0 0 0 3px rgba(var(--accent-rgb), 0.14), 0 0 16px rgba(var(--accent-rgb), 0.06);
+}
+.filter-select option, .pref-select option,
+.form-group select option,
+.add-member-row select option {
+  background: var(--bg-elevated, #18182a);
+  color:      var(--text-1);
+}
+
+/* Light mode — native controls render in light palette */
+[data-theme="light"] select,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .filter-select,
+[data-theme="light"] .pref-select,
+[data-theme="light"] .add-member-row select {
+  color-scheme:   light;
+  background:     rgba(255,255,255,0.92);
+  border-color:   rgba(99,102,241,0.22);
+  color:          var(--text-1);
+}
+[data-theme="light"] select option,
+[data-theme="light"] .form-group select option,
+[data-theme="light"] .filter-select option,
+[data-theme="light"] .pref-select option,
+[data-theme="light"] .add-member-row select option {
+  background: #ffffff;
+  color:      #1e1b4b;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -5957,3 +6012,9 @@ body { overflow-x: hidden; }
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
 }
+
+
+/* ── VENDORS ── */
+.glass-card { background: var(--glass-bg); border: 1px solid var(--border); transition: transform 200ms cubic-bezier(0.2,0,0,1), box-shadow 200ms cubic-bezier(0.2,0,0,1), border-color 150ms ease; }
+.glass-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.vnd-logo-inline { vertical-align: middle; display: inline-block; }

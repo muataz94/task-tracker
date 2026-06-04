@@ -168,7 +168,7 @@ function renderTable(sheetName) {
         <tbody>
           ${filtered.length ? filtered.map(row => `
             <tr>
-              ${fields.map(f => `<td>${formatCell(f, row[f.key])}</td>`).join('')}
+              ${fields.map(f => `<td>${formatCell(f, row[f.key], row)}</td>`).join('')}
               <td class="actions-cell">
                 <button class="btn-edit btn-icon-action"
                   data-sheet="${escapeAttr(sheetName)}" data-id="${escapeAttr(row.id)}"
@@ -297,12 +297,32 @@ function updateReminderBar(sheetName) {
   bar.classList.remove('hidden');
 }
 
+// Money fields that should be rendered with their row's currency
+const _MONEY_KEYS = new Set(['amount','unit_price','total_value','winner_amount','total_pr_value']);
+
+function _fmtWithCurrency(num, cur) {
+  const c   = cur || 'USD';
+  const dec = c === 'IQD' ? 0 : 2;
+  const pfx = { USD:'$', EUR:'€', GBP:'£', IQD:'', AED:'AED ', SAR:'SAR ' }[c] ?? (c + ' ');
+  const sfx = c === 'IQD' ? ' IQD' : '';
+  return pfx + num.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + sfx;
+}
+
+function _normDate(value) {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (s.includes('T')) return s.split('T')[0];
+  const d = new Date(s);
+  return isNaN(d) ? s.substring(0, 10) : d.toISOString().split('T')[0];
+}
+
 // ── Format cell display
-function formatCell(field, value) {
+function formatCell(field, value, row) {
   if (value === null || value === undefined || value === '') {
     return '<span class="empty-cell">—</span>';
   }
-  // Handle Date objects (e.g. from Google Sheets serialization)
   if (value instanceof Date) {
     return value.toISOString().split('T')[0];
   }
@@ -320,10 +340,15 @@ function formatCell(field, value) {
       </div>`;
   }
   if (field.type === 'date' && value) {
-    return String(value).split('T')[0];
+    return _normDate(value) || String(value).substring(0, 10);
   }
   if (field.type === 'number') {
-    return Number(value).toLocaleString();
+    const num = parseFloat(value);
+    if (isNaN(num)) return '<span class="empty-cell">—</span>';
+    if (_MONEY_KEYS.has(field.key) && row?.currency) {
+      return _fmtWithCurrency(num, row.currency);
+    }
+    return num.toLocaleString();
   }
   return String(value);
 }

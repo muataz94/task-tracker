@@ -32,22 +32,24 @@ async function loadInvoices() {
   if (!wrap) return;
 
   wrap.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+    <div class="filter-bar glass" style="margin-bottom:1rem;">
       <div class="inv-filter-tabs" id="inv-filter-tabs">
         ${['all','Unpaid','Partially Paid','Paid','Overdue','Cancelled'].map(s => `
-          <button class="inv-filter-btn${_invFilter===s?' active':''}" onclick="setInvFilter('${s}')">${s==='all'?'All Invoices':s}</button>
+          <button class="inv-filter-btn${_invFilter===s?' active':''}" onclick="setInvFilter('${s}')">${s==='all'?'All':s}</button>
         `).join('')}
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="text" id="inv-search" placeholder="Search invoices…" class="filter-select" style="width:190px;" oninput="renderInvoiceTable()"/>
-        <button class="btn-export" onclick="exportInvoicesCSV()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Export CSV
-        </button>
-        <button class="btn-primary" onclick="showInvoiceModal(null)">+ New Invoice</button>
+      <div style="flex:1;min-width:0;"></div>
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="inv-search" placeholder="Search invoices…" class="filter-input" oninput="renderInvoiceTable()"/>
       </div>
+      <button class="btn-export" onclick="exportInvoicesCSV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export CSV
+      </button>
+      <span class="row-count" id="inv-row-count"></span>
     </div>
     <div id="inv-table-wrap"></div>`;
 
@@ -57,6 +59,9 @@ async function loadInvoices() {
     autoMarkOverdueInvoices();
     renderInvoiceTable();
     updateInvoiceSidebarBadge();
+    refreshInvoiceDashboard();
+    const sub = document.getElementById('invoices-subtitle');
+    if (sub) sub.textContent = _allInvoices.length + ' invoice' + (_allInvoices.length !== 1 ? 's' : '');
   } catch(e) {
     document.getElementById('inv-table-wrap').innerHTML =
       `<div style="padding:2rem;text-align:center;color:var(--accent-red);">Failed to load invoices: ${escapeHtml(e.message)}</div>`;
@@ -70,7 +75,7 @@ function autoMarkOverdueInvoices(arr) {
   list.forEach(inv => {
     if (inv.status === 'Unpaid' && inv.due_date) {
       const due = new Date(inv.due_date);
-      if (!isNaN(due) && due < today) inv.status = 'Overdue';
+      if (!isNaN(due) && due < today) inv._isOverdue = true;
     }
   });
 }
@@ -91,13 +96,17 @@ function renderInvoiceTable() {
 
   const search = (document.getElementById('inv-search')?.value || '').toLowerCase();
   let rows = _allInvoices.filter(inv => {
-    if (_invFilter !== 'all' && inv.status !== _invFilter) return false;
+    const effectiveStatus = (inv._isOverdue && inv.status === 'Unpaid') ? 'Overdue' : inv.status;
+    if (_invFilter !== 'all' && effectiveStatus !== _invFilter) return false;
     if (search) {
       const hay = [inv.invoice_number, inv.vendor, inv.po_reference, inv.status, inv.description, inv.approved_by].join(' ').toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
   });
+
+  const cntEl = document.getElementById('inv-row-count');
+  if (cntEl) cntEl.textContent = rows.length + ' of ' + _allInvoices.length;
 
   if (!rows.length) {
     wrap.innerHTML = `
@@ -148,8 +157,8 @@ function renderInvoiceTable() {
 }
 
 function renderInvoiceRow(inv) {
-  const dueDate  = inv.due_date     ? inv.due_date.split('T')[0]     : '—';
-  const invDate  = inv.invoice_date ? inv.invoice_date.split('T')[0] : '—';
+  const dueDate  = _parseDateStr(inv.due_date);
+  const invDate  = _parseDateStr(inv.invoice_date);
   const today    = new Date(); today.setHours(0,0,0,0);
   const daysLeft = inv.due_date ? Math.ceil((new Date(inv.due_date) - today) / 86400000) : null;
 
@@ -162,27 +171,37 @@ function renderInvoiceRow(inv) {
     }
   }
 
+  const effectiveStatus = (inv._isOverdue && inv.status === 'Unpaid') ? 'Overdue' : inv.status;
+
   return `
-    <tr style="${inv.status==='Overdue'?'background:rgba(239,68,68,0.04);':''}" ondblclick="showInvoiceModal('${inv.id}')">
+    <tr style="${(inv.status==='Overdue'||inv._isOverdue)?'background:rgba(239,68,68,0.04);':''}" ondblclick="showInvoiceModal('${inv.id}')">
       <td style="padding:10px 12px;"><input type="checkbox" class="inv-row-check" value="${inv.id}" onchange="onInvCheckChange()"/></td>
       <td>
         <span style="font-weight:600;color:var(--text-1);">${escapeHtml(inv.invoice_number||'—')}</span>
         ${inv.description?`<span style="display:block;font-size:11px;color:var(--text-3);">${escapeHtml(inv.description.substring(0,42))}${inv.description.length>42?'…':''}</span>`:''}
       </td>
       <td style="font-weight:500;">${escapeHtml(inv.vendor||'—')}</td>
-      <td style="font-weight:700;color:var(--text-1);">${fmtInvCurrency(inv.amount, inv.currency)}</td>
+      <td style="font-weight:700;color:var(--text-1);">
+        ${fmtInvCurrency(inv.amount, inv.currency)}
+        ${inv.status === 'Partially Paid' && inv.amount_paid
+          ? `<span style="display:block;font-size:10px;color:#3b82f6;font-weight:500;margin-top:1px;">
+               ${fmtInvCurrency(parseFloat(inv.amount_paid)||0, inv.currency)} paid
+               · ${fmtInvCurrency(Math.max(0,(parseFloat(inv.amount)||0)-(parseFloat(inv.amount_paid)||0)), inv.currency)} left
+             </span>`
+          : ''}
+      </td>
       <td style="color:var(--text-3);font-size:13px;">${invDate}</td>
       <td style="font-size:13px;">${dueDateDisplay}</td>
       <td>
-        <span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:11px;font-weight:600;color:${invStatusColor(inv.status)};background:${invStatusBg(inv.status)};">
-          ${inv.status||'—'}
+        <span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:11px;font-weight:600;color:${invStatusColor(effectiveStatus)};background:${invStatusBg(effectiveStatus)};">
+          ${effectiveStatus||'—'}
         </span>
       </td>
-      <td style="font-size:12px;color:var(--text-3);">${escapeHtml(inv.po_reference||'—')}</td>
+      <td style="font-size:12px;">${inv.po_reference ? `<span style="color:var(--accent);cursor:pointer;font-weight:500;" onclick="navigateTo('pos')" title="View POs">${escapeHtml(inv.po_reference)}</span>` : '<span style="color:var(--text-3);">—</span>'}</td>
       <td style="font-size:12px;color:var(--text-3);">${escapeHtml(inv.payment_method||'—')}</td>
       <td style="text-align:right;padding-right:8px;">
         <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
-          ${(inv.status==='Unpaid'||inv.status==='Overdue')?`<button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="quickMarkPaid('${inv.id}')">Mark Paid</button>`:''}
+          ${(inv.status==='Unpaid'||inv.status==='Overdue'||inv._isOverdue)?`<button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="quickMarkPaid('${inv.id}')">Mark Paid</button>`:''}
           <button class="btn-edit" onclick="showInvoiceModal('${inv.id}')">Edit</button>
           <button class="btn-delete" onclick="deleteInvoiceById('${inv.id}')">Delete</button>
         </div>
@@ -268,13 +287,18 @@ function exportInvoicesCSV(rows) {
 function updateInvoiceSidebarBadge() {
   const badge = document.getElementById('inv-sidebar-badge');
   if (!badge) return;
-  const n = _allInvoices.filter(i => i.status === 'Overdue' || i.status === 'Unpaid').length;
+  const n = _allInvoices.filter(i =>
+    i.status === 'Overdue' || i._isOverdue ||
+    i.status === 'Unpaid' || i.status === 'Partially Paid'
+  ).length;
   badge.textContent = n;
   badge.style.display = n > 0 ? 'flex' : 'none';
 }
 
 // ── Dashboard widgets ─────────────────────────────────────────────────────────
 function refreshInvoiceDashboard() {
+  const panel = document.getElementById('inv-dash-panel');
+  if (panel && _allInvoices.length) panel.style.display = '';
   renderInvoiceStatCards(_allInvoices);
   renderInvoiceChart(_allInvoices);
   renderOverdueInvoiceBanner(_allInvoices);
@@ -284,19 +308,42 @@ function refreshInvoiceDashboard() {
 function renderInvoiceStatCards(invoices) {
   const paid    = invoices.filter(i => i.status === 'Paid');
   const unpaid  = invoices.filter(i => i.status === 'Unpaid' || i.status === 'Partially Paid');
-  const overdue = invoices.filter(i => i.status === 'Overdue');
+  const overdue = invoices.filter(i => i.status === 'Overdue' || i._isOverdue);
 
-  function sumByCur(arr) {
+  // Total paid = fully Paid invoices + amount_paid from Partially Paid invoices
+  function sumPaid(allInvs) {
     const t = {};
-    arr.forEach(inv => { const c = inv.currency||'IQD'; t[c] = (t[c]||0) + (parseFloat(inv.amount)||0); });
+    allInvs.forEach(inv => {
+      const c = inv.currency || 'IQD';
+      let paidAmt = 0;
+      if (inv.status === 'Paid') {
+        paidAmt = parseFloat(inv.amount) || 0;
+      } else if (inv.status === 'Partially Paid') {
+        paidAmt = parseFloat(inv.amount_paid) || 0;
+      }
+      if (paidAmt > 0) t[c] = (t[c] || 0) + paidAmt;
+    });
+    return Object.entries(t).map(([c,a]) => fmtInvCurrency(a,c)).join(' + ') || '—';
+  }
+
+  // Outstanding = remaining unpaid amounts (for Partially Paid: amount - amount_paid)
+  function sumOutstanding(arr) {
+    const t = {};
+    arr.forEach(inv => {
+      const c = inv.currency || 'IQD';
+      const total      = parseFloat(inv.amount) || 0;
+      const alreadyPaid = parseFloat(inv.amount_paid) || 0;
+      const remaining  = inv.status === 'Partially Paid' ? Math.max(0, total - alreadyPaid) : total;
+      t[c] = (t[c] || 0) + remaining;
+    });
     return Object.entries(t).map(([c,a]) => fmtInvCurrency(a,c)).join(' + ') || '—';
   }
 
   const map = {
-    'inv-stat-total':       { val: invoices.length, color:'var(--accent)' },
-    'inv-stat-paid':        { val: sumByCur(paid),  color:'var(--accent-green)' },
-    'inv-stat-outstanding': { val: sumByCur(unpaid),color:'#f59e0b' },
-    'inv-stat-overdue':     { val: overdue.length,  color:'var(--accent-red)' },
+    'inv-stat-total':       { val: invoices.length,       color:'var(--accent)' },
+    'inv-stat-paid':        { val: sumPaid(invoices),      color:'var(--accent-green)' },
+    'inv-stat-outstanding': { val: sumOutstanding(unpaid), color:'#f59e0b' },
+    'inv-stat-overdue':     { val: overdue.length,         color:'var(--accent-red)' },
   };
   Object.entries(map).forEach(([id,{val,color}]) => {
     const el = document.getElementById(id);
@@ -370,6 +417,15 @@ function renderRecentInvoices(invoices) {
     </div>`).join('');
 }
 
+// ── Normalise date strings from Google Sheets ─────────────────────────────────
+function _parseDateStr(d) {
+  if (!d || d === '—') return '—';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  if (typeof d === 'string' && d.includes('T')) return d.split('T')[0];
+  const p = new Date(d);
+  return isNaN(p) ? (String(d).substring(0, 10) || '—') : p.toISOString().split('T')[0];
+}
+
 // ── Invoice Modal ─────────────────────────────────────────────────────────────
 async function showInvoiceModal(id) {
   _editingInvId = id;
@@ -388,10 +444,13 @@ async function showInvoiceModal(id) {
     ).join('');
   } catch(e) {}
 
+  const invDateVal = _parseDateStr(inv.invoice_date);
+  const dueDateVal = _parseDateStr(inv.due_date);
+  const payDateVal = _parseDateStr(inv.payment_date);
+
   const html = `
-    <div class="modal-overlay" id="inv-modal-overlay">
-      <div class="modal-backdrop" onclick="closeInvoiceModal()"></div>
-      <div class="glass-3" style="position:relative;z-index:1;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:var(--r-lg);padding:1.5rem;animation:modalSpringIn var(--dur-enter) var(--spring-bounce) both;">
+    <div id="inv-modal-overlay" onclick="closeInvoiceModal()" style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:1rem;animation:overlayFadeIn 0.2s ease;">
+      <div onclick="event.stopPropagation()" style="position:relative;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:var(--r-lg);padding:1.5rem;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);border:1px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,0.45);animation:modalSpringIn var(--dur-enter) var(--spring-bounce) both;">
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
           <div>
@@ -408,19 +467,22 @@ async function showInvoiceModal(id) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="form-group"><label>Invoice Number *</label><input id="inv-f-number" type="text" placeholder="e.g. INV-2026-001" value="${escapeHtml(inv.invoice_number||'')}"/></div>
-          <div class="form-group"><label>Vendor *</label><input id="inv-f-vendor" type="text" placeholder="Vendor name" value="${escapeHtml(inv.vendor||'')}"/></div>
+          <div class="form-group"><label>Vendor *</label>
+            ${typeof getVendorOptionsHTML === 'function' ? `<select id="inv-f-vendor-select" class="pref-select" style="width:100%;margin-bottom:6px;" data-vendor-dropdown="true" onchange="onInvVendorSelect(this)">${getVendorOptionsHTML(inv.vendor||'')}</select>` : ''}
+            <input id="inv-f-vendor" type="text" placeholder="Or type vendor name manually" value="${escapeHtml(inv.vendor||'')}"/>
+          </div>
         </div>
 
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
-          <div class="form-group"><label>Amount *</label><input id="inv-f-amount" type="number" min="0" step="any" placeholder="0" value="${inv.amount||''}"/></div>
+          <div class="form-group"><label>Amount *</label><input id="inv-f-amount" type="number" min="0" step="any" placeholder="0" value="${inv.amount||''}" oninput="updateInvRemaining()"/></div>
           <div class="form-group"><label>Currency</label>
             <select id="inv-f-currency" class="pref-select" style="width:100%;">${INV_CURRENCIES.map(c=>`<option value="${c}" ${(inv.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}</select>
           </div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div class="form-group"><label>Invoice Date *</label><input id="inv-f-invdate" type="date" value="${(inv.invoice_date||'').split('T')[0]}"/></div>
-          <div class="form-group"><label>Due Date *</label><input id="inv-f-duedate" type="date" value="${(inv.due_date||'').split('T')[0]}"/></div>
+          <div class="form-group"><label>Invoice Date *</label><input id="inv-f-invdate" type="date" value="${invDateVal === '—' ? '' : invDateVal}"/></div>
+          <div class="form-group"><label>Due Date *</label><input id="inv-f-duedate" type="date" value="${dueDateVal === '—' ? '' : dueDateVal}"/></div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -435,9 +497,21 @@ async function showInvoiceModal(id) {
         </div>
 
         <div id="inv-payment-section" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
-          <div style="font-size:11px;font-weight:600;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Payment Details</div>
+          <div style="font-size:11px;font-weight:600;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;" id="inv-payment-section-title">Payment Details</div>
+          <div id="inv-partial-row" style="display:none;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+              <div class="form-group">
+                <label>Amount Paid</label>
+                <input id="inv-f-amountpaid" type="number" min="0" step="any" placeholder="0" value="${inv.amount_paid||''}" oninput="updateInvRemaining()"/>
+              </div>
+              <div style="padding-bottom:4px;">
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Remaining</div>
+                <div id="inv-remaining-display" style="font-size:14px;font-weight:700;color:#3b82f6;letter-spacing:-0.02em;">—</div>
+              </div>
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div class="form-group"><label>Payment Date</label><input id="inv-f-paydate" type="date" value="${(inv.payment_date||'').split('T')[0]}"/></div>
+            <div class="form-group"><label>Payment Date</label><input id="inv-f-paydate" type="date" value="${payDateVal === '—' ? '' : payDateVal}"/></div>
             <div class="form-group"><label>Payment Method</label>
               <select id="inv-f-paymethod" class="pref-select" style="width:100%;"><option value="">Select…</option>${INV_PAYMENT_METHODS.map(m=>`<option value="${m}" ${inv.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>
             </div>
@@ -473,8 +547,38 @@ async function showInvoiceModal(id) {
 }
 
 function toggleInvPaymentSection(status) {
-  const sec = document.getElementById('inv-payment-section');
-  if (sec) sec.style.display = ['Paid','Partially Paid'].includes(status) ? 'block' : 'none';
+  const sec         = document.getElementById('inv-payment-section');
+  const partialRow  = document.getElementById('inv-partial-row');
+  const titleEl     = document.getElementById('inv-payment-section-title');
+  if (!sec) return;
+  const show = ['Paid','Partially Paid'].includes(status);
+  sec.style.display = show ? 'block' : 'none';
+  if (partialRow) partialRow.style.display = status === 'Partially Paid' ? 'block' : 'none';
+  if (titleEl) titleEl.textContent = status === 'Partially Paid' ? 'Partial Payment Details' : 'Payment Details';
+  if (status === 'Partially Paid') updateInvRemaining();
+}
+
+function updateInvRemaining() {
+  const totalEl   = document.getElementById('inv-f-amount');
+  const paidEl    = document.getElementById('inv-f-amountpaid');
+  const remEl     = document.getElementById('inv-remaining-display');
+  const curEl     = document.getElementById('inv-f-currency');
+  if (!totalEl || !paidEl || !remEl) return;
+  const total   = parseFloat(totalEl.value) || 0;
+  const paid    = parseFloat(paidEl.value)  || 0;
+  const rem     = Math.max(0, total - paid);
+  const cur     = curEl?.value || 'IQD';
+  remEl.textContent = fmtInvCurrency(rem, cur);
+  remEl.style.color = rem > 0 ? '#3b82f6' : 'var(--accent-green)';
+}
+
+function onInvVendorSelect(sel) {
+  const val = sel.value;
+  if (val === '__new__') { sel.value = ''; if (typeof showVendorModal === 'function') showVendorModal(null); return; }
+  const nameInput = document.getElementById('inv-f-vendor');
+  if (nameInput && val) nameInput.value = val;
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.currency) { const cf = document.getElementById('inv-f-currency'); if (cf) cf.value = opt.dataset.currency; }
 }
 
 function onInvPOSelect(sel) {
@@ -525,6 +629,7 @@ async function submitInvoiceForm() {
     attachment_url: g('inv-f-attach'),
     notes:          document.getElementById('inv-f-notes')?.value?.trim() || '',
     linked_po_id:   document.getElementById('inv-linked-po')?.value || '',
+    amount_paid:    g('inv-f-amountpaid') || '',
     created_by:     user.email || '',
   };
 

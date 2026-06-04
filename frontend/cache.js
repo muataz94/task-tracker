@@ -9,7 +9,8 @@ const CACHE_TTL = new Map([
   ['Chat',                 5 * 1000],
   ['Comparisons',        120 * 1000],
   ['ComparisonVendors',  120 * 1000],
-  ['Invoices',            60 * 1000]
+  ['Invoices',            60 * 1000],
+  ['Vendors',            120 * 1000]
 ]);
 
 const _cache = new Map();
@@ -64,4 +65,5 @@ function prefetchAll() {
   callAPI('getAll', { sheet: 'Comparisons' }).then(d => cacheSet('Comparisons', d)).catch(() => {});
   callAPI('getAll', { sheet: 'ComparisonVendors' }).then(d => cacheSet('ComparisonVendors', d)).catch(() => {});
   callAPI('getInvoices').then(d => cacheSet('Invoices', d)).catch(() => {});
+  callAPI('getVendors').then(d => { if (d && d.rows) { window._allVendors = d.rows; } }).catch(() => {});
 }

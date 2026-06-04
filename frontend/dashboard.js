@@ -22,6 +22,13 @@ async function loadDashboard() {
     if (el) el.textContent = '...';
   });
 
+  // Immediately render invoice stats from local cache — gives instant feedback before network returns
+  if (typeof _allInvoices !== 'undefined' && _allInvoices.length && typeof renderInvoiceStatCards === 'function') {
+    renderInvoiceStatCards(_allInvoices);
+    const panel = document.getElementById('inv-dash-panel');
+    if (panel) panel.style.display = '';
+  }
+
   try {
     const dashData = await getDashboard();
 
@@ -31,15 +38,26 @@ async function loadDashboard() {
     if (dashData.milestones) { cacheSet('Milestones', { rows: dashData.milestones }); if (typeof tableData !== 'undefined') tableData['Milestones'] = dashData.milestones; }
 
     const prefs = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
-    const _cPre = { USD: '$', EUR: '€', GBP: '£', IQD: '' };
+    const _cPre = { USD: '$', EUR: '€', GBP: '£', IQD: '', AED: 'AED ', SAR: 'SAR ' };
     const _cSuf = { IQD: ' IQD' };
-    const cPre  = _cPre[prefs.currency] !== undefined ? _cPre[prefs.currency] : ((prefs.currency || 'USD') + ' ');
-    const cSuf  = _cSuf[prefs.currency] || '';
+
+    function _detectCur(records, fallback) {
+      const curs = [...new Set((records || []).map(r => r.currency).filter(Boolean))];
+      return curs.length === 1 ? curs[0] : (fallback || prefs.currency || 'USD');
+    }
+    function _curPre(cur) { return _cPre[cur] !== undefined ? _cPre[cur] : (cur + ' '); }
+    function _curSuf(cur) { return _cSuf[cur] || ''; }
+
+    // Detect expense currency from actual data
+    const expCur  = _detectCur(dashData.expenses);
+    // Detect PO currency from cached PO data (may be empty on first load — falls back to prefs)
+    const cachedPORows = (typeof tableData !== 'undefined' && tableData['POs']) || [];
+    const poCur   = _detectCur(cachedPORows, expCur);
 
     animateCountUp('stat-open',      dashData.taskSummary.open);
-    animateCountUp('stat-spend',      dashData.poSpend || 0,       cPre, cSuf);
+    animateCountUp('stat-spend',      dashData.poSpend || 0,       _curPre(poCur),  _curSuf(poCur));
     animateCountUp('stat-progress',   dashData.avgProgress || 0,   '',   '%');
-    animateCountUp('stat-expenses',   dashData.totalExpenses || 0, cPre, cSuf);
+    animateCountUp('stat-expenses',   dashData.totalExpenses || 0, _curPre(expCur), _curSuf(expCur));
 
     window._lastDashData = dashData;
     renderTaskChart(dashData.taskSummary);
@@ -88,15 +106,40 @@ async function loadDashboard() {
       }).catch(() => {});
     }
 
-    // Update invoice sidebar badge only — full invoice data loads in the Invoices tab
+    // Load vendors for dashboard widget
+    callAPI('getVendors').then(res => {
+      if (!res || !res.rows) return;
+      window._allVendors = res.rows;
+      if (typeof renderVendorDashboardCards === 'function') {
+        renderVendorDashboardCards(res.rows);
+        const panel = document.getElementById('vnd-dash-panel');
+        if (panel && res.rows.length) panel.style.display = '';
+      }
+    }).catch(() => {});
+
+    // Update invoice summary panel + sidebar badge in background
     callAPI('getInvoices').then(res => {
       if (!res || !res.rows) return;
       const invs = res.rows;
       if (typeof autoMarkOverdueInvoices  === 'function') autoMarkOverdueInvoices(invs);
       if (typeof updateInvoiceSidebarBadge === 'function') updateInvoiceSidebarBadge();
+      // Preserve locally-updated amount_paid if server returns empty (covers race condition
+      // between saving an invoice and the background fetch returning stale data)
       if (typeof _allInvoices !== 'undefined') {
+        invs.forEach(serverInv => {
+          const local = _allInvoices.find(l => l.id === serverInv.id);
+          if (local && local.amount_paid && !serverInv.amount_paid) {
+            serverInv.amount_paid = local.amount_paid;
+          }
+        });
         _allInvoices.length = 0;
         invs.forEach(i => _allInvoices.push(i));
+      }
+      // Populate dashboard invoice summary panel
+      if (typeof renderInvoiceStatCards === 'function' && invs.length > 0) {
+        renderInvoiceStatCards(invs);
+        const panel = document.getElementById('inv-dash-panel');
+        if (panel) panel.style.display = '';
       }
     }).catch(() => {});
 
