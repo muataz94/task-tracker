@@ -375,20 +375,28 @@ function sortTable(sheetName, col) {
 }
 
 // ── Open Add modal
-function openAddModal(sheetName) {
+async function openAddModal(sheetName) {
   currentEditId = null;
   currentSheet  = sheetName;
+  // Lazy-load vendors for PO supplier dropdown
+  if (sheetName === 'POs' && (!window._allVendors || !window._allVendors.length)) {
+    try { const r = await callAPI('getVendors'); if (r && r.rows) window._allVendors = r.rows; } catch(e) {}
+  }
   document.getElementById('modal-title').textContent = 'Add ' + sheetName.slice(0, -1);
   buildModalForm(sheetName, {});
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
 // ── Open Edit modal
-function openEditModal(sheetName, id) {
+async function openEditModal(sheetName, id) {
   currentEditId = id;
   currentSheet  = sheetName;
   const row = (tableData[sheetName] || []).find(r => String(r.id) === String(id));
   if (!row) return;
+  // Lazy-load vendors for PO supplier dropdown
+  if (sheetName === 'POs' && (!window._allVendors || !window._allVendors.length)) {
+    try { const r = await callAPI('getVendors'); if (r && r.rows) window._allVendors = r.rows; } catch(e) {}
+  }
   document.getElementById('modal-title').textContent = 'Edit ' + sheetName.slice(0, -1);
   buildModalForm(sheetName, row);
   document.getElementById('modal-overlay').classList.remove('hidden');
@@ -417,6 +425,10 @@ function buildModalForm(sheetName, data) {
     if (f.type === 'datalist') {
       const dlId   = 'dl-' + f.key + '-' + sheetName;
       const dlOpts = getDynamicOptions(f).map(o => `<option value="${escapeAttr(o)}">`).join('');
+      // POs supplier field: use vendor directory select as the sole input
+      if (sheetName === 'POs' && f.key === 'supplier' && typeof getVendorOptionsHTML === 'function') {
+        return `<div class="form-group">${lbl}<select name="${f.key}" id="po-supplier-vendor" class="pref-select" style="width:100%;" onchange="onPOVendorSelect(this)" ${f.required ? 'required' : ''}>${getVendorOptionsHTML(val)}</select></div>`;
+      }
       return `<div class="form-group">${lbl}<input type="text" name="${f.key}" value="${escapeAttr(val)}" list="${dlId}" autocomplete="off" ${f.required ? 'required' : ''} /><datalist id="${dlId}">${dlOpts}</datalist></div>`;
     }
     if (f.type === 'textarea') {

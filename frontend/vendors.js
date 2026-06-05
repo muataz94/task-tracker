@@ -171,11 +171,9 @@ function getVendorOptionsHTML(selectedName) {
 function onPOVendorSelect(sel) {
   const val = sel.value;
   if (val === '__new__') { sel.value = ''; if (typeof showVendorModal === 'function') showVendorModal(null); return; }
-  const nameInput = document.getElementById('po-vendor');
-  if (nameInput && val) nameInput.value = val;
   const opt = sel.options[sel.selectedIndex];
   if (opt && opt.dataset.currency) {
-    const curField = document.getElementById('po-currency');
+    const curField = document.querySelector('[name="currency"]') || document.getElementById('po-currency');
     if (curField) curField.value = opt.dataset.currency;
   }
 }
@@ -203,8 +201,23 @@ async function deleteVendorById(id) {
     window._allVendors = _allVendors;
     renderVendorGrid();
     renderVendorDashboardCards(_allVendors);
+    const panel = document.getElementById('vnd-dash-panel');
+    if (panel) panel.style.display = _allVendors.length ? '' : 'none';
+    const sub = document.getElementById('vendors-subtitle');
+    if (sub) sub.textContent = _allVendors.length + ' vendor' + (_allVendors.length !== 1 ? 's' : '');
+    _rebuildOpenVendorDropdowns();
     showToast('Vendor deleted', 'info');
   } catch(e) { showToast('Delete failed: ' + e.message, 'error'); }
+}
+
+// ── Rebuild vendor selects in any open modal ──────────────────────────────────
+function _rebuildOpenVendorDropdowns() {
+  // Invoice modal
+  const invSel = document.getElementById('inv-f-vendor-select');
+  if (invSel) { const cur = invSel.value; invSel.innerHTML = getVendorOptionsHTML(cur); }
+  // PO modal (tables.js form)
+  const poSel = document.getElementById('po-supplier-vendor');
+  if (poSel) { const cur = poSel.value; poSel.innerHTML = getVendorOptionsHTML(cur); }
 }
 
 // ── Vendor Modal ──────────────────────────────────────────────────────────────
@@ -340,6 +353,8 @@ async function submitVendorForm() {
     if (panel && _allVendors.length) panel.style.display = '';
     const sub = document.getElementById('vendors-subtitle');
     if (sub) sub.textContent = _allVendors.length + ' vendor' + (_allVendors.length !== 1 ? 's' : '');
+    // Rebuild vendor dropdowns in any currently-open invoice / PO modals
+    _rebuildOpenVendorDropdowns();
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = _editingVndId ? 'Save Changes' : 'Create Vendor'; }
