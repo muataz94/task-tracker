@@ -83,9 +83,10 @@ function autoMarkOverdueInvoices(arr) {
 // ── Filter ────────────────────────────────────────────────────────────────────
 function setInvFilter(status) {
   _invFilter = status;
-  document.querySelectorAll('.inv-filter-btn').forEach(b =>
-    b.classList.toggle('active', b.textContent.trim() === (status === 'all' ? 'All Invoices' : status))
-  );
+  document.querySelectorAll('.inv-filter-btn').forEach(b => {
+    const label = b.textContent.trim();
+    b.classList.toggle('active', status === 'all' ? (label === 'All' || label === 'All Invoices') : label === status);
+  });
   renderInvoiceTable();
 }
 
@@ -201,7 +202,10 @@ function renderInvoiceRow(inv) {
       <td style="font-size:12px;color:var(--text-3);">${escapeHtml(inv.payment_method||'—')}</td>
       <td style="text-align:right;padding-right:8px;">
         <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
-          ${(inv.status==='Unpaid'||inv.status==='Overdue'||inv._isOverdue)?`<button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="quickMarkPaid('${inv.id}')">Mark Paid</button>`:''}
+          ${(inv.status==='Unpaid'||inv.status==='Overdue'||inv._isOverdue)?`
+            <button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="quickMarkPaid('${inv.id}')">Mark Paid</button>
+            <button class="btn-edit" style="font-size:11px;padding:4px 8px;background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.3);color:#60a5fa;" onclick="quickMarkPartial('${inv.id}')">Partial</button>`:''}
+          ${inv.status==='Partially Paid'?`<button class="btn-edit" style="font-size:11px;padding:4px 8px;background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.3);color:#60a5fa;" onclick="quickMarkPartial('${inv.id}')">Update Paid</button>`:''}
           <button class="btn-edit" onclick="showInvoiceModal('${inv.id}')">Edit</button>
           <button class="btn-delete" onclick="deleteInvoiceById('${inv.id}')">Delete</button>
         </div>
@@ -221,6 +225,28 @@ async function quickMarkPaid(id) {
     updateInvoiceSidebarBadge();
     refreshInvoiceDashboard();
     showToast('Invoice marked as paid ✓', 'success');
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+// ── Quick mark partial ────────────────────────────────────────────────────────
+async function quickMarkPartial(id) {
+  const inv = _allInvoices.find(i => i.id === id);
+  if (!inv) return;
+  const total = parseFloat(inv.amount) || 0;
+  const cur   = inv.currency || 'IQD';
+  const existing = parseFloat(inv.amount_paid) || 0;
+  const hint = existing > 0 ? ` (currently ${fmtInvCurrency(existing, cur)} paid)` : '';
+  const input = prompt(`Enter amount paid for invoice ${inv.invoice_number||id}\nTotal: ${fmtInvCurrency(total, cur)}${hint}`, existing || '');
+  if (input === null) return;
+  const paid = parseFloat(input);
+  if (isNaN(paid) || paid < 0) { showToast('Invalid amount', 'error'); return; }
+  try {
+    await callAPI('updateInvoice', { id, status: 'Partially Paid', amount_paid: String(paid) });
+    inv.status = 'Partially Paid'; inv.amount_paid = String(paid);
+    renderInvoiceTable();
+    updateInvoiceSidebarBadge();
+    refreshInvoiceDashboard();
+    showToast(`Partial payment recorded: ${fmtInvCurrency(paid, cur)} ✓`, 'success');
   } catch(e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
@@ -429,6 +455,15 @@ function _parseDateStr(d) {
 // ── Invoice Modal ─────────────────────────────────────────────────────────────
 async function showInvoiceModal(id) {
   _editingInvId = id;
+
+  // Lazy-load vendors for the dropdown if not yet fetched
+  if (!window._allVendors || !window._allVendors.length) {
+    try {
+      const vres = await callAPI('getVendors');
+      if (vres && vres.rows) window._allVendors = vres.rows;
+    } catch(e) {}
+  }
+
   const inv    = id ? (_allInvoices.find(i => i.id === id) || {}) : {};
   const isEdit = !!id;
 
@@ -438,8 +473,8 @@ async function showInvoiceModal(id) {
     const poData = cached?.data || (await callAPI('getAll', { sheet:'POs' }));
     const pos    = poData?.rows || [];
     poOptions   += pos.map(po =>
-      `<option value="${po.id}" ${inv.linked_po_id===po.id?'selected':''} data-vendor="${po.vendor||''}" data-amount="${po.total_amount||po.amount||''}" data-currency="${po.currency||'IQD'}">
-        ${po.po_number||po.id} — ${po.vendor||''} (${po.currency||'IQD'} ${parseFloat(po.total_amount||po.amount||0).toLocaleString()})
+      `<option value="${po.id}" ${inv.linked_po_id===po.id?'selected':''} data-vendor="${po.supplier||po.vendor||''}" data-amount="${po.total_amount||po.amount||''}" data-currency="${po.currency||'IQD'}">
+        ${po.po_number||po.id} — ${po.supplier||po.vendor||''} (${po.currency||'IQD'} ${parseFloat(po.total_amount||po.amount||0).toLocaleString()})
       </option>`
     ).join('');
   } catch(e) {}
@@ -468,8 +503,8 @@ async function showInvoiceModal(id) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="form-group"><label>Invoice Number *</label><input id="inv-f-number" type="text" placeholder="e.g. INV-2026-001" value="${escapeHtml(inv.invoice_number||'')}"/></div>
           <div class="form-group"><label>Vendor *</label>
-            ${typeof getVendorOptionsHTML === 'function' ? `<select id="inv-f-vendor-select" class="pref-select" style="width:100%;margin-bottom:6px;" data-vendor-dropdown="true" onchange="onInvVendorSelect(this)">${getVendorOptionsHTML(inv.vendor||'')}</select>` : ''}
-            <input id="inv-f-vendor" type="text" placeholder="Or type vendor name manually" value="${escapeHtml(inv.vendor||'')}"/>
+            ${typeof getVendorOptionsHTML === 'function' ? `<select id="inv-f-vendor-select" class="pref-select" style="width:100%;" data-vendor-dropdown="true" onchange="onInvVendorSelect(this)">${getVendorOptionsHTML(inv.vendor||'')}</select>` : `<input id="inv-f-vendor-select" type="text" placeholder="Vendor name" value="${escapeHtml(inv.vendor||'')}"/>`}
+            <input id="inv-f-vendor" type="hidden" value="${escapeHtml(inv.vendor||'')}"/>
           </div>
         </div>
 
@@ -492,31 +527,34 @@ async function showInvoiceModal(id) {
           <div class="form-group"><label>PO Reference</label><input id="inv-f-poref" type="text" placeholder="e.g. PO-0023" value="${escapeHtml(inv.po_reference||'')}"/></div>
         </div>
 
+        <!-- Partial payment section — appears immediately when Partially Paid is selected -->
+        <div id="inv-partial-row" style="display:none;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.25);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Partial Payment Details</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Amount Paid *</label>
+              <input id="inv-f-amountpaid" type="number" min="0" step="any" placeholder="Enter amount paid so far" value="${inv.amount_paid||''}" oninput="updateInvRemaining()" style="border-color:rgba(59,130,246,0.4);"/>
+            </div>
+            <div style="padding-bottom:2px;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:5px;">Outstanding Remaining</div>
+              <div id="inv-remaining-display" style="font-size:16px;font-weight:800;color:#3b82f6;letter-spacing:-0.03em;">—</div>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom:12px;">
           <label>Description</label><input id="inv-f-desc" type="text" placeholder="Brief description of goods/services" value="${escapeHtml(inv.description||'')}"/>
         </div>
 
         <div id="inv-payment-section" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
           <div style="font-size:11px;font-weight:600;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;" id="inv-payment-section-title">Payment Details</div>
-          <div id="inv-partial-row" style="display:none;margin-bottom:12px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
-              <div class="form-group">
-                <label>Amount Paid</label>
-                <input id="inv-f-amountpaid" type="number" min="0" step="any" placeholder="0" value="${inv.amount_paid||''}" oninput="updateInvRemaining()"/>
-              </div>
-              <div style="padding-bottom:4px;">
-                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Remaining</div>
-                <div id="inv-remaining-display" style="font-size:14px;font-weight:700;color:#3b82f6;letter-spacing:-0.02em;">—</div>
-              </div>
-            </div>
-          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
             <div class="form-group"><label>Payment Date</label><input id="inv-f-paydate" type="date" value="${payDateVal === '—' ? '' : payDateVal}"/></div>
             <div class="form-group"><label>Payment Method</label>
-              <select id="inv-f-paymethod" class="pref-select" style="width:100%;"><option value="">Select…</option>${INV_PAYMENT_METHODS.map(m=>`<option value="${m}" ${inv.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>
+              <select id="inv-f-paymethod" class="pref-select" style="width:100%;" onchange="toggleInvBankField(this.value)"><option value="">Select…</option>${INV_PAYMENT_METHODS.map(m=>`<option value="${m}" ${inv.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>
             </div>
           </div>
-          <div class="form-group"><label>Bank / Account</label><input id="inv-f-bank" type="text" placeholder="Bank name or account reference" value="${escapeHtml(inv.bank_account||'')}"/></div>
+          <div id="inv-f-bank-wrap" class="form-group" style="display:none;"><label>Bank / Account</label><input id="inv-f-bank" type="text" placeholder="Bank name or account reference" value="${escapeHtml(inv.bank_account||'')}"/></div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -544,18 +582,31 @@ async function showInvoiceModal(id) {
     toggleInvPaymentSection(statusEl.value);
     statusEl.addEventListener('change', e => toggleInvPaymentSection(e.target.value));
   }
+  // Set initial bank field visibility based on existing payment method
+  const payMethodEl = document.getElementById('inv-f-paymethod');
+  if (payMethodEl) toggleInvBankField(payMethodEl.value);
 }
 
 function toggleInvPaymentSection(status) {
-  const sec         = document.getElementById('inv-payment-section');
-  const partialRow  = document.getElementById('inv-partial-row');
-  const titleEl     = document.getElementById('inv-payment-section-title');
-  if (!sec) return;
-  const show = ['Paid','Partially Paid'].includes(status);
-  sec.style.display = show ? 'block' : 'none';
+  const partialRow = document.getElementById('inv-partial-row');
   if (partialRow) partialRow.style.display = status === 'Partially Paid' ? 'block' : 'none';
-  if (titleEl) titleEl.textContent = status === 'Partially Paid' ? 'Partial Payment Details' : 'Payment Details';
+
+  const sec = document.getElementById('inv-payment-section');
+  if (sec) sec.style.display = ['Paid', 'Partially Paid'].includes(status) ? 'block' : 'none';
+
+  const titleEl = document.getElementById('inv-payment-section-title');
+  if (titleEl) titleEl.textContent = status === 'Partially Paid' ? 'Payment Details (Partial)' : 'Payment Details';
+
   if (status === 'Partially Paid') updateInvRemaining();
+  // Sync bank field with current payment method selection
+  const payMethodEl = document.getElementById('inv-f-paymethod');
+  if (payMethodEl) toggleInvBankField(payMethodEl.value);
+}
+
+function toggleInvBankField(method) {
+  const bankWrap = document.getElementById('inv-f-bank-wrap');
+  if (!bankWrap) return;
+  bankWrap.style.display = ['Bank Transfer', 'Cheque'].includes(method) ? '' : 'none';
 }
 
 function updateInvRemaining() {

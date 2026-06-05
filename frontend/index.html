@@ -1233,15 +1233,24 @@
     function initGoogleAuth() {
       const recent    = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
       const lastEmail = recent.length ? recent[0].email : '';
+      // auto_select: true when a recent user exists so the JWT expiry triggers silent re-auth
+      // google.accounts.id.disableAutoSelect() (called on sign-out) suppresses this after explicit logout
       google.accounts.id.initialize({
         client_id: CLIENT_ID, callback: handleCredentialResponse,
-        auto_select: false, cancel_on_tap_outside: true,
+        auto_select: recent.length > 0, cancel_on_tap_outside: !recent.length,
+        use_fedcm_for_prompt: false,
         ...(lastEmail ? { hint: lastEmail } : {})
       });
       google.accounts.id.renderButton(
         document.getElementById('g-signin-btn'),
         { theme: 'outline', size: 'large', width: 300 }
       );
+      // Trigger One Tap silently when there's a known user (handles JWT expiry without visible login)
+      if (recent.length > 0) {
+        google.accounts.id.prompt((n) => {
+          // If One Tap is blocked or skipped, the button is still visible — no extra action needed
+        });
+      }
     }
 
     // ── Chat filter state ─────────────────────────────────────────────
@@ -1871,6 +1880,7 @@
     }
 
     async function addMember() {
+      if (!currentUserIsAdmin) { showToast('Only the workspace admin can manage team members', 'error'); return; }
       const emailInput = document.getElementById('new-member-email');
       const email = emailInput?.value.trim();
       const role  = document.getElementById('new-member-role')?.value || 'editor';
@@ -2039,6 +2049,7 @@
     }
 
     function showPermissionsHub() {
+      if (!currentUserIsAdmin) { showToast('Only the workspace admin can manage permissions', 'error'); return; }
       const prev = document.getElementById('perms-hub-overlay');
       if (prev) prev.remove();
 
@@ -2080,6 +2091,7 @@
     }
 
     async function editPermFromHub(email) {
+      if (!currentUserIsAdmin) { showToast('Only the workspace admin can manage permissions', 'error'); return; }
       try {
         const result = await getAll('Users');
         const user   = (result.rows || []).find(u => u.email === email);
@@ -2098,6 +2110,7 @@
     }
 
     function removeMember(email) {
+      if (!currentUserIsAdmin) { showToast('Only the workspace admin can remove team members', 'error'); return; }
       showConfirm('Remove Team Member', email + ' will be removed from the workspace.', async () => {
         try {
           const result = await getAll('Users');
@@ -2465,24 +2478,35 @@
     <!-- Topic tabs -->
     <div class="chat-topics-bar" id="chat-topics-bar"></div>
 
-    <!-- Filter bar -->
-    <div class="chat-filter-bar">
-      <div class="chat-filter-wrap">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-filter-icon">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    <!-- Channel header — updates when tab is switched -->
+    <div class="chat-channel-header">
+      <div class="chat-channel-icon" id="chat-channel-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      </div>
+      <div class="chat-channel-info">
+        <div class="chat-channel-name" id="chat-channel-name">General</div>
+        <div class="chat-channel-desc" id="chat-channel-desc">Team discussions</div>
+      </div>
+      <div class="chat-channel-actions">
+        <div class="chat-filter-chips" style="margin:0;">
+          <button class="chat-chip active" data-filter-type="all" onclick="setChatFilterType('all', this)">All</button>
+          <button class="chat-chip" data-filter-type="mine" onclick="setChatFilterType('mine', this)">Mine</button>
+          <button class="chat-chip" data-filter-type="files" onclick="setChatFilterType('files', this)">Files</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search bar (compact, below channel header) -->
+    <div class="chat-search-bar">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-4);flex-shrink:0;">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="chat-filter-input" class="chat-filter-input" type="text" placeholder="Search messages…" autocomplete="off" oninput="filterChatMessages(this.value)" />
+      <button class="chat-filter-clear hidden" id="chat-filter-clear" onclick="clearChatFilter()" title="Clear">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
-        <input id="chat-filter-input" class="chat-filter-input" type="text" placeholder="Search messages..." autocomplete="off" oninput="filterChatMessages(this.value)" />
-        <button class="chat-filter-clear hidden" id="chat-filter-clear" onclick="clearChatFilter()" title="Clear">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="chat-filter-chips">
-        <button class="chat-chip active" data-filter-type="all" onclick="setChatFilterType('all', this)">All</button>
-        <button class="chat-chip" data-filter-type="mine" onclick="setChatFilterType('mine', this)">Mine</button>
-        <button class="chat-chip" data-filter-type="files" onclick="setChatFilterType('files', this)">Files</button>
-      </div>
+      </button>
     </div>
 
     <!-- Messages -->
@@ -2498,7 +2522,7 @@
           </svg>
           <input type="file" id="chat-file-input" accept="image/*" style="display:none" />
         </label>
-        <input id="chat-input" type="text" placeholder="Message your team..." autocomplete="off" data-i18n-placeholder="message_placeholder" />
+        <input id="chat-input" type="text" placeholder="Message your team…" autocomplete="off" data-i18n-placeholder="message_placeholder" />
         <button id="emoji-btn" class="emoji-toggle-btn">😊</button>
         <div id="emoji-picker" class="emoji-picker hidden"></div>
         <button id="chat-send">
