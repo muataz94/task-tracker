@@ -1,1 +1,459 @@
-let _allPRs=[],_editingPRId=null,_prFilter="all";const PR_STATUSES=["Draft","Submitted","Approved","Rejected","Closed"],PR_PRIORITIES=["Low","Medium","High","Urgent"],PR_CURRENCIES=["IQD","USD","EUR","GBP","AED","SAR"],PR_UNITS=["pcs","box","set","kg","m","roll","ltr","sqm"];function prStatusColor(t){return{Draft:"#6b7280",Submitted:"#3b82f6",Approved:"#10b981",Rejected:"#ef4444",Closed:"#a78bfa"}[t]||"#6b7280"}function prStatusBg(t){return{Draft:"rgba(107,114,128,0.15)",Submitted:"rgba(59,130,246,0.15)",Approved:"rgba(16,185,129,0.15)",Rejected:"rgba(239,68,68,0.15)",Closed:"rgba(167,139,250,0.15)"}[t]||"rgba(107,114,128,0.15)"}function prPriorityColor(t){return{Low:"#10b981",Medium:"#f59e0b",High:"#ef4444",Urgent:"#dc2626"}[t]||"#6b7280"}async function loadPRs(){const t=document.getElementById("pr-wrap");if(t){t.innerHTML=`\n    <div class="filter-bar glass" style="margin-bottom:1rem;">\n      <div class="inv-filter-tabs" id="pr-filter-tabs">\n        ${["all","Draft","Submitted","Approved","Rejected","Closed"].map(t=>`\n          <button class="inv-filter-btn${_prFilter===t?" active":""}" onclick="setPRFilter('${t}')">${"all"===t?"All":t}</button>\n        `).join("")}\n      </div>\n      <div style="flex:1;min-width:0;"></div>\n      <div class="search-wrap">\n        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\n        <input type="text" id="pr-search" placeholder="Search purchase requests…" class="filter-input" oninput="renderPRTable()"/>\n      </div>\n      <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="showPRModal(null)">+ New PR</button>\n      <span class="row-count" id="pr-row-count"></span>\n    </div>\n    <div id="pr-table-wrap"></div>`;try{const t=await callAPI("getPRs");_allPRs=t.rows||[],renderPRTable();const e=document.getElementById("pr-subtitle");e&&(e.textContent=_allPRs.length+" request"+(1!==_allPRs.length?"s":""))}catch(t){const e=document.getElementById("pr-table-wrap");e&&(e.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--accent-red);">Failed to load: ${escapeHtml(t.message)}</div>`)}}}function setPRFilter(t){_prFilter=t,document.querySelectorAll("#pr-filter-tabs .inv-filter-btn").forEach(t=>t.classList.remove("active"));const e=[...document.querySelectorAll("#pr-filter-tabs .inv-filter-btn")].find(e=>e.textContent===("all"===t?"All":t));e&&e.classList.add("active"),renderPRTable()}function renderPRTable(){const t=document.getElementById("pr-table-wrap");if(!t)return;const e=(document.getElementById("pr-search")?.value||"").toLowerCase();let n=_allPRs;"all"!==_prFilter&&(n=n.filter(t=>t.status===_prFilter)),e&&(n=n.filter(t=>(t.pr_number||"").toLowerCase().includes(e)||(t.description||"").toLowerCase().includes(e)||(t.requested_by||"").toLowerCase().includes(e)||(t.department||"").toLowerCase().includes(e)));const r=document.getElementById("pr-row-count");r&&(r.textContent=n.length+" result"+(1!==n.length?"s":"")),n.length?t.innerHTML=`\n    <div class="table-scroll">\n      <table class="data-table">\n        <thead><tr>\n          <th>PR Number</th>\n          <th>Description</th>\n          <th>Requested By</th>\n          <th>Dept</th>\n          <th>Priority</th>\n          <th>Status</th>\n          <th style="text-align:right">Total Est.</th>\n          <th>Required By</th>\n          <th>Linked PO</th>\n          <th style="width:100px;"></th>\n        </tr></thead>\n        <tbody>\n          ${n.map(t=>`\n            <tr style="cursor:pointer;" onclick="showPRModal('${escapeHtml(t.id)}')">\n              <td style="font-weight:600;color:var(--accent);font-size:12px;">${escapeHtml(t.pr_number||"—")}</td>\n              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(t.description||"—")}</td>\n              <td style="font-size:12px;">${escapeHtml(t.requested_by||"—")}</td>\n              <td style="font-size:12px;color:var(--text-3);">${escapeHtml(t.department||"—")}</td>\n              <td>\n                <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:${prPriorityColor(t.priority)}20;color:${prPriorityColor(t.priority)};">\n                  ${escapeHtml(t.priority||"—")}\n                </span>\n              </td>\n              <td>\n                <span class="inv-status-badge" style="background:${prStatusBg(t.status)};color:${prStatusColor(t.status)};font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">\n                  ${escapeHtml(t.status||"Draft")}\n                </span>\n              </td>\n              <td style="text-align:right;font-size:12px;font-weight:600;">\n                ${t.total_estimated?(t.currency||"IQD")+" "+parseFloat(t.total_estimated).toLocaleString():"—"}\n              </td>\n              <td style="font-size:12px;color:var(--text-3);">${escapeHtml(t.required_by_date||"—")}</td>\n              <td style="font-size:11px;color:var(--text-3);">${t.linked_po_ids?'<span style="color:var(--accent);">Linked</span>':"—"}</td>\n              <td onclick="event.stopPropagation()">\n                <div style="display:flex;gap:4px;justify-content:flex-end;">\n                  ${"Approved"===t.status?`<button class="btn-edit" title="Create PO from PR" onclick="createPOFromPR('${escapeHtml(t.id)}')">→PO</button>`:""}\n                  <button class="btn-edit" onclick="showPRModal('${escapeHtml(t.id)}')">Edit</button>\n                  <button class="btn-delete" onclick="deletePRById('${escapeHtml(t.id)}')">Del</button>\n                </div>\n              </td>\n            </tr>`).join("")}\n        </tbody>\n      </table>\n    </div>`:t.innerHTML='<div style="padding:3rem;text-align:center;color:var(--text-3);">\n      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:0.4">\n        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>\n        <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>\n      </svg>\n      <div style="font-size:14px;font-weight:500;margin-bottom:6px;">No purchase requests</div>\n      <div style="font-size:12px;margin-bottom:16px;">Create your first PR to get started</div>\n      <button class="btn-primary" onclick="showPRModal(null)">+ New Purchase Request</button>\n    </div>'}async function showPRModal(t){_editingPRId=t;const e=t&&_allPRs.find(e=>e.id===t)||{},n=!!t;let r=[];if(n&&t)try{r=(await callAPI("getPRLineItems",{pr_id:t})).rows||[]}catch(t){}const a=document.getElementById("pr-modal-overlay");a&&a.remove();const i=`\n    <div id="pr-modal-overlay" onclick="closePRModal()" style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:1rem;animation:overlayFadeIn 0.2s ease;">\n      <div onclick="event.stopPropagation()" style="position:relative;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;border-radius:var(--r-lg);padding:1.5rem;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);border:1px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,0.45);animation:modalSpringIn var(--dur-enter) var(--spring-bounce) both;">\n\n        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">\n          <div>\n            <h2 style="font-size:17px;font-weight:700;color:var(--text-1);">${n?"Edit Purchase Request":"New Purchase Request"}</h2>\n            <p style="font-size:12px;color:var(--text-3);margin-top:2px;">${n?"Editing "+escapeHtml(e.pr_number||t):"Fill in the request details below"}</p>\n          </div>\n          <button onclick="closePRModal()" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:30px;height:30px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:Inter,sans-serif;">✕</button>\n        </div>\n\n        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">\n          <div class="form-group"><label>PR Number *</label><input id="pr-f-number" type="text" placeholder="e.g. PR-2026-001" value="${escapeHtml(e.pr_number||"")}"/></div>\n          <div class="form-group"><label>Status</label>\n            <select id="pr-f-status" class="pref-select" style="width:100%;">\n              ${PR_STATUSES.map(t=>`<option value="${t}" ${(e.status||"Draft")===t?"selected":""}>${t}</option>`).join("")}\n            </select>\n          </div>\n        </div>\n\n        <div class="form-group" style="margin-bottom:12px;">\n          <label>Description *</label>\n          <input id="pr-f-desc" type="text" placeholder="Brief description of what is needed" value="${escapeHtml(e.description||"")}"/>\n        </div>\n\n        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">\n          <div class="form-group"><label>Requested By *</label><input id="pr-f-reqby" type="text" placeholder="Name" value="${escapeHtml(e.requested_by||"")}"/></div>\n          <div class="form-group"><label>Department</label><input id="pr-f-dept" type="text" placeholder="e.g. Finance" value="${escapeHtml(e.department||"")}"/></div>\n        </div>\n\n        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">\n          <div class="form-group"><label>Priority</label>\n            <select id="pr-f-priority" class="pref-select" style="width:100%;">\n              ${PR_PRIORITIES.map(t=>`<option value="${t}" ${(e.priority||"Medium")===t?"selected":""}>${t}</option>`).join("")}\n            </select>\n          </div>\n          <div class="form-group"><label>Required By Date</label><input id="pr-f-reqdate" type="date" value="${escapeHtml(e.required_by_date||"")}"/></div>\n          <div class="form-group"><label>Currency</label>\n            <select id="pr-f-currency" class="pref-select" style="width:100%;">\n              ${PR_CURRENCIES.map(t=>`<option value="${t}" ${(e.currency||"IQD")===t?"selected":""}>${t}</option>`).join("")}\n            </select>\n          </div>\n        </div>\n\n        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">\n          <div class="form-group"><label>Budget Code</label><input id="pr-f-budget" type="text" value="${escapeHtml(e.budget_code||"")}"/></div>\n          <div class="form-group"><label>Delivery Location</label><input id="pr-f-location" type="text" value="${escapeHtml(e.delivery_location||"")}"/></div>\n        </div>\n\n        \x3c!-- Line Items --\x3e\n        <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">\n          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">\n            <div style="font-size:11px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;">Line Items</div>\n            <button onclick="addPRLineItem()" style="font-size:11px;padding:4px 10px;border-radius:var(--r-xs);border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.1);color:#60a5fa;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">+ Add Item</button>\n          </div>\n          <div style="overflow-x:auto;">\n            <table style="width:100%;border-collapse:collapse;font-size:12px;" id="pr-line-items-table">\n              <thead>\n                <tr style="border-bottom:1px solid var(--border);">\n                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;">Item Name</th>\n                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:80px;">Qty</th>\n                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:70px;">Unit</th>\n                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:110px;">Est. Price</th>\n                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:90px;">Line Total</th>\n                  <th style="width:32px;"></th>\n                </tr>\n              </thead>\n              <tbody id="pr-line-items-body">\n                ${r.length?r.map(t=>_prLineItemRow(t)).join(""):_prLineItemRow({})}\n              </tbody>\n            </table>\n          </div>\n          <div style="display:flex;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">\n            <div style="font-size:13px;font-weight:700;color:var(--text-1);">\n              Total Estimated: <span id="pr-total-display" style="color:var(--accent);">—</span>\n            </div>\n          </div>\n        </div>\n\n        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">\n          <div class="form-group"><label>Approved By</label><input id="pr-f-approvedby" type="text" value="${escapeHtml(e.approved_by||"")}"/></div>\n          <div class="form-group"><label>Approval Date</label><input id="pr-f-approvaldate" type="date" value="${escapeHtml(e.approval_date||"")}"/></div>\n        </div>\n\n        <div class="form-group" style="margin-bottom:12px;">\n          <label>Notes</label>\n          <textarea id="pr-f-notes" rows="2" style="resize:vertical;">${escapeHtml(e.notes||"")}</textarea>\n        </div>\n\n        <div class="form-group" style="margin-bottom:1.25rem;">\n          <label>Attachment URL</label>\n          <input id="pr-f-attach" type="url" placeholder="https://…" value="${escapeHtml(e.attachment_url||"")}"/>\n        </div>\n\n        <div style="display:flex;justify-content:flex-end;gap:10px;">\n          <button class="btn-export" onclick="closePRModal()">Cancel</button>\n          <button class="btn-primary" onclick="submitPRForm()">${n?"Save Changes":"Create Request"}</button>\n        </div>\n\n      </div>\n    </div>`;document.body.insertAdjacentHTML("beforeend",i),_attachPRLineItemListeners(),updatePRTotal()}function _prLineItemRow(t){return`<tr class="pr-li-row">\n    <td style="padding:4px;"><input type="text" placeholder="Item name" value="${escapeHtml(t.item_name||"")}" style="width:100%;min-width:120px;" oninput="updatePRTotal()"/></td>\n    <td style="padding:4px;"><input type="number" placeholder="0" min="0" value="${escapeHtml(String(t.quantity||""))}" style="width:100%;" oninput="updatePRTotal()"/></td>\n    <td style="padding:4px;">\n      <select style="width:100%;">\n        ${PR_UNITS.map(e=>`<option value="${e}" ${(t.unit||"pcs")===e?"selected":""}>${e}</option>`).join("")}\n      </select>\n    </td>\n    <td style="padding:4px;"><input type="number" placeholder="0" min="0" step="any" value="${escapeHtml(String(t.estimated_price||""))}" style="width:100%;" oninput="updatePRTotal()"/></td>\n    <td style="padding:4px 8px;font-weight:600;color:var(--text-2);font-size:12px;" class="pr-li-total">—</td>\n    <td style="padding:4px;">\n      <button onclick="this.closest('tr').remove();updatePRTotal();" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:var(--r-xs);width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">×</button>\n    </td>\n  </tr>`}function _attachPRLineItemListeners(){}function addPRLineItem(){const t=document.getElementById("pr-line-items-body");if(!t)return;const e=document.createElement("tr");e.className="pr-li-row",e.innerHTML=_prLineItemRow({}),t.appendChild(e),updatePRTotal()}function updatePRTotal(){const t=document.querySelectorAll("#pr-line-items-body .pr-li-row"),e=document.getElementById("pr-f-currency")?.value||"IQD";let n=0;t.forEach(t=>{const r=t.querySelectorAll("input"),a=(parseFloat(r[1]?.value)||0)*(parseFloat(r[3]?.value)||0);n+=a;const i=t.querySelector(".pr-li-total");i&&(i.textContent=a?e+" "+a.toLocaleString():"—")});const r=document.getElementById("pr-total-display");r&&(r.textContent=n?e+" "+n.toLocaleString():"—")}function closePRModal(){document.getElementById("pr-modal-overlay")?.remove(),_editingPRId=null}async function submitPRForm(){const t=t=>document.getElementById(t)?.value?.trim()||"",e=t("pr-f-number"),n=t("pr-f-desc"),r=t("pr-f-reqby");if(!e)return void showToast("PR number is required","error");if(!n)return void showToast("Description is required","error");if(!r)return void showToast("Requested by is required","error");const a=document.querySelectorAll("#pr-line-items-body .pr-li-row"),i=[];let l=0;a.forEach(e=>{const n=e.querySelectorAll("input"),r=e.querySelectorAll("select"),a=n[0]?.value?.trim(),o=parseFloat(n[1]?.value)||0,s=r[0]?.value||"pcs",d=parseFloat(n[3]?.value)||0;(a||o)&&(l+=o*d,i.push({item_name:a||"",quantity:o,unit:s,estimated_price:d,currency:t("pr-f-currency")||"IQD"}))});const o=JSON.parse(localStorage.getItem("tt_user_profile")||"{}"),s={pr_number:e,description:n,requested_by:r,department:t("pr-f-dept"),priority:document.getElementById("pr-f-priority")?.value||"Medium",status:document.getElementById("pr-f-status")?.value||"Draft",budget_code:t("pr-f-budget"),delivery_location:t("pr-f-location"),required_by_date:t("pr-f-reqdate"),approval_date:t("pr-f-approvaldate"),approved_by:t("pr-f-approvedby"),notes:document.getElementById("pr-f-notes")?.value?.trim()||"",attachment_url:t("pr-f-attach"),total_estimated:l||"",currency:t("pr-f-currency")||"IQD",created_by:o.email||""},d=document.querySelector("#pr-modal-overlay .btn-primary");d&&(d.disabled=!0,d.textContent="Saving…");try{let t;if(_editingPRId){s.id=_editingPRId,await callAPI("updatePR",s);const e=_allPRs.findIndex(t=>t.id===_editingPRId);-1!==e&&Object.assign(_allPRs[e],s),t=_editingPRId,showToast("PR updated ✓","success")}else t=(await callAPI("savePR",s)).id,s.id=t,_allPRs.unshift(s),showToast("PR created ✓","success");i.length&&t&&await callAPI("savePRLineItems",{pr_id:t,items:i}).catch(()=>{}),closePRModal(),renderPRTable()}catch(t){showToast("Error: "+t.message,"error"),d&&(d.disabled=!1,d.textContent=_editingPRId?"Save Changes":"Create Request")}}async function deletePRById(t){if(confirm("Delete this purchase request and all its line items? This cannot be undone."))try{await callAPI("deletePR",{id:t}),_allPRs=_allPRs.filter(e=>e.id!==t),renderPRTable(),showToast("PR deleted","info")}catch(t){showToast("Delete failed: "+t.message,"error")}}async function createPOFromPR(t){const e=_allPRs.find(e=>e.id===t);if(!e)return void showToast("PR not found","error");let n=[];try{n=(await callAPI("getPRLineItems",{pr_id:t})).rows||[]}catch(t){}const r=[e.description,...n.map(t=>t.item_name+" ×"+t.quantity)].filter(Boolean).join("; ");navigateTo("pos"),setTimeout(()=>{"function"==typeof openAddModal?(openAddModal("POs"),setTimeout(()=>{const e=document.querySelector('[name="item_description"]'),n=document.getElementById("po-supplier-vendor");if(e&&(e.value=r),n){const e=document.getElementById("po-pr-select");e&&(e.value=t)}showToast("PO form opened — review and save to link this PR","info")},300)):showToast("Navigate to POs tab and create a PO for PR: "+(e.pr_number||t),"info")},400)}
+// ─── Purchase Requests ───────────────────────────────────────────────────────
+
+let _allPRs     = [];
+let _editingPRId = null;
+let _prFilter   = 'all';
+
+const PR_STATUSES   = ['Draft', 'Submitted', 'Approved', 'Rejected', 'Closed'];
+const PR_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
+const PR_CURRENCIES = ['IQD', 'USD', 'EUR', 'GBP', 'AED', 'SAR'];
+const PR_UNITS      = ['pcs', 'box', 'set', 'kg', 'm', 'roll', 'ltr', 'sqm'];
+
+// ── Status helpers ─────────────────────────────────────────────────────────
+function prStatusColor(s) {
+  return {
+    Draft:'#6b7280', Submitted:'#3b82f6', Approved:'#10b981',
+    Rejected:'#ef4444', Closed:'#a78bfa'
+  }[s] || '#6b7280';
+}
+function prStatusBg(s) {
+  return {
+    Draft:'rgba(107,114,128,0.15)', Submitted:'rgba(59,130,246,0.15)',
+    Approved:'rgba(16,185,129,0.15)', Rejected:'rgba(239,68,68,0.15)',
+    Closed:'rgba(167,139,250,0.15)'
+  }[s] || 'rgba(107,114,128,0.15)';
+}
+function prPriorityColor(p) {
+  return { Low:'#10b981', Medium:'#f59e0b', High:'#ef4444', Urgent:'#dc2626' }[p] || '#6b7280';
+}
+
+// ── Load PRs ───────────────────────────────────────────────────────────────
+async function loadPRs() {
+  const wrap = document.getElementById('pr-wrap');
+  if (!wrap) return;
+
+  wrap.innerHTML = `
+    <div class="filter-bar glass" style="margin-bottom:1rem;">
+      <div class="inv-filter-tabs" id="pr-filter-tabs">
+        ${['all','Draft','Submitted','Approved','Rejected','Closed'].map(s => `
+          <button class="inv-filter-btn${_prFilter===s?' active':''}" onclick="setPRFilter('${s}')">${s==='all'?'All':s}</button>
+        `).join('')}
+      </div>
+      <div style="flex:1;min-width:0;"></div>
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="pr-search" placeholder="Search purchase requests…" class="filter-input" oninput="renderPRTable()"/>
+      </div>
+      <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="showPRModal(null)">+ New PR</button>
+      <span class="row-count" id="pr-row-count"></span>
+    </div>
+    <div id="pr-table-wrap"></div>`;
+
+  try {
+    const res = await callAPI('getPRs');
+    _allPRs   = res.rows || [];
+    renderPRTable();
+    const sub = document.getElementById('pr-subtitle');
+    if (sub) sub.textContent = _allPRs.length + ' request' + (_allPRs.length !== 1 ? 's' : '');
+  } catch(e) {
+    const tw = document.getElementById('pr-table-wrap');
+    if (tw) tw.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--accent-red);">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function setPRFilter(f) {
+  _prFilter = f;
+  document.querySelectorAll('#pr-filter-tabs .inv-filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = [...document.querySelectorAll('#pr-filter-tabs .inv-filter-btn')].find(b => b.textContent === (f==='all'?'All':f));
+  if (btn) btn.classList.add('active');
+  renderPRTable();
+}
+
+function renderPRTable() {
+  const wrap = document.getElementById('pr-table-wrap');
+  if (!wrap) return;
+  const q = (document.getElementById('pr-search')?.value || '').toLowerCase();
+
+  let rows = _allPRs;
+  if (_prFilter !== 'all') rows = rows.filter(p => p.status === _prFilter);
+  if (q) rows = rows.filter(p =>
+    (p.pr_number||'').toLowerCase().includes(q) ||
+    (p.description||'').toLowerCase().includes(q) ||
+    (p.requested_by||'').toLowerCase().includes(q) ||
+    (p.department||'').toLowerCase().includes(q)
+  );
+
+  const countEl = document.getElementById('pr-row-count');
+  if (countEl) countEl.textContent = rows.length + ' result' + (rows.length !== 1 ? 's' : '');
+
+  if (!rows.length) {
+    wrap.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--text-3);">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:0.4">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
+      </svg>
+      <div style="font-size:14px;font-weight:500;margin-bottom:6px;">No purchase requests</div>
+      <div style="font-size:12px;margin-bottom:16px;">Create your first PR to get started</div>
+      <button class="btn-primary" onclick="showPRModal(null)">+ New Purchase Request</button>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th>PR Number</th>
+          <th>Description</th>
+          <th>Requested By</th>
+          <th>Dept</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th style="text-align:right">Total Est.</th>
+          <th>Required By</th>
+          <th>Linked PO</th>
+          <th style="width:100px;"></th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(pr => `
+            <tr style="cursor:pointer;" onclick="showPRModal('${escapeHtml(pr.id)}')">
+              <td style="font-weight:600;color:var(--accent);font-size:12px;">${escapeHtml(pr.pr_number||'—')}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(pr.description||'—')}</td>
+              <td style="font-size:12px;">${escapeHtml(pr.requested_by||'—')}</td>
+              <td style="font-size:12px;color:var(--text-3);">${escapeHtml(pr.department||'—')}</td>
+              <td>
+                <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:${prPriorityColor(pr.priority)}20;color:${prPriorityColor(pr.priority)};">
+                  ${escapeHtml(pr.priority||'—')}
+                </span>
+              </td>
+              <td>
+                <span class="inv-status-badge" style="background:${prStatusBg(pr.status)};color:${prStatusColor(pr.status)};font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">
+                  ${escapeHtml(pr.status||'Draft')}
+                </span>
+              </td>
+              <td style="text-align:right;font-size:12px;font-weight:600;">
+                ${pr.total_estimated ? (pr.currency||'IQD') + ' ' + parseFloat(pr.total_estimated).toLocaleString() : '—'}
+              </td>
+              <td style="font-size:12px;color:var(--text-3);">${escapeHtml(pr.required_by_date||'—')}</td>
+              <td style="font-size:11px;color:var(--text-3);">${pr.linked_po_ids ? `<span style="color:var(--accent);">Linked</span>` : '—'}</td>
+              <td onclick="event.stopPropagation()">
+                <div style="display:flex;gap:4px;justify-content:flex-end;">
+                  ${typeof renderMsgButtons === 'function' ? renderMsgButtons('pr', pr, 'phone', 'email') : ''}
+                  ${pr.status === 'Approved' ? `<button class="btn-edit" title="Create PO from PR" onclick="createPOFromPR('${escapeHtml(pr.id)}')">→PO</button>` : ''}
+                  <button class="btn-edit" onclick="showPRModal('${escapeHtml(pr.id)}')">Edit</button>
+                  <button class="btn-delete" onclick="deletePRById('${escapeHtml(pr.id)}')">Del</button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── PR Modal ───────────────────────────────────────────────────────────────
+async function showPRModal(id) {
+  _editingPRId = id;
+  const pr     = id ? (_allPRs.find(p => p.id === id) || {}) : {};
+  const isEdit = !!id;
+
+  let lineItemsHtml = '';
+  let existingItems = [];
+  if (isEdit && id) {
+    try {
+      const res   = await callAPI('getPRLineItems', { pr_id: id });
+      existingItems = res.rows || [];
+    } catch(e) {}
+  }
+
+  const prev = document.getElementById('pr-modal-overlay');
+  if (prev) prev.remove();
+
+  const html = `
+    <div id="pr-modal-overlay" onclick="closePRModal()" style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:1rem;animation:overlayFadeIn 0.2s ease;">
+      <div onclick="event.stopPropagation()" style="position:relative;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;border-radius:var(--r-lg);padding:1.5rem;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);border:1px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,0.45);animation:modalSpringIn var(--dur-enter) var(--spring-bounce) both;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <div>
+            <h2 style="font-size:17px;font-weight:700;color:var(--text-1);">${isEdit?'Edit Purchase Request':'New Purchase Request'}</h2>
+            <p style="font-size:12px;color:var(--text-3);margin-top:2px;">${isEdit?'Editing '+escapeHtml(pr.pr_number||id):'Fill in the request details below'}</p>
+          </div>
+          <button onclick="closePRModal()" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:30px;height:30px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:Inter,sans-serif;">✕</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>PR Number *</label><input id="pr-f-number" type="text" placeholder="e.g. PR-2026-001" value="${escapeHtml(pr.pr_number||'')}"/></div>
+          <div class="form-group"><label>Status</label>
+            <select id="pr-f-status" class="pref-select" style="width:100%;">
+              ${PR_STATUSES.map(s=>`<option value="${s}" ${(pr.status||'Draft')===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Description *</label>
+          <input id="pr-f-desc" type="text" placeholder="Brief description of what is needed" value="${escapeHtml(pr.description||'')}"/>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>Requested By *</label><input id="pr-f-reqby" type="text" placeholder="Name" value="${escapeHtml(pr.requested_by||'')}"/></div>
+          <div class="form-group"><label>Department</label><input id="pr-f-dept" type="text" placeholder="e.g. Finance" value="${escapeHtml(pr.department||'')}"/></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>Priority</label>
+            <select id="pr-f-priority" class="pref-select" style="width:100%;">
+              ${PR_PRIORITIES.map(p=>`<option value="${p}" ${(pr.priority||'Medium')===p?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Required By Date</label><input id="pr-f-reqdate" type="date" value="${escapeHtml(pr.required_by_date||'')}"/></div>
+          <div class="form-group"><label>Currency</label>
+            <select id="pr-f-currency" class="pref-select" style="width:100%;">
+              ${PR_CURRENCIES.map(c=>`<option value="${c}" ${(pr.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>Budget Code</label><input id="pr-f-budget" type="text" value="${escapeHtml(pr.budget_code||'')}"/></div>
+          <div class="form-group"><label>Delivery Location</label><input id="pr-f-location" type="text" value="${escapeHtml(pr.delivery_location||'')}"/></div>
+        </div>
+
+        <!-- Line Items -->
+        <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;">Line Items</div>
+            <button onclick="addPRLineItem()" style="font-size:11px;padding:4px 10px;border-radius:var(--r-xs);border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.1);color:#60a5fa;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">+ Add Item</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;" id="pr-line-items-table">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;">Item Name</th>
+                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:80px;">Qty</th>
+                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:70px;">Unit</th>
+                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:110px;">Est. Price</th>
+                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:90px;">Line Total</th>
+                  <th style="width:32px;"></th>
+                </tr>
+              </thead>
+              <tbody id="pr-line-items-body">
+                ${existingItems.length ? existingItems.map(item => _prLineItemRow(item)).join('') : _prLineItemRow({})}
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-1);">
+              Total Estimated: <span id="pr-total-display" style="color:var(--accent);">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>Approved By</label><input id="pr-f-approvedby" type="text" value="${escapeHtml(pr.approved_by||'')}"/></div>
+          <div class="form-group"><label>Approval Date</label><input id="pr-f-approvaldate" type="date" value="${escapeHtml(pr.approval_date||'')}"/></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Notes</label>
+          <textarea id="pr-f-notes" rows="2" style="resize:vertical;">${escapeHtml(pr.notes||'')}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.25rem;">
+          <label>Attachment URL</label>
+          <input id="pr-f-attach" type="url" placeholder="https://…" value="${escapeHtml(pr.attachment_url||'')}"/>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button class="btn-export" onclick="closePRModal()">Cancel</button>
+          <button class="btn-primary" onclick="submitPRForm()">${isEdit?'Save Changes':'Create Request'}</button>
+        </div>
+
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  _attachPRLineItemListeners();
+  updatePRTotal();
+}
+
+function _prLineItemRow(item) {
+  return `<tr class="pr-li-row">
+    <td style="padding:4px;"><input type="text" placeholder="Item name" value="${escapeHtml(item.item_name||'')}" style="width:100%;min-width:120px;" oninput="updatePRTotal()"/></td>
+    <td style="padding:4px;"><input type="number" placeholder="0" min="0" value="${escapeHtml(String(item.quantity||''))}" style="width:100%;" oninput="updatePRTotal()"/></td>
+    <td style="padding:4px;">
+      <select style="width:100%;">
+        ${PR_UNITS.map(u=>`<option value="${u}" ${(item.unit||'pcs')===u?'selected':''}>${u}</option>`).join('')}
+      </select>
+    </td>
+    <td style="padding:4px;"><input type="number" placeholder="0" min="0" step="any" value="${escapeHtml(String(item.estimated_price||''))}" style="width:100%;" oninput="updatePRTotal()"/></td>
+    <td style="padding:4px 8px;font-weight:600;color:var(--text-2);font-size:12px;" class="pr-li-total">—</td>
+    <td style="padding:4px;">
+      <button onclick="this.closest('tr').remove();updatePRTotal();" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:var(--r-xs);width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">×</button>
+    </td>
+  </tr>`;
+}
+
+function _attachPRLineItemListeners() {
+  // Delegated via oninput in HTML — updatePRTotal handles everything
+}
+
+function addPRLineItem() {
+  const tbody = document.getElementById('pr-line-items-body');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.className = 'pr-li-row';
+  tr.innerHTML = _prLineItemRow({});
+  tbody.appendChild(tr);
+  updatePRTotal();
+}
+
+function updatePRTotal() {
+  const rows   = document.querySelectorAll('#pr-line-items-body .pr-li-row');
+  const cur    = document.getElementById('pr-f-currency')?.value || 'IQD';
+  let total    = 0;
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const qty   = parseFloat(inputs[1]?.value) || 0;
+    const price = parseFloat(inputs[3]?.value) || 0;
+    const line  = qty * price;
+    total += line;
+    const lineCell = row.querySelector('.pr-li-total');
+    if (lineCell) lineCell.textContent = line ? cur + ' ' + line.toLocaleString() : '—';
+  });
+  const totalEl = document.getElementById('pr-total-display');
+  if (totalEl) totalEl.textContent = total ? cur + ' ' + total.toLocaleString() : '—';
+}
+
+function closePRModal() {
+  document.getElementById('pr-modal-overlay')?.remove();
+  _editingPRId = null;
+}
+
+async function submitPRForm() {
+  const g = id => document.getElementById(id)?.value?.trim() || '';
+  const number    = g('pr-f-number');
+  const desc      = g('pr-f-desc');
+  const requestedBy = g('pr-f-reqby');
+  if (!number)      { showToast('PR number is required', 'error'); return; }
+  if (!desc)        { showToast('Description is required', 'error'); return; }
+  if (!requestedBy) { showToast('Requested by is required', 'error'); return; }
+
+  // Collect line items
+  const rows  = document.querySelectorAll('#pr-line-items-body .pr-li-row');
+  const items = [];
+  let totalEst = 0;
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const selects = row.querySelectorAll('select');
+    const name  = inputs[0]?.value?.trim();
+    const qty   = parseFloat(inputs[1]?.value) || 0;
+    const unit  = selects[0]?.value || 'pcs';
+    const price = parseFloat(inputs[3]?.value) || 0;
+    if (!name && !qty) return;
+    totalEst += qty * price;
+    items.push({ item_name: name||'', quantity: qty, unit, estimated_price: price, currency: g('pr-f-currency') || 'IQD' });
+  });
+
+  const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+  const payload = {
+    pr_number:        number,
+    description:      desc,
+    requested_by:     requestedBy,
+    department:       g('pr-f-dept'),
+    priority:         document.getElementById('pr-f-priority')?.value || 'Medium',
+    status:           document.getElementById('pr-f-status')?.value || 'Draft',
+    budget_code:      g('pr-f-budget'),
+    delivery_location: g('pr-f-location'),
+    required_by_date: g('pr-f-reqdate'),
+    approval_date:    g('pr-f-approvaldate'),
+    approved_by:      g('pr-f-approvedby'),
+    notes:            document.getElementById('pr-f-notes')?.value?.trim() || '',
+    attachment_url:   g('pr-f-attach'),
+    total_estimated:  totalEst || '',
+    currency:         g('pr-f-currency') || 'IQD',
+    created_by:       user.email || '',
+  };
+
+  const btn = document.querySelector('#pr-modal-overlay .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    let prId;
+    if (_editingPRId) {
+      payload.id = _editingPRId;
+      await callAPI('updatePR', payload);
+      const idx = _allPRs.findIndex(p => p.id === _editingPRId);
+      if (idx !== -1) Object.assign(_allPRs[idx], payload);
+      prId = _editingPRId;
+      showToast('PR updated ✓', 'success');
+    } else {
+      const res = await callAPI('savePR', payload);
+      prId = res.id;
+      payload.id = prId;
+      _allPRs.unshift(payload);
+      showToast('PR created ✓', 'success');
+    }
+    // Save line items
+    if (items.length && prId) {
+      await callAPI('savePRLineItems', { pr_id: prId, items }).catch(() => {});
+    }
+    closePRModal();
+    renderPRTable();
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = _editingPRId ? 'Save Changes' : 'Create Request'; }
+  }
+}
+
+async function deletePRById(id) {
+  if (!confirm('Delete this purchase request and all its line items? This cannot be undone.')) return;
+  try {
+    await callAPI('deletePR', { id });
+    _allPRs = _allPRs.filter(p => p.id !== id);
+    renderPRTable();
+    showToast('PR deleted', 'info');
+  } catch(e) { showToast('Delete failed: ' + e.message, 'error'); }
+}
+
+// ── Create PO from PR ──────────────────────────────────────────────────────
+async function createPOFromPR(prId) {
+  const pr = _allPRs.find(p => p.id === prId);
+  if (!pr) { showToast('PR not found', 'error'); return; }
+  let items = [];
+  try {
+    const res = await callAPI('getPRLineItems', { pr_id: prId });
+    items = res.rows || [];
+  } catch(e) {}
+
+  const desc = [pr.description, ...items.map(i => i.item_name + ' ×' + i.quantity)].filter(Boolean).join('; ');
+  navigateTo('pos');
+  setTimeout(() => {
+    if (typeof openAddModal === 'function') {
+      openAddModal('POs');
+      setTimeout(() => {
+        const descInput = document.querySelector('[name="item_description"]');
+        if (descInput) descInput.value = desc;
+        const prLinkedSelect = document.getElementById('po-pr-reference');
+        if (prLinkedSelect) prLinkedSelect.value = prId;
+        showToast('PO form opened — review and save to link this PR', 'info');
+      }, 300);
+    } else {
+      showToast('Navigate to POs tab and create a PO for PR: ' + (pr.pr_number||prId), 'info');
+    }
+  }, 400);
+}
+
+// ── PR Dashboard summary ─────────────────────────────────────────────────────
+function renderPRDashboard(prs) {
+  const total     = prs.length;
+  const draft     = prs.filter(p => p.status === 'Draft').length;
+  const submitted = prs.filter(p => p.status === 'Submitted').length;
+  const approved  = prs.filter(p => p.status === 'Approved').length;
+  const rejected  = prs.filter(p => p.status === 'Rejected').length;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('pr-dash-total',     total);
+  set('pr-dash-draft',     draft);
+  set('pr-dash-submitted', submitted);
+  set('pr-dash-approved',  approved);
+  set('pr-dash-rejected',  rejected);
+}
