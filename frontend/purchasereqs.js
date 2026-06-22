@@ -138,6 +138,7 @@ function renderPRTable() {
               <td style="font-size:11px;color:var(--text-3);">${pr.linked_po_ids ? `<span style="color:var(--accent);">Linked</span>` : '—'}</td>
               <td onclick="event.stopPropagation()">
                 <div style="display:flex;gap:4px;justify-content:flex-end;">
+                  ${typeof renderMsgButtons === 'function' ? renderMsgButtons('pr', pr, 'phone', 'email') : ''}
                   ${pr.status === 'Approved' ? `<button class="btn-edit" title="Create PO from PR" onclick="createPOFromPR('${escapeHtml(pr.id)}')">→PO</button>` : ''}
                   <button class="btn-edit" onclick="showPRModal('${escapeHtml(pr.id)}')">Edit</button>
                   <button class="btn-delete" onclick="deletePRById('${escapeHtml(pr.id)}')">Del</button>
@@ -431,16 +432,28 @@ async function createPOFromPR(prId) {
       openAddModal('POs');
       setTimeout(() => {
         const descInput = document.querySelector('[name="item_description"]');
-        const supplierSel = document.getElementById('po-supplier-vendor');
         if (descInput) descInput.value = desc;
-        if (supplierSel) {
-          const prLinkedSelect = document.getElementById('po-pr-select');
-          if (prLinkedSelect) prLinkedSelect.value = prId;
-        }
+        const prLinkedSelect = document.getElementById('po-pr-reference');
+        if (prLinkedSelect) prLinkedSelect.value = prId;
         showToast('PO form opened — review and save to link this PR', 'info');
       }, 300);
     } else {
       showToast('Navigate to POs tab and create a PO for PR: ' + (pr.pr_number||prId), 'info');
     }
   }, 400);
+}
+
+// ── PR Dashboard summary ─────────────────────────────────────────────────────
+function renderPRDashboard(prs) {
+  const total     = prs.length;
+  const draft     = prs.filter(p => p.status === 'Draft').length;
+  const submitted = prs.filter(p => p.status === 'Submitted').length;
+  const approved  = prs.filter(p => p.status === 'Approved').length;
+  const rejected  = prs.filter(p => p.status === 'Rejected').length;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('pr-dash-total',     total);
+  set('pr-dash-draft',     draft);
+  set('pr-dash-submitted', submitted);
+  set('pr-dash-approved',  approved);
+  set('pr-dash-rejected',  rejected);
 }

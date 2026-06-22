@@ -359,6 +359,43 @@
             </div>
           </div>
 
+          <!-- Purchase Requests Summary -->
+          <div class="glass" style="border-radius:var(--r-md);padding:1rem 1.25rem;margin-bottom:1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                  <rect x="9" y="3" width="6" height="4" rx="1"/>
+                  <path d="M9 14l2 2 4-4"/>
+                </svg>
+                <span style="font-size:13px;font-weight:700;color:var(--text-1);">Purchase Requests</span>
+              </div>
+              <button onclick="navigateTo('purchasereqs')" class="panel-link">View all →</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;">
+              <div style="text-align:center;padding:8px;border-radius:var(--r-sm);background:var(--glass-bg);">
+                <div id="pr-dash-total" style="font-size:20px;font-weight:800;color:var(--accent);letter-spacing:-0.03em;">—</div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Total</div>
+              </div>
+              <div style="text-align:center;padding:8px;border-radius:var(--r-sm);background:var(--glass-bg);">
+                <div id="pr-dash-draft" style="font-size:20px;font-weight:800;color:var(--text-3);letter-spacing:-0.03em;">—</div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Draft</div>
+              </div>
+              <div style="text-align:center;padding:8px;border-radius:var(--r-sm);background:var(--glass-bg);">
+                <div id="pr-dash-submitted" style="font-size:20px;font-weight:800;color:#3b82f6;letter-spacing:-0.03em;">—</div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Pending</div>
+              </div>
+              <div style="text-align:center;padding:8px;border-radius:var(--r-sm);background:var(--glass-bg);">
+                <div id="pr-dash-approved" style="font-size:20px;font-weight:800;color:var(--accent-green);letter-spacing:-0.03em;">—</div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Approved</div>
+              </div>
+              <div style="text-align:center;padding:8px;border-radius:var(--r-sm);background:var(--glass-bg);">
+                <div id="pr-dash-rejected" style="font-size:20px;font-weight:800;color:var(--accent-red);letter-spacing:-0.03em;">—</div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Rejected</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Vendor Summary Panel -->
           <div id="vnd-dash-panel" class="glass" style="border-radius:var(--r-md);padding:1rem 1.25rem;margin-bottom:1rem;display:none;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;">
@@ -862,6 +899,11 @@
                 </button>
               </div>
               <div id="team-list"></div>
+              <!-- Permissions (owner only) -->
+              <div id="permissions-section" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+                <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">User Permissions</div>
+                <div id="permissions-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+              </div>
               <div class="add-member-row">
                 <input id="new-member-email" type="email" placeholder="colleague@gmail.com" />
                 <select id="new-member-role">
@@ -1136,9 +1178,20 @@
     var idToken = null;
 
     // ── Admin & permissions ──────────────────────────────────────────
-    const ADMIN_EMAIL = 'muatazthaaer@gmail.com';
+    const ADMIN_EMAIL  = 'muatazthaaer@gmail.com';
+    const OWNER_EMAIL  = 'muatazthaaer@gmail.com';
     let currentUserIsAdmin = false;
     let currentUserPermissions = {};
+
+    function isOwner() {
+      const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+      return !!(user.email && user.email.toLowerCase() === OWNER_EMAIL.toLowerCase());
+    }
+    function isAdmin() {
+      const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+      return !!(user.email && (user.email.toLowerCase() === OWNER_EMAIL.toLowerCase() ||
+        user.role === 'admin' || user.role === 'supervisor'));
+    }
 
     // ── JWT decode (base64url-safe) ──────────────────────────────────
     function decodeJwt(token) {
@@ -1917,6 +1970,67 @@
       const saveBtn = document.getElementById('save-prefs-btn');
       if (addBtn)  addBtn.onclick  = addMember;
       if (saveBtn) saveBtn.onclick = savePrefs;
+
+      loadPermissionsSection();
+    }
+
+    async function loadPermissionsSection() {
+      if (!isOwner()) return;
+      const sec = document.getElementById('permissions-section');
+      if (sec) sec.style.display = 'block';
+      const list = document.getElementById('permissions-list');
+      if (!list) return;
+      try {
+        const res   = await callAPI('getAll', { sheet: 'Users' });
+        const users = res.rows || [];
+        list.innerHTML = users.filter(u => u.email && u.email.toLowerCase() !== OWNER_EMAIL.toLowerCase()).map(u => {
+          let perms = {};
+          try { perms = JSON.parse(u.permissions || '{}'); } catch(_) {}
+          return `
+          <div class="glass" style="padding:10px 12px;border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-weight:600;font-size:13px;color:var(--text-1);min-width:180px;">${escapeHtml(u.email)}</span>
+            <select class="pref-select" style="width:110px;" data-perm-email="${escapeHtml(u.email)}" data-perm-key="role" onchange="saveUserPerm(this)">
+              <option value="editor" ${u.role==='editor'?'selected':''}>Editor</option>
+              <option value="viewer" ${u.role==='viewer'?'selected':''}>Viewer</option>
+              <option value="admin"  ${u.role==='admin' ?'selected':''}>Admin</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer;">
+              <input type="checkbox" data-perm-email="${escapeHtml(u.email)}" data-perm-key="can_delete" onchange="saveUserPerm(this)" ${perms.can_delete?'checked':''}/>
+              Delete records
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer;">
+              <input type="checkbox" data-perm-email="${escapeHtml(u.email)}" data-perm-key="can_export" onchange="saveUserPerm(this)" ${perms.can_export!==false?'checked':''}/>
+              Export data
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer;">
+              <input type="checkbox" data-perm-email="${escapeHtml(u.email)}" data-perm-key="can_approve" onchange="saveUserPerm(this)" ${perms.can_approve?'checked':''}/>
+              Approve PRs/POs
+            </label>
+          </div>`;
+        }).join('') || '<p style="font-size:12px;color:var(--text-3);">No other users added yet.</p>';
+      } catch(e) {}
+    }
+
+    async function saveUserPerm(el) {
+      const email = el.dataset.permEmail;
+      const key   = el.dataset.permKey;
+      if (!email || !key) return;
+      if (key === 'role') {
+        try {
+          const res  = await callAPI('getAll', { sheet: 'Users' });
+          const user = (res.rows||[]).find(u => u.email === email);
+          if (user) await updateRow('Users', user.id, { role: el.value });
+          showToast('Role updated for ' + email, 'success');
+        } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+      } else {
+        try {
+          const res   = await callAPI('getUserPermissions', { email });
+          const perms = res.permissions || {};
+          perms[key]  = el.type === 'checkbox' ? el.checked : el.value;
+          await callAPI('updateUserPermissions', { email, permissions: perms });
+          showToast('Permission updated for ' + email, 'success');
+        } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+      }
     }
 
     async function addMember() {

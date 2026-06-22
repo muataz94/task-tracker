@@ -118,10 +118,21 @@ async function loadTable(sheetName) {
 
 // ── Render the table
 function renderTable(sheetName) {
+  window.__msgBtnCache = [];
   const rows   = tableData[sheetName] || [];
   const fields = SHEET_FIELDS[sheetName];
   const wrap   = document.getElementById('table-' + sheetName.toLowerCase());
   if (!wrap) return;
+
+  function _msgBtns(row) {
+    if (typeof renderMsgButtons !== 'function') return '';
+    if (sheetName === 'Tasks') return renderMsgButtons('task', row, 'vendor_contact', 'assignee_email');
+    if (sheetName === 'POs') {
+      const vi = typeof getVendorContactInfo === 'function' ? getVendorContactInfo(row.supplier) : { phone: '', email: '' };
+      return renderMsgButtons('po', Object.assign({}, row, { _phone: vi.phone, _email: vi.email }), '_phone', '_email');
+    }
+    return '';
+  }
 
   const filterEl      = document.getElementById('filter-' + sheetName);
   const filterVal     = filterEl ? filterEl.value.toLowerCase() : '';
@@ -170,6 +181,7 @@ function renderTable(sheetName) {
             <tr>
               ${fields.map(f => `<td>${formatCell(f, row[f.key], row)}</td>`).join('')}
               <td class="actions-cell">
+                ${_msgBtns(row)}
                 <button class="btn-edit btn-icon-action"
                   data-sheet="${escapeAttr(sheetName)}" data-id="${escapeAttr(row.id)}"
                   onclick="openEditModal(this.dataset.sheet, this.dataset.id)" title="Edit">
@@ -435,7 +447,7 @@ function buildModalForm(sheetName, data) {
       }
       // POs pr_reference: render async-populated PR select
       if (sheetName === 'POs' && f.key === 'pr_reference') {
-        return `<div class="form-group">${lbl}<select name="${f.key}" id="po-pr-select" class="pref-select" style="width:100%;" onchange="onPOPRSelect(this)"><option value="${escapeAttr(val)}">${val ? 'Loading…' : 'None (no linked PR)'}</option></select></div>`;
+        return `<div class="form-group">${lbl}<select name="${f.key}" id="po-pr-reference" class="pref-select" style="width:100%;" onchange="onPOPRRefSelect(this)"><option value="${escapeAttr(val)}">${val ? 'Loading…' : 'None (no linked PR)'}</option></select></div>`;
       }
       return `<div class="form-group">${lbl}<input type="text" name="${f.key}" value="${escapeAttr(val)}" list="${dlId}" autocomplete="off" ${f.required ? 'required' : ''} /><datalist id="${dlId}">${dlOpts}</datalist></div>`;
     }

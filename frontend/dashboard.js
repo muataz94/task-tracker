@@ -106,6 +106,11 @@ async function loadDashboard() {
       }).catch(() => {});
     }
 
+    // Load PRs for dashboard summary
+    callAPI('getPRs').then(res => {
+      if (res && res.rows && typeof renderPRDashboard === 'function') renderPRDashboard(res.rows);
+    }).catch(() => {});
+
     // Load vendors for dashboard widget
     callAPI('getVendors').then(res => {
       if (!res || !res.rows) return;

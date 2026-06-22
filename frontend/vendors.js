@@ -219,30 +219,45 @@ function onPOComparisonSelect(sel) {
 
 // ── PO: PR dropdown ───────────────────────────────────────────────────────────
 async function initPOPRDropdown(currentPRRef) {
-  const sel = document.getElementById('po-pr-select');
+  const sel = document.getElementById('po-pr-reference');
   if (!sel) return;
   try {
     const res = await callAPI('getPRs');
-    const prs = (res.rows || []).filter(p => p.status === 'Approved');
+    const prs = (res.rows || []).filter(p => p.status === 'Approved' || p.status === 'Submitted');
     sel.innerHTML = '<option value="">None (no linked PR)</option>' +
       prs.map(p =>
-        `<option value="${escapeHtml(p.pr_number||p.id)}" ${(p.pr_number||p.id)===currentPRRef?'selected':''}
+        `<option value="${escapeHtml(p.pr_number||p.id)}"
+          ${(currentPRRef||'') === (p.pr_number||p.id) ? 'selected' : ''}
           data-id="${escapeHtml(p.id)}"
-          data-desc="${escapeHtml(p.description||'')}">
-          ${escapeHtml(p.pr_number||p.id)} — ${escapeHtml((p.description||'').substring(0,40))}
+          data-desc="${escapeHtml(p.description||'')}"
+          data-dept="${escapeHtml(p.department||'')}"
+          data-requestedby="${escapeHtml(p.requested_by||'')}">
+          ${escapeHtml(p.pr_number||p.id)} — ${escapeHtml((p.description||'').substring(0,35))}
         </option>`
       ).join('');
     if (currentPRRef) sel.value = currentPRRef;
   } catch(e) { sel.innerHTML = '<option value="">None (no linked PR)</option>'; }
 }
 
-function onPOPRSelect(sel) {
+function onPOPRRefSelect(sel) {
   if (!sel.value) return;
   const opt = sel.options[sel.selectedIndex];
-  if (opt && opt.dataset.desc) {
+  if (!opt) return;
+  if (opt.dataset.desc) {
     const descInput = document.querySelector('[name="item_description"]');
     if (descInput && !descInput.value) descInput.value = opt.dataset.desc;
   }
+  if (opt.dataset.requestedby) {
+    const reqField = document.querySelector('[name="requester"]') || document.getElementById('po-requester');
+    if (reqField && !reqField.value) reqField.value = opt.dataset.requestedby;
+  }
+}
+
+// ── Vendor contact lookup ─────────────────────────────────────────────────────
+function getVendorContactInfo(vendorName) {
+  const vendors = window._allVendors || [];
+  const v = vendors.find(x => x.vendor_name === vendorName);
+  return v ? { phone: v.phone || '', email: v.email || '' } : { phone: '', email: '' };
 }
 
 // ── renderVendorCell — used in tables.js for PO rows ─────────────────────────

@@ -202,6 +202,7 @@ function renderInvoiceRow(inv) {
       <td style="font-size:12px;color:var(--text-3);">${escapeHtml(inv.payment_method||'—')}</td>
       <td style="text-align:right;padding-right:8px;">
         <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
+          ${(function(){ const vi = typeof getVendorContactInfo === 'function' ? getVendorContactInfo(inv.vendor) : {phone:'',email:''}; return typeof renderMsgButtons === 'function' ? renderMsgButtons('invoice', Object.assign({}, inv, {_phone:vi.phone,_email:vi.email}), '_phone', '_email') : ''; })()}
           ${(inv.status==='Unpaid'||inv.status==='Overdue'||inv._isOverdue)?`
             <button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="quickMarkPaid('${inv.id}')">Mark Paid</button>
             <button class="btn-edit" style="font-size:11px;padding:4px 8px;background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.3);color:#60a5fa;" onclick="quickMarkPartial('${inv.id}')">Partial</button>`:''}

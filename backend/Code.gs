@@ -57,8 +57,10 @@ function doPost(e) {
       case 'updatePR':         return respond(updatePR(body));
       case 'deletePR':         return respond(deletePR(body.id));
       case 'savePRLineItems':  return respond(savePRLineItems(body.pr_id, body.items));
-      case 'updatePRLineQty':  return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
-      default:                 return respond({ error: 'Unknown action: ' + action });
+      case 'updatePRLineQty':       return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
+      case 'getUserPermissions':    return respond(getUserPermissions(body.email));
+      case 'updateUserPermissions': return respond(updateUserPermissions(body.email, body.permissions));
+      default:                      return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
     return respond({ error: err.message });
@@ -855,6 +857,44 @@ function updatePRLineQty(lineId, receivedQty, linkedPoId) {
       return rec >= q;
     });
     return { success: true, all_received: allReceived };
+  } catch(e) { return { error: e.message }; }
+}
+
+// ── USER PERMISSIONS ─────────────────────────────────────────────
+
+function getUserPermissions(email) {
+  try {
+    const sh = getSpreadsheet().getSheetByName('Users');
+    if (!sh) return { role: 'editor', permissions: {} };
+    const data = sh.getDataRange().getValues();
+    const headers = data[0];
+    const emailCol = headers.indexOf('email');
+    const roleCol  = headers.indexOf('role');
+    const permCol  = headers.indexOf('permissions');
+    const row = data.find((r, i) => i > 0 && String(r[emailCol]).toLowerCase() === email.toLowerCase());
+    if (!row) return { role: 'editor', permissions: {} };
+    let perms = {};
+    try { perms = JSON.parse(row[permCol] || '{}'); } catch(e) {}
+    return { role: row[roleCol] || 'editor', permissions: perms };
+  } catch(e) { return { role: 'editor', permissions: {} }; }
+}
+
+function updateUserPermissions(email, permissions) {
+  try {
+    const sh = getSpreadsheet().getSheetByName('Users');
+    if (!sh) return { error: 'Users sheet not found' };
+    const data = sh.getDataRange().getValues();
+    const headers = data[0];
+    const emailCol = headers.indexOf('email');
+    let permCol = headers.indexOf('permissions');
+    if (permCol === -1) {
+      permCol = headers.length;
+      sh.getRange(1, permCol + 1).setValue('permissions');
+    }
+    const rowIdx = data.findIndex((r, i) => i > 0 && String(r[emailCol]).toLowerCase() === email.toLowerCase());
+    if (rowIdx === -1) return { error: 'User not found' };
+    sh.getRange(rowIdx + 1, permCol + 1).setValue(JSON.stringify(permissions));
+    return { success: true };
   } catch(e) { return { error: e.message }; }
 }
 
