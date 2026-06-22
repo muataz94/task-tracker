@@ -148,6 +148,13 @@
           </svg>
           <span>Vendors</span>
         </li>
+        <li class="nav-item" data-view="purchasereqs" onclick="navigateTo('purchasereqs')">
+          <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
+          </svg>
+          <span>Purchase Requests</span>
+        </li>
         <li class="nav-item" data-view="milestones">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
             <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
@@ -1040,9 +1047,36 @@
           <div id="vnd-wrap"></div>
         </div>
 
+        <!-- Purchase Requests -->
+        <div id="view-purchasereqs" class="view">
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon" style="background:rgba(59,130,246,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                  <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
+                </svg>
+              </div>
+              <div>
+                <h2>Purchase Requests</h2>
+                <p class="tab-subtitle" id="pr-subtitle">Create and track purchase requisitions</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-primary" onclick="showPRModal(null)">+ New PR</button>
+            </div>
+          </div>
+          <div id="pr-wrap"></div>
+        </div>
+
       </main>
     </div><!-- end #app-right -->
   </div><!-- end #app -->
+
+  <!-- Floating compose button -->
+  <button id="compose-msg-btn" onclick="showComposeModal({})" title="Send Message" style="position:fixed;bottom:5rem;right:1.5rem;z-index:150;width:44px;height:44px;border-radius:50%;border:none;background:#25d366;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,0.4);transition:all 0.2s ease;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+  </button>
 
   <!-- ── PROFILE DROPDOWN ── -->
   <div id="profile-dropdown" class="hidden">
@@ -1096,6 +1130,8 @@
   <script src="quotations.js"></script>
   <script src="invoices.js"></script>
   <script src="vendors.js"></script>
+  <script src="messaging.js"></script>
+  <script src="purchasereqs.js"></script>
   <script>
     var idToken = null;
 
@@ -1776,10 +1812,13 @@
         dashboard: 'dashboard', tasks: 'tasks', pos: 'purchase_orders',
         milestones: 'milestones', expenses: 'expenses',
         chat: 'team_chat', settings: 'settings', quotations: 'quotations',
-        invoices: 'invoices', vendors: 'vendors'
+        invoices: 'invoices', vendors: 'vendors', purchasereqs: 'Purchase Requests'
       };
       const titleEl = document.getElementById('topbar-title');
-      if (titleEl && titleMap[view]) titleEl.textContent = t(titleMap[view]);
+      if (titleEl && titleMap[view]) {
+        const mapped = titleMap[view];
+        titleEl.textContent = (typeof t === 'function' && mapped !== 'Purchase Requests') ? t(mapped) : mapped;
+      }
 
       document.getElementById('profile-dropdown').classList.add('hidden');
 
@@ -1789,9 +1828,10 @@
       else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
       else if (view === 'settings')   { stopDashboardRefresh(); loadSettings(); }
       else if (view === 'quotations') { stopDashboardRefresh(); loadQuotations(); }
-      else if (view === 'invoices')  { stopDashboardRefresh(); if (typeof loadInvoices === 'function') loadInvoices(); }
-      else if (view === 'vendors')   { stopDashboardRefresh(); if (typeof loadVendors === 'function') loadVendors(); }
-      else                           { stopDashboardRefresh(); }
+      else if (view === 'invoices')      { stopDashboardRefresh(); if (typeof loadInvoices === 'function') loadInvoices(); }
+      else if (view === 'vendors')       { stopDashboardRefresh(); if (typeof loadVendors === 'function') loadVendors(); }
+      else if (view === 'purchasereqs')  { stopDashboardRefresh(); if (typeof loadPRs === 'function') loadPRs(); }
+      else                               { stopDashboardRefresh(); }
 
       // Re-apply translations to the newly shown view
       applyLanguage();

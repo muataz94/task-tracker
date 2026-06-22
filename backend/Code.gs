@@ -50,6 +50,14 @@ function doPost(e) {
       case 'updateVendor':     return respond(updateVendor(body));
       case 'deleteVendor':     return respond(deleteVendor(body.id));
       case 'getVendorByName':  return respond(getVendorByName(body.name));
+      case 'sendEmail':        return respond(sendEmailAction(body));
+      case 'getPRs':           return respond(getPRs());
+      case 'getPRLineItems':   return respond(getPRLineItems(body.pr_id));
+      case 'savePR':           return respond(savePR(body));
+      case 'updatePR':         return respond(updatePR(body));
+      case 'deletePR':         return respond(deletePR(body.id));
+      case 'savePRLineItems':  return respond(savePRLineItems(body.pr_id, body.items));
+      case 'updatePRLineQty':  return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
       default:                 return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
@@ -667,6 +675,186 @@ function deleteVendor(id) {
     if (rowIdx === -1) return { error: 'Not found' };
     sh.deleteRow(rowIdx + 1);
     return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+// ── EMAIL ─────────────────────────────────────────────────────────
+
+function sendEmailAction(data) {
+  try {
+    const to      = data.to;
+    const subject = data.subject;
+    const body    = data.body;
+    if (!to || !subject || !body) return { error: 'Missing to, subject, or body' };
+    MailApp.sendEmail({ to, subject, htmlBody: body.replace(/\n/g, '<br/>') });
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+// ── PURCHASE REQUESTS ─────────────────────────────────────────────
+
+function ensurePRSheets() {
+  const ss = getSpreadsheet();
+  let sh1 = ss.getSheetByName('PurchaseRequests');
+  if (!sh1) {
+    sh1 = ss.insertSheet('PurchaseRequests');
+    sh1.getRange(1,1,1,20).setValues([[
+      'id','pr_number','description','requested_by','department','priority','status',
+      'budget_code','delivery_location','required_by_date','approval_date',
+      'approved_by','linked_po_ids','notes','attachment_url',
+      'total_estimated','currency','created_at','created_by','updated_at'
+    ]]);
+    sh1.setFrozenRows(1);
+  }
+  let sh2 = ss.getSheetByName('PRLineItems');
+  if (!sh2) {
+    sh2 = ss.insertSheet('PRLineItems');
+    sh2.getRange(1,1,1,12).setValues([[
+      'id','pr_id','item_name','quantity','unit','estimated_price','currency',
+      'received_quantity','remaining_quantity','linked_po_id','notes','created_at'
+    ]]);
+    sh2.setFrozenRows(1);
+  }
+}
+
+function getPRs() {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PurchaseRequests');
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return { rows: [] };
+    const headers = data[0];
+    const rows = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]) : ''; });
+      return obj;
+    }).filter(r => r.id);
+    return { rows };
+  } catch(e) { return { error: e.message }; }
+}
+
+function getPRLineItems(prId) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PRLineItems');
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return { rows: [] };
+    const headers = data[0];
+    const rows = data.slice(1)
+      .map(row => { const obj={}; headers.forEach((h,i)=>{obj[h]=row[i]!==undefined?String(row[i]):'';});return obj;})
+      .filter(r => r.pr_id === prId);
+    return { rows };
+  } catch(e) { return { error: e.message }; }
+}
+
+function savePR(data) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PurchaseRequests');
+    const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    const id = 'PR-' + Date.now();
+    const now = new Date().toISOString();
+    if (!data.status) data.status = 'Draft';
+    const rowObj = Object.assign({ id, created_at: now, updated_at: now }, data);
+    sh.appendRow(headers.map(h => rowObj[h] !== undefined ? rowObj[h] : ''));
+    return { success: true, id };
+  } catch(e) { return { error: e.message }; }
+}
+
+function updatePR(data) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PurchaseRequests');
+    const allData = sh.getDataRange().getValues();
+    const headers = allData[0];
+    const idCol = headers.indexOf('id');
+    const rowIdx = allData.findIndex((r,i) => i>0 && String(r[idCol])===String(data.id));
+    if (rowIdx === -1) return { error: 'PR not found' };
+    data.updated_at = new Date().toISOString();
+    headers.forEach((h, ci) => {
+      if (data[h] !== undefined) sh.getRange(rowIdx+1, ci+1).setValue(data[h]);
+    });
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+function deletePR(id) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PurchaseRequests');
+    const allData = sh.getDataRange().getValues();
+    const headers = allData[0];
+    const idCol = headers.indexOf('id');
+    const rowIdx = allData.findIndex((r,i) => i>0 && String(r[idCol])===String(id));
+    if (rowIdx === -1) return { error: 'Not found' };
+    sh.deleteRow(rowIdx + 1);
+    const sh2 = getSpreadsheet().getSheetByName('PRLineItems');
+    if (sh2) {
+      const d2 = sh2.getDataRange().getValues();
+      const piCol = d2[0].indexOf('pr_id');
+      for (let i = d2.length-1; i > 0; i--) {
+        if (String(d2[i][piCol]) === String(id)) sh2.deleteRow(i+1);
+      }
+    }
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+function savePRLineItems(prId, items) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PRLineItems');
+    const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    const now = new Date().toISOString();
+    const existing = sh.getDataRange().getValues();
+    const piCol = existing[0].indexOf('pr_id');
+    for (let i = existing.length-1; i > 0; i--) {
+      if (String(existing[i][piCol]) === String(prId)) sh.deleteRow(i+1);
+    }
+    (items || []).forEach((item, idx) => {
+      const id = 'PLI-' + Date.now() + '-' + idx;
+      const qty = parseFloat(item.quantity) || 0;
+      const received = parseFloat(item.received_quantity) || 0;
+      const rowObj = {
+        id, pr_id: prId,
+        item_name: item.item_name || '', quantity: qty, unit: item.unit || 'pcs',
+        estimated_price: item.estimated_price || 0, currency: item.currency || 'IQD',
+        received_quantity: received, remaining_quantity: qty - received,
+        linked_po_id: item.linked_po_id || '', notes: item.notes || '', created_at: now,
+      };
+      sh.appendRow(headers.map(h => rowObj[h] !== undefined ? rowObj[h] : ''));
+    });
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+function updatePRLineQty(lineId, receivedQty, linkedPoId) {
+  try {
+    ensurePRSheets();
+    const sh = getSpreadsheet().getSheetByName('PRLineItems');
+    const data = sh.getDataRange().getValues();
+    const headers = data[0];
+    const idCol  = headers.indexOf('id');
+    const rowIdx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(lineId));
+    if (rowIdx === -1) return { error: 'Line item not found' };
+    const qtyCol = headers.indexOf('quantity');
+    const recCol = headers.indexOf('received_quantity');
+    const remCol = headers.indexOf('remaining_quantity');
+    const poCol  = headers.indexOf('linked_po_id');
+    const totalQty = parseFloat(data[rowIdx][qtyCol]) || 0;
+    const newRec   = parseFloat(receivedQty) || 0;
+    sh.getRange(rowIdx+1, recCol+1).setValue(newRec);
+    sh.getRange(rowIdx+1, remCol+1).setValue(totalQty - newRec);
+    if (linkedPoId) sh.getRange(rowIdx+1, poCol+1).setValue(linkedPoId);
+    const prIdCol = headers.indexOf('pr_id');
+    const prId = data[rowIdx][prIdCol];
+    const prItems = data.filter((r,i) => i>0 && String(r[prIdCol])===String(prId));
+    const allReceived = prItems.every(r => {
+      const q = parseFloat(r[qtyCol]) || 0;
+      const rec = r[idCol]===lineId ? newRec : (parseFloat(r[recCol])||0);
+      return rec >= q;
+    });
+    return { success: true, all_received: allReceived };
   } catch(e) { return { error: e.message }; }
 }
 

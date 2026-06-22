@@ -178,6 +178,73 @@ function onPOVendorSelect(sel) {
   }
 }
 
+// ── PO: Comparison dropdown ───────────────────────────────────────────────────
+async function initPOComparisonDropdown(currentCompId) {
+  const sel = document.getElementById('po-comparison-select');
+  if (!sel) return;
+  try {
+    const res   = await callAPI('getComparisons');
+    const comps = (res.rows || []).filter(c => (c.status||'').toLowerCase() === 'approved');
+    sel.innerHTML = '<option value="">None (no linked comparison)</option>' +
+      comps.map(c =>
+        `<option value="${escapeHtml(c.id)}" ${c.id===currentCompId?'selected':''}
+          data-vendor="${escapeHtml(c.winner_vendor||c.vendor||'')}"
+          data-amount="${escapeHtml(c.winner_amount||c.total_amount||'')}"
+          data-currency="${escapeHtml(c.currency||'IQD')}">
+          ${escapeHtml(c.pr_number||c.id)} — ${escapeHtml(c.winner_vendor||'TBD')}
+          (${c.currency||'IQD'} ${parseFloat(c.winner_amount||c.total_amount||0).toLocaleString()})
+        </option>`
+      ).join('');
+    if (currentCompId) sel.value = currentCompId;
+  } catch(e) { sel.innerHTML = '<option value="">None</option>'; }
+}
+
+function onPOComparisonSelect(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const vendorSel = document.getElementById('po-supplier-vendor');
+  if (vendorSel && opt.dataset.vendor) {
+    vendorSel.value = opt.dataset.vendor;
+    if (typeof onPOVendorSelect === 'function') onPOVendorSelect(vendorSel);
+  }
+  if (opt.dataset.currency) {
+    const curSel = document.querySelector('[name="currency"]');
+    if (curSel) curSel.value = opt.dataset.currency;
+  }
+  if (opt.dataset.amount) {
+    const tvInput = document.querySelector('[name="total_value"]');
+    if (tvInput && !tvInput.value) tvInput.value = opt.dataset.amount;
+  }
+}
+
+// ── PO: PR dropdown ───────────────────────────────────────────────────────────
+async function initPOPRDropdown(currentPRRef) {
+  const sel = document.getElementById('po-pr-select');
+  if (!sel) return;
+  try {
+    const res = await callAPI('getPRs');
+    const prs = (res.rows || []).filter(p => p.status === 'Approved');
+    sel.innerHTML = '<option value="">None (no linked PR)</option>' +
+      prs.map(p =>
+        `<option value="${escapeHtml(p.pr_number||p.id)}" ${(p.pr_number||p.id)===currentPRRef?'selected':''}
+          data-id="${escapeHtml(p.id)}"
+          data-desc="${escapeHtml(p.description||'')}">
+          ${escapeHtml(p.pr_number||p.id)} — ${escapeHtml((p.description||'').substring(0,40))}
+        </option>`
+      ).join('');
+    if (currentPRRef) sel.value = currentPRRef;
+  } catch(e) { sel.innerHTML = '<option value="">None (no linked PR)</option>'; }
+}
+
+function onPOPRSelect(sel) {
+  if (!sel.value) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.desc) {
+    const descInput = document.querySelector('[name="item_description"]');
+    if (descInput && !descInput.value) descInput.value = opt.dataset.desc;
+  }
+}
+
 // ── renderVendorCell — used in tables.js for PO rows ─────────────────────────
 function renderVendorCell(vendorName) {
   const vendors = window._allVendors || [];

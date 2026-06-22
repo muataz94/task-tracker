@@ -10,7 +10,9 @@ const CACHE_TTL = new Map([
   ['Comparisons',        120 * 1000],
   ['ComparisonVendors',  120 * 1000],
   ['Invoices',            60 * 1000],
-  ['Vendors',            120 * 1000]
+  ['Vendors',            120 * 1000],
+  ['PurchaseRequests',    60 * 1000],
+  ['PRLineItems',         60 * 1000]
 ]);
 
 const _cache = new Map();

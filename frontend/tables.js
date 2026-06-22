@@ -378,13 +378,13 @@ function sortTable(sheetName, col) {
 async function openAddModal(sheetName) {
   currentEditId = null;
   currentSheet  = sheetName;
-  // Lazy-load vendors for PO supplier dropdown
   if (sheetName === 'POs' && (!window._allVendors || !window._allVendors.length)) {
     try { const r = await callAPI('getVendors'); if (r && r.rows) window._allVendors = r.rows; } catch(e) {}
   }
   document.getElementById('modal-title').textContent = 'Add ' + sheetName.slice(0, -1);
   buildModalForm(sheetName, {});
   document.getElementById('modal-overlay').classList.remove('hidden');
+  if (sheetName === 'POs') { initPOComparisonDropdown(''); initPOPRDropdown(''); }
 }
 
 // ── Open Edit modal
@@ -393,13 +393,13 @@ async function openEditModal(sheetName, id) {
   currentSheet  = sheetName;
   const row = (tableData[sheetName] || []).find(r => String(r.id) === String(id));
   if (!row) return;
-  // Lazy-load vendors for PO supplier dropdown
   if (sheetName === 'POs' && (!window._allVendors || !window._allVendors.length)) {
     try { const r = await callAPI('getVendors'); if (r && r.rows) window._allVendors = r.rows; } catch(e) {}
   }
   document.getElementById('modal-title').textContent = 'Edit ' + sheetName.slice(0, -1);
   buildModalForm(sheetName, row);
   document.getElementById('modal-overlay').classList.remove('hidden');
+  if (sheetName === 'POs') { initPOComparisonDropdown(row.comparison_id || ''); initPOPRDropdown(row.pr_reference || ''); }
 }
 
 // ── Build modal form fields dynamically
@@ -428,6 +428,14 @@ function buildModalForm(sheetName, data) {
       // POs supplier field: use vendor directory select as the sole input
       if (sheetName === 'POs' && f.key === 'supplier' && typeof getVendorOptionsHTML === 'function') {
         return `<div class="form-group">${lbl}<select name="${f.key}" id="po-supplier-vendor" class="pref-select" style="width:100%;" onchange="onPOVendorSelect(this)" ${f.required ? 'required' : ''}>${getVendorOptionsHTML(val)}</select></div>`;
+      }
+      // POs comparison_id: render async-populated select
+      if (sheetName === 'POs' && f.key === 'comparison_id') {
+        return `<div class="form-group">${lbl}<select name="${f.key}" id="po-comparison-select" class="pref-select" style="width:100%;" onchange="onPOComparisonSelect(this)"><option value="${escapeAttr(val)}">${val ? 'Loading…' : 'None'}</option></select></div>`;
+      }
+      // POs pr_reference: render async-populated PR select
+      if (sheetName === 'POs' && f.key === 'pr_reference') {
+        return `<div class="form-group">${lbl}<select name="${f.key}" id="po-pr-select" class="pref-select" style="width:100%;" onchange="onPOPRSelect(this)"><option value="${escapeAttr(val)}">${val ? 'Loading…' : 'None (no linked PR)'}</option></select></div>`;
       }
       return `<div class="form-group">${lbl}<input type="text" name="${f.key}" value="${escapeAttr(val)}" list="${dlId}" autocomplete="off" ${f.required ? 'required' : ''} /><datalist id="${dlId}">${dlOpts}</datalist></div>`;
     }
