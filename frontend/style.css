@@ -6292,4 +6292,28 @@ select option {
 /* ── VENDORS ── */
 .glass-card { background: var(--glass-bg); border: 1px solid var(--border); transition: transform 200ms cubic-bezier(0.2,0,0,1), box-shadow 200ms cubic-bezier(0.2,0,0,1), border-color 150ms ease; }
 .glass-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+
+/* ── AI CHAT ── */
+#ai-chat-fab:hover { transform: scale(1.08) !important; box-shadow: 0 6px 28px rgba(99,102,241,0.65) !important; }
+#ai-messages { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#ai-messages::-webkit-scrollbar { width: 4px; }
+#ai-messages::-webkit-scrollbar-track { background: transparent; }
+#ai-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#ai-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+#ai-google-search:focus { outline: none; border-color: #4285f4; box-shadow: 0 0 0 3px rgba(66,133,244,0.15); }
+
+@keyframes aiDotBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.ai-thinking-dots span {
+  display: inline-block;
+  animation: aiDotBounce 1.2s ease-in-out infinite;
+}
+.ai-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@media (max-width: 480px) {
+  #ai-chat-panel { width: 100% !important; border-radius: 16px 16px 0 0 !important; }
+}
 .vnd-logo-inline { vertical-align: middle; display: inline-block; }

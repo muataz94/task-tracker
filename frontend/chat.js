@@ -51,6 +51,15 @@ function initChat(email, name, avatar) {
   const avatarEl = document.getElementById('chat-avatar');
   if (avatarEl) avatarEl.src = avatar || '';
 
+  // Sync channel header to current topic
+  const _topicInit = DEFAULT_TOPICS.find(t => t.id === currentTopic) || DEFAULT_TOPICS[0];
+  const _chIcon = document.getElementById('chat-channel-icon');
+  const _chName = document.getElementById('chat-channel-name');
+  const _chDesc = document.getElementById('chat-channel-desc');
+  if (_chIcon) _chIcon.innerHTML = _topicInit.icon;
+  if (_chName) _chName.textContent = _topicInit.label;
+  if (_chDesc) _chDesc.textContent = _topicInit.description || '';
+
   if (_chatInitialized) { renderTopicTabs(); renderTopicSidebar(); return; }
   _chatInitialized = true;
 
@@ -111,9 +120,27 @@ function switchTopic(topicId) {
   currentTopic = topicId;
   renderTopicTabs();
   renderTopicSidebar();
-  const topicObj = DEFAULT_TOPICS.find(t => t.id === topicId) || { label: topicId, icon: '' };
+
+  const topicObj = DEFAULT_TOPICS.find(t => t.id === topicId) || { label: topicId, icon: '', description: '' };
+
+  // Update legacy name element
   const nameEl = document.getElementById('chat-topic-name');
   if (nameEl) nameEl.innerHTML = (topicObj.icon ? topicObj.icon + ' ' : '') + escapeHtml(topicObj.label);
+
+  // Update channel header
+  const chIconEl = document.getElementById('chat-channel-icon');
+  const chNameEl = document.getElementById('chat-channel-name');
+  const chDescEl = document.getElementById('chat-channel-desc');
+  if (chIconEl) chIconEl.innerHTML = topicObj.icon || '';
+  if (chNameEl) chNameEl.textContent = topicObj.label;
+  if (chDescEl) chDescEl.textContent = topicObj.description || '';
+
+  // Animate out → load → animate in
+  const container = document.getElementById('chat-messages');
+  if (container) {
+    container.style.opacity = '0';
+    container.style.transform = 'translateY(6px)';
+  }
   loadChat();
 }
 
@@ -314,6 +341,19 @@ function renderMessages(messages) {
   const container = document.getElementById('chat-messages');
   if (!container) return;
 
+  // Empty state — shown when topic has no messages
+  if (!messages.length) {
+    const topicObj = DEFAULT_TOPICS.find(t => t.id === currentTopic) || { label: currentTopic, icon: '', description: 'No messages yet' };
+    container.innerHTML = `
+      <div class="chat-empty">
+        <div class="chat-empty-icon">${topicObj.icon}</div>
+        <div class="chat-empty-title"># ${escapeHtml(topicObj.label)}</div>
+        <div class="chat-empty-sub">${escapeHtml(topicObj.description || 'No messages yet')}<br><span style="opacity:0.6;">Be the first to say something!</span></div>
+      </div>`;
+    _animateChatIn(container);
+    return;
+  }
+
   const existingIds = new Set([...container.querySelectorAll('.chat-message')].map(el => el.dataset.msgId));
   const newIds = new Set(messages.map(m => String(m.id)));
 
@@ -336,6 +376,7 @@ function renderMessages(messages) {
     if (window.twemoji) {
       twemoji.parse(container, { folder: 'svg', ext: '.svg', base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/' });
     }
+    _animateChatIn(container);
   } else {
     // Incremental: only append new messages
     const newMessages = messages.filter(m => !existingIds.has(String(m.id)));
@@ -359,6 +400,20 @@ function renderMessages(messages) {
   if (wasAtBottom) container.scrollTop = container.scrollHeight;
   // Re-apply any active filter
   if (typeof _applyChatFilter === 'function') _applyChatFilter();
+
+  // Fade in after topic switch
+  _animateChatIn(container);
+}
+
+function _animateChatIn(container) {
+  if (!container) return;
+  // Already visible — skip
+  if (container.style.opacity === '1' || !container.style.opacity) return;
+  requestAnimationFrame(() => {
+    container.style.transition = 'opacity 220ms ease, transform 220ms cubic-bezier(0.34,1.56,0.64,1)';
+    container.style.opacity    = '1';
+    container.style.transform  = 'translateY(0)';
+  });
 }
 
 // ── Send message (optimistic UI) ───────────────────────────────────

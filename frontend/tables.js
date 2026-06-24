@@ -41,7 +41,7 @@ const SHEET_FIELDS = {
     { key: 'requester',         label: 'Requester',         type: 'datalist', sources: [['Users','name'], ['Users','email']], layout: 'half' },
     { key: 'approver',          label: 'Approver',          type: 'datalist', sources: [['Users','name'], ['Users','email']], layout: 'half' },
     { key: 'invoice_number',    label: 'Invoice #',         type: 'text',     layout: 'half' },
-    { key: 'pr_reference',      label: 'PR Reference',      type: 'text',     layout: 'half' },
+    { key: 'pr_reference',      label: 'PR Reference',      type: 'datalist', sources: [],     layout: 'half' },
     { key: 'comparison_id',     label: 'Comparison ID',     type: 'datalist', sources: [['Comparisons','pr_number']], layout: 'half' },
   ],
   Milestones: [
