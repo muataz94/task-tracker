@@ -218,35 +218,7 @@ async function showPRModal(id) {
           <div class="form-group"><label>Delivery Location</label><input id="pr-f-location" type="text" value="${escapeHtml(pr.delivery_location||'')}"/></div>
         </div>
 
-        <!-- Line Items -->
-        <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;">Line Items</div>
-            <button onclick="addPRLineItem()" style="font-size:11px;padding:4px 10px;border-radius:var(--r-xs);border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.1);color:#60a5fa;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">+ Add Item</button>
-          </div>
-          <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;" id="pr-line-items-table">
-              <thead>
-                <tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;">Item Name</th>
-                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:80px;">Qty</th>
-                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:70px;">Unit</th>
-                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:110px;">Est. Price</th>
-                  <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;width:90px;">Line Total</th>
-                  <th style="width:32px;"></th>
-                </tr>
-              </thead>
-              <tbody id="pr-line-items-body">
-                ${existingItems.length ? existingItems.map(item => _prLineItemRow(item)).join('') : _prLineItemRow({})}
-              </tbody>
-            </table>
-          </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
-            <div style="font-size:13px;font-weight:700;color:var(--text-1);">
-              Total Estimated: <span id="pr-total-display" style="color:var(--accent);">—</span>
-            </div>
-          </div>
-        </div>
+        ${renderPRLineItemsForm(existingItems)}
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="form-group"><label>Approved By</label><input id="pr-f-approvedby" type="text" value="${escapeHtml(pr.approved_by||'')}"/></div>
@@ -276,21 +248,64 @@ async function showPRModal(id) {
   updatePRTotal();
 }
 
-function _prLineItemRow(item) {
-  return `<tr class="pr-li-row">
-    <td style="padding:4px;"><input type="text" placeholder="Item name" value="${escapeHtml(item.item_name||'')}" style="width:100%;min-width:120px;" oninput="updatePRTotal()"/></td>
-    <td style="padding:4px;"><input type="number" placeholder="0" min="0" value="${escapeHtml(String(item.quantity||''))}" style="width:100%;" oninput="updatePRTotal()"/></td>
-    <td style="padding:4px;">
-      <select style="width:100%;">
-        ${PR_UNITS.map(u=>`<option value="${u}" ${(item.unit||'pcs')===u?'selected':''}>${u}</option>`).join('')}
-      </select>
-    </td>
-    <td style="padding:4px;"><input type="number" placeholder="0" min="0" step="any" value="${escapeHtml(String(item.estimated_price||''))}" style="width:100%;" oninput="updatePRTotal()"/></td>
-    <td style="padding:4px 8px;font-weight:600;color:var(--text-2);font-size:12px;" class="pr-li-total">—</td>
-    <td style="padding:4px;">
-      <button onclick="this.closest('tr').remove();updatePRTotal();" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:var(--r-xs);width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">×</button>
-    </td>
-  </tr>`;
+function renderPRLineItemsForm(items) {
+  items = items && items.length ? items : [{ item_name:'', quantity:'', unit:'pcs', estimated_price:'' }];
+  return `
+    <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.15);
+      border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:600;color:#3b82f6;
+          text-transform:uppercase;letter-spacing:0.07em;">Line Items</div>
+        <button type="button" class="btn-add" style="padding:4px 10px;font-size:11px;"
+          onclick="addPRLineItem()">+ Add Item</button>
+      </div>
+      <div id="pr-line-items-list" style="display:flex;flex-direction:column;gap:10px;">
+        ${items.map((item, i) => renderSinglePRLineItem(item, i)).join('')}
+      </div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;
+        margin-top:12px;padding-top:10px;border-top:1px solid rgba(59,130,246,0.12);">
+        <span style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;
+          letter-spacing:0.06em;">Total Estimated:</span>
+        <span id="pr-total-estimated" style="font-size:16px;font-weight:800;color:var(--text-1);">0</span>
+      </div>
+    </div>`;
+}
+
+function renderSinglePRLineItem(item, index) {
+  return `
+    <div class="pr-line-item glass" style="border-radius:var(--r-sm);padding:10px 12px;
+      position:relative;" data-line-index="${index}">
+      <div class="form-group" style="margin-bottom:8px;">
+        <label style="font-size:10px;">Item Description</label>
+        <input type="text" class="pr-li-name" placeholder="e.g. Office furniture, IT equipment…"
+          value="${escapeHtml(item.item_name||'')}" oninput="updatePRTotal()"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr auto;gap:8px;align-items:end;">
+        <div class="form-group">
+          <label style="font-size:10px;">Quantity</label>
+          <input type="number" class="pr-li-qty" min="0" step="any"
+            placeholder="0" value="${item.quantity||''}" oninput="updatePRTotal()"/>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;">Unit</label>
+          <select class="pr-li-unit pref-select" style="width:100%;padding:8px 10px;">
+            ${['pcs','box','set','kg','m','roll','unit','lot','pair','ltr','sqm'].map(u =>
+              `<option value="${u}" ${(item.unit||'pcs')===u?'selected':''}>${u}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;">Estimated Price</label>
+          <input type="number" class="pr-li-price" min="0" step="any"
+            placeholder="0" value="${item.estimated_price||''}" oninput="updatePRTotal()"/>
+        </div>
+        <button type="button" onclick="removePRLineItem(this)" title="Remove item"
+          style="padding:6px 8px;border-radius:var(--r-xs);
+            background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.18);
+            color:var(--accent-red);cursor:pointer;font-size:14px;
+            font-family:Inter,sans-serif;margin-bottom:1px;">✕</button>
+      </div>
+    </div>`;
 }
 
 function _attachPRLineItemListeners() {
@@ -298,30 +313,51 @@ function _attachPRLineItemListeners() {
 }
 
 function addPRLineItem() {
-  const tbody = document.getElementById('pr-line-items-body');
-  if (!tbody) return;
-  const tr = document.createElement('tr');
-  tr.className = 'pr-li-row';
-  tr.innerHTML = _prLineItemRow({});
-  tbody.appendChild(tr);
+  const list = document.getElementById('pr-line-items-list');
+  if (!list) return;
+  const index = list.children.length;
+  list.insertAdjacentHTML('beforeend',
+    renderSinglePRLineItem({ item_name:'', quantity:'', unit:'pcs', estimated_price:'' }, index));
+}
+
+function removePRLineItem(btn) {
+  const item = btn.closest('.pr-line-item');
+  if (!item) return;
+  const list = document.getElementById('pr-line-items-list');
+  if (list && list.children.length <= 1) {
+    showToast('At least one line item is required', 'info');
+    return;
+  }
+  item.remove();
   updatePRTotal();
 }
 
 function updatePRTotal() {
-  const rows   = document.querySelectorAll('#pr-line-items-body .pr-li-row');
+  const items  = document.querySelectorAll('.pr-line-item');
   const cur    = document.getElementById('pr-f-currency')?.value || 'IQD';
+  const dec    = cur === 'IQD' ? 0 : 2;
   let total    = 0;
-  rows.forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    const qty   = parseFloat(inputs[1]?.value) || 0;
-    const price = parseFloat(inputs[3]?.value) || 0;
-    const line  = qty * price;
-    total += line;
-    const lineCell = row.querySelector('.pr-li-total');
-    if (lineCell) lineCell.textContent = line ? cur + ' ' + line.toLocaleString() : '—';
+  items.forEach(item => {
+    const qty   = parseFloat(item.querySelector('.pr-li-qty')?.value) || 0;
+    const price = parseFloat(item.querySelector('.pr-li-price')?.value) || 0;
+    total += qty * price;
   });
-  const totalEl = document.getElementById('pr-total-display');
-  if (totalEl) totalEl.textContent = total ? cur + ' ' + total.toLocaleString() : '—';
+  const el = document.getElementById('pr-total-estimated');
+  if (el) el.textContent = `${cur} ${total.toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec})}`;
+}
+
+function getPRLineItemsFromForm() {
+  const items = [];
+  document.querySelectorAll('.pr-line-item').forEach(el => {
+    const name  = el.querySelector('.pr-li-name')?.value?.trim() || '';
+    const qty   = el.querySelector('.pr-li-qty')?.value || '';
+    const unit  = el.querySelector('.pr-li-unit')?.value || 'pcs';
+    const price = el.querySelector('.pr-li-price')?.value || '';
+    if (name || qty || price) {
+      items.push({ item_name:name, quantity:qty, unit, estimated_price:price });
+    }
+  });
+  return items;
 }
 
 function closePRModal() {
@@ -339,19 +375,11 @@ async function submitPRForm() {
   if (!requestedBy) { showToast('Requested by is required', 'error'); return; }
 
   // Collect line items
-  const rows  = document.querySelectorAll('#pr-line-items-body .pr-li-row');
-  const items = [];
+  const items = getPRLineItemsFromForm();
   let totalEst = 0;
-  rows.forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    const selects = row.querySelectorAll('select');
-    const name  = inputs[0]?.value?.trim();
-    const qty   = parseFloat(inputs[1]?.value) || 0;
-    const unit  = selects[0]?.value || 'pcs';
-    const price = parseFloat(inputs[3]?.value) || 0;
-    if (!name && !qty) return;
-    totalEst += qty * price;
-    items.push({ item_name: name||'', quantity: qty, unit, estimated_price: price, currency: g('pr-f-currency') || 'IQD' });
+  items.forEach(it => {
+    totalEst += (parseFloat(it.quantity)||0) * (parseFloat(it.estimated_price)||0);
+    it.currency = g('pr-f-currency') || 'IQD';
   });
 
   const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
