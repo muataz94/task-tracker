@@ -126,7 +126,10 @@ function renderTable(sheetName) {
 
   function _msgBtns(row) {
     if (typeof renderMsgButtons !== 'function') return '';
-    if (sheetName === 'Tasks') return renderMsgButtons('task', row, 'vendor_contact', 'assignee_email');
+    if (sheetName === 'Tasks') {
+      const taskObj = Object.assign({}, row, { _task_email: (row.assignee||'').includes('@') ? row.assignee : '' });
+      return renderMsgButtons('task', taskObj, 'vendor_contact', '_task_email');
+    }
     if (sheetName === 'POs') {
       const vi = typeof getVendorContactInfo === 'function' ? getVendorContactInfo(row.supplier) : { phone: '', email: '' };
       return renderMsgButtons('po', Object.assign({}, row, { _phone: vi.phone, _email: vi.email }), '_phone', '_email');
@@ -518,6 +521,7 @@ async function saveModal() {
       payload.id   = result.id;
       if (!tableData[currentSheet]) tableData[currentSheet] = [];
       tableData[currentSheet].push(payload);
+      if (currentSheet === 'POs') autoCreateInvoiceFromPO(payload, result.id || payload.id);
     }
     closeModal();
     renderTable(currentSheet);
@@ -671,5 +675,88 @@ function toggleCFOptions() {
     optionsRow.classList.remove('hidden');
   } else {
     optionsRow.classList.add('hidden');
+  }
+}
+
+// ── PO: PR Reference dropdown (robust version) ────────────────────────────────
+async function populatePOPRDropdown(currentValue) {
+  const sel = document.getElementById('po-pr-reference') ||
+              document.getElementById('po-pr_reference') ||
+              document.getElementById('po-prReference');
+  if (!sel) return;
+  if (sel.tagName !== 'SELECT') {
+    const newSel = document.createElement('select');
+    newSel.id = sel.id; newSel.name = sel.name || 'pr_reference';
+    newSel.className = 'pref-select'; newSel.style.cssText = 'width:100%;';
+    newSel.setAttribute('onchange', 'onPOPRRefSelect(this)');
+    sel.parentNode.replaceChild(newSel, sel);
+    await _fillPROptions(newSel, currentValue);
+    return;
+  }
+  await _fillPROptions(sel, currentValue);
+}
+
+async function _fillPROptions(sel, currentValue) {
+  try {
+    const res = await callAPI('getPRs');
+    const prs = (res.rows || []).filter(p =>
+      p.status === 'Approved' || p.status === 'Submitted' || p.status === 'Draft'
+    );
+    sel.innerHTML = '<option value="">No linked PR</option>' +
+      prs.map(p => {
+        const label = (p.pr_number || p.id) + ' — ' +
+          escapeAttr((p.description || '').substring(0, 40)) +
+          (p.department ? ` (${p.department})` : '');
+        const isSelected = currentValue &&
+          (currentValue === p.pr_number || currentValue === p.id);
+        return `<option value="${escapeAttr(p.pr_number || p.id)}"
+          ${isSelected ? 'selected' : ''}
+          data-id="${escapeAttr(p.id)}"
+          data-requestedby="${escapeAttr(p.requested_by || '')}"
+          data-dept="${escapeAttr(p.department || '')}">${label}</option>`;
+      }).join('');
+    if (currentValue) sel.value = currentValue;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Failed to load PRs</option>';
+  }
+}
+
+// ── Auto-create invoice when PO has invoice# and amount ───────────────────────
+async function autoCreateInvoiceFromPO(poData, poId) {
+  const invoiceNum = poData.invoice_number || '';
+  const amount     = parseFloat(poData.total_value || poData.unit_price || 0);
+  if (!invoiceNum || !amount) return;
+
+  try {
+    if (typeof _allInvoices !== 'undefined' && _allInvoices) {
+      const exists = _allInvoices.find(inv =>
+        inv.invoice_number === invoiceNum ||
+        inv.po_reference === (poData.po_number || poId)
+      );
+      if (exists) return;
+    }
+  } catch(e) {}
+
+  const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+  const invoicePayload = {
+    invoice_number: invoiceNum,
+    vendor:         poData.supplier || '',
+    amount:         String(amount),
+    currency:       poData.currency || 'IQD',
+    invoice_date:   new Date().toISOString().split('T')[0],
+    due_date:       poData.expected_delivery || '',
+    po_reference:   poData.po_number || poId || '',
+    status:         poData.payment_status === 'paid' ? 'Paid' :
+                    poData.payment_status === 'partial' ? 'Partially Paid' : 'Unpaid',
+    description:    `Auto-created from PO ${poData.po_number || poId}`,
+    payment_method: poData.payment_terms || '',
+    created_by:     user.email || '',
+  };
+
+  try {
+    await callAPI('saveInvoice', invoicePayload);
+    showToast(`Invoice ${invoiceNum} auto-created from PO ✓`, 'success');
+  } catch(e) {
+    console.warn('Auto-invoice creation failed:', e.message);
   }
 }
