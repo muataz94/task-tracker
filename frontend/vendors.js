@@ -123,11 +123,105 @@ function renderVendorCard(v) {
       ${v.email ? `<div style="font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:5px;margin-bottom:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><a href="mailto:${escapeHtml(v.email)}" style="color:var(--accent);text-decoration:none;" onclick="event.stopPropagation()">${escapeHtml(v.email)}</a></div>` : ''}
       ${v.phone ? `<div style="font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:5px;margin-bottom:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.22 1.22 2 2 0 012.22 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.29 6.29l1.58-1.58a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>${escapeHtml(v.phone)}</div>` : ''}
       ${v.currency ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;">Currency: <span style="color:var(--accent);font-weight:600;">${escapeHtml(v.currency)}</span>${v.payment_terms ? ` · ${escapeHtml(v.payment_terms)}` : ''}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:6px;font-size:11px;color:var(--text-3);">
+        ${parseFloat(v.performance_score) > 0 ? `<span>⭐ ${parseFloat(v.performance_score).toFixed(1)}</span>` : ''}
+        ${parseFloat(v.total_spend) > 0 ? `<span id="vnd-spend-${escapeAttr(v.id)}">Spend: ${(v.currency||'IQD')} ${parseFloat(v.total_spend).toLocaleString()}</span>` : ''}
+      </div>
       <div style="display:flex;gap:6px;margin-top:10px;">
         <button class="btn-edit" style="flex:1;font-size:11px;" onclick="event.stopPropagation();showVendorModal('${escapeHtml(v.id)}')">Edit</button>
+        <button class="btn-edit" style="font-size:11px;" onclick="event.stopPropagation();showRateVendorForm('${escapeHtml(v.id)}')">Rate</button>
+        <button class="btn-edit" style="font-size:11px;" onclick="event.stopPropagation();recalcVendorSpend('${escapeHtml(v.id)}')">↻ Spend</button>
         <button class="btn-delete" style="font-size:11px;" onclick="event.stopPropagation();deleteVendorById('${escapeHtml(v.id)}')">Delete</button>
       </div>
     </div>`;
+}
+
+async function recalcVendorSpend(id) {
+  const v = _allVendors.find(x => x.id === id);
+  if (!v) return;
+  try {
+    const res = await callAPI('getVendorSpend', { vendor_name: v.vendor_name });
+    v.total_spend = res.total_spend;
+    renderVendorGrid();
+    showToast('Spend recalculated ✓', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+function showRateVendorForm(id) {
+  document.getElementById('vnd-rate-overlay')?.remove();
+  const v = _allVendors.find(x => x.id === id);
+  if (!v) return;
+  const html = `
+    <div id="vnd-rate-overlay" onclick="closeRateVendorForm()" style="position:fixed;inset:0;z-index:210;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);padding:1rem;">
+      <div onclick="event.stopPropagation()" style="width:100%;max-width:360px;border-radius:var(--r-lg);padding:1.25rem;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);border:1px solid var(--border);box-shadow:0 24px 64px rgba(0,0,0,0.45);">
+        <h3 style="font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:12px;">Rate ${escapeHtml(v.vendor_name)}</h3>
+        ${['delivery','quality','price'].map(dim => `
+          <div class="form-group" style="margin-bottom:10px;">
+            <label style="text-transform:capitalize;">${dim} (1-5)</label>
+            <input id="vnd-rate-${dim}" type="range" min="1" max="5" step="1" value="3" style="width:100%;"/>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+          <button class="btn-export" onclick="closeRateVendorForm()">Cancel</button>
+          <button class="btn-primary" onclick="submitVendorRating('${escapeHtml(id)}')">Submit</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeRateVendorForm() {
+  document.getElementById('vnd-rate-overlay')?.remove();
+}
+
+// ── Contract expiry check — once per day, notify if expiring within 30 days ──
+function checkVendorContractExpiry(vendors) {
+  if (!vendors || !vendors.length) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('tt_ce_') && !k.endsWith(todayStr))
+    .forEach(k => localStorage.removeItem(k));
+
+  const storageKey = 'tt_ce_' + todayStr;
+  const alreadyNotified = new Set(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+
+  vendors.forEach(v => {
+    if (!v.contract_expiry || alreadyNotified.has(String(v.id))) return;
+    const expiry = new Date(v.contract_expiry);
+    if (isNaN(expiry)) return;
+    const days = Math.floor((expiry - today) / 86400000);
+    if (days >= 0 && days <= 30) {
+      alreadyNotified.add(String(v.id));
+      callAPI('createNotif', {
+        user_email: 'all', type: 'contract',
+        title: 'Vendor Contract Expiring',
+        message: `${v.vendor_name} — contract expires in ${days} day(s)`,
+        link: '#vendors'
+      }).catch(() => {});
+    }
+  });
+  localStorage.setItem(storageKey, JSON.stringify([...alreadyNotified]));
+}
+
+async function submitVendorRating(id) {
+  const scores = {
+    delivery: document.getElementById('vnd-rate-delivery')?.value || 3,
+    quality:  document.getElementById('vnd-rate-quality')?.value  || 3,
+    price:    document.getElementById('vnd-rate-price')?.value    || 3,
+  };
+  try {
+    const res = await callAPI('rateVendor', { vendor_id: id, scores });
+    const v = _allVendors.find(x => x.id === id);
+    if (v) v.performance_score = res.score;
+    closeRateVendorForm();
+    renderVendorGrid();
+    showToast('Vendor rated ✓', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 
 // ── Dashboard widget ──────────────────────────────────────────────────────────
@@ -176,6 +270,7 @@ function onPOVendorSelect(sel) {
     const curField = document.querySelector('[name="currency"]') || document.getElementById('po-currency');
     if (curField) curField.value = opt.dataset.currency;
   }
+  warnIfVendorBlocked(val);
 }
 
 // ── PO: Comparison dropdown ───────────────────────────────────────────────────
@@ -289,6 +384,8 @@ async function deleteVendorById(id) {
     if (sub) sub.textContent = _allVendors.length + ' vendor' + (_allVendors.length !== 1 ? 's' : '');
     _rebuildOpenVendorDropdowns();
     showToast('Vendor deleted', 'info');
+    const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+    callAPI('logAudit', { user_email: user.email||'', action:'delete', sheet:'Vendors', record_id: id, summary: 'Deleted vendor' }).catch(()=>{});
   } catch(e) { showToast('Delete failed: ' + e.message, 'error'); }
 }
 
@@ -360,11 +457,21 @@ function showVendorModal(id) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="form-group"><label>Status</label>
-            <select id="vnd-f-status" class="pref-select" style="width:100%;">
+            <select id="vnd-f-status" class="pref-select" style="width:100%;" onchange="toggleVndBlacklistReason(this.value)">
               ${VND_STATUSES.map(s=>`<option value="${s}" ${(v.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
             </select>
           </div>
           <div class="form-group"><label>Logo URL</label><input id="vnd-f-logo" type="url" placeholder="https://…" value="${escapeHtml(v.logo_url||'')}"/></div>
+        </div>
+
+        <div id="vnd-f-blacklist-wrap" class="form-group" style="margin-bottom:12px;display:${v.status==='Blocked'?'':'none'};">
+          <label>Blacklist Reason</label>
+          <input id="vnd-f-blacklist-reason" type="text" placeholder="Why is this vendor blocked?" value="${escapeHtml(v.blacklist_reason||'')}"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Contract Expiry</label>
+          <input id="vnd-f-contract-expiry" type="date" value="${escapeHtml(v.contract_expiry||'')}"/>
         </div>
 
         <div class="form-group" style="margin-bottom:1.25rem;">
@@ -381,6 +488,20 @@ function showVendorModal(id) {
     </div>`;
 
   document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function toggleVndBlacklistReason(status) {
+  const wrap = document.getElementById('vnd-f-blacklist-wrap');
+  if (wrap) wrap.style.display = status === 'Blocked' ? '' : 'none';
+}
+
+function warnIfVendorBlocked(vendorName) {
+  if (!vendorName) return;
+  const vendors = window._allVendors || [];
+  const v = vendors.find(x => x.vendor_name === vendorName);
+  if (v && v.status === 'Blocked') {
+    showToast('⚠️ This vendor is blocked: ' + (v.blacklist_reason || 'no reason given'), 'error');
+  }
 }
 
 function closeVendorModal() {
@@ -407,6 +528,8 @@ async function submitVendorForm() {
     payment_terms: document.getElementById('vnd-f-terms')?.value || '',
     status:        document.getElementById('vnd-f-status')?.value || 'Active',
     logo_url:      g('vnd-f-logo'),
+    blacklist_reason: g('vnd-f-blacklist-reason') || '',
+    contract_expiry:  g('vnd-f-contract-expiry') || '',
     notes:         document.getElementById('vnd-f-notes')?.value?.trim() || '',
     created_by:    user.email || '',
   };
@@ -421,11 +544,13 @@ async function submitVendorForm() {
       const idx = _allVendors.findIndex(v => v.id === _editingVndId);
       if (idx !== -1) Object.assign(_allVendors[idx], payload);
       showToast('Vendor updated ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'update', sheet:'Vendors', record_id: _editingVndId, summary: `Updated vendor ${name}` }).catch(()=>{});
     } else {
       const res  = await callAPI('saveVendor', payload);
       payload.id = res.id;
       _allVendors.unshift(payload);
       showToast('Vendor created ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'create', sheet:'Vendors', record_id: res.id||'', summary: `Created vendor ${name}` }).catch(()=>{});
     }
     window._allVendors = _allVendors;
     closeVendorModal();

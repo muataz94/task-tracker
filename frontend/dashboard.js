@@ -29,6 +29,9 @@ async function loadDashboard() {
     if (panel) panel.style.display = '';
   }
 
+  // Clear stale retry buttons from previous failures
+  document.querySelectorAll('.dash-retry-btn').forEach(el => el.remove());
+
   try {
     const dashData = await getDashboard();
 
@@ -120,7 +123,11 @@ async function loadDashboard() {
         const panel = document.getElementById('vnd-dash-panel');
         if (panel && res.rows.length) panel.style.display = '';
       }
+      if (typeof checkVendorContractExpiry === 'function') checkVendorContractExpiry(res.rows);
+      renderDashboardKPIs();
     }).catch(() => {});
+
+    renderDashboardKPIs();
 
     // Update invoice summary panel + sidebar badge in background
     callAPI('getInvoices').then(res => {
@@ -157,13 +164,50 @@ async function loadDashboard() {
         el.style.fontSize = '13px';
       }
     });
-    // Show retry button in first stat card area
+    // Show a single retry button — remove old ones first
     const firstStat = document.getElementById('stat-open');
     if (firstStat) {
+      document.querySelectorAll('.dash-retry-btn').forEach(el => el.remove());
       const retryEl = document.createElement('div');
+      retryEl.className = 'dash-retry-btn';
       retryEl.style.cssText = 'margin-top:8px';
       retryEl.innerHTML = '<button onclick="loadDashboard()" style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);color:#c4b5fd;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif;">Retry</button>';
       firstStat.parentNode.appendChild(retryEl);
+    }
+  }
+}
+
+function renderDashboardKPIs() {
+  callAPI('getBudgets').then(res => {
+    const budgets = res.rows || [];
+    if (!budgets.length) return;
+    const total = budgets.reduce((s,b)=>s+parseFloat(b.total_budget||0),0);
+    const spent = budgets.reduce((s,b)=>s+parseFloat(b.spent||0),0);
+    const pct = total>0 ? Math.round((spent/total)*100) : 0;
+    const el = document.getElementById('kpi-budget-pct');
+    const fill = document.getElementById('kpi-budget-fill');
+    if (el) el.textContent = pct + '%';
+    if (fill) { fill.style.width = Math.min(pct,100)+'%';
+      fill.style.background = pct>=90?'var(--accent-red)':pct>=75?'var(--accent-amber)':'var(--accent-green)'; }
+  }).catch(()=>{});
+
+  // On-time delivery from POs already in cache
+  const posRows = (typeof tableData !== 'undefined' && tableData['POs']) || [];
+  const completed = posRows.filter(p => p.status === 'received' && p.actual_delivery && p.expected_delivery);
+  if (completed.length) {
+    const onTime = completed.filter(p => new Date(p.actual_delivery) <= new Date(p.expected_delivery));
+    const rate = Math.round((onTime.length/completed.length)*100);
+    const el = document.getElementById('kpi-otd-rate');
+    if (el) el.textContent = rate + '%';
+  }
+
+  // Vendor score
+  if (window._allVendors && window._allVendors.length) {
+    const scored = window._allVendors.filter(v => parseFloat(v.performance_score||0) > 0);
+    if (scored.length) {
+      const avg = scored.reduce((s,v)=>s+parseFloat(v.performance_score||0),0)/scored.length;
+      const el = document.getElementById('kpi-vendor-score');
+      if (el) el.textContent = avg.toFixed(1);
     }
   }
 }

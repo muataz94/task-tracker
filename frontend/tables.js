@@ -18,7 +18,10 @@ const SHEET_FIELDS = {
     { key: 'estimated_hours',  label: 'Est. Hours',     type: 'number',   layout: 'half' },
     { key: 'actual_hours',     label: 'Actual Hours',   type: 'number',   layout: 'half' },
     { key: 'tags',             label: 'Tags',           type: 'text' },
-    { key: 'description',      label: 'Notes',          type: 'textarea' }
+    { key: 'recurring',        label: 'Recurring',      type: 'select',   options: ['none','daily','weekly','monthly'], layout: 'half' },
+    { key: 'dependency_ids',   label: 'Blocked By (task titles, comma-separated)', type: 'datalist', sources: [['Tasks','title']], layout: 'half' },
+    { key: 'description',      label: 'Notes',          type: 'textarea' },
+    { key: 'subtasks_json',    label: 'Subtasks',       type: 'hidden' }
   ],
   POs: [
     { key: 'po_number',         label: 'PO Number',         type: 'text',     required: true,  layout: 'half' },
@@ -150,7 +153,9 @@ function renderTable(sheetName) {
     const rowDateStr   = rowDate ? String(rowDate).split('T')[0] : '';
     const matchFrom    = !fromFilter || rowDateStr >= fromFilter;
     const matchTo      = !toFilter   || rowDateStr <= toFilter;
-    return matchText && matchProject && matchFrom && matchTo;
+    const matchDashboard = typeof dashboardV2TableFilterMatches !== 'function'
+      || dashboardV2TableFilterMatches(sheetName, row);
+    return matchText && matchProject && matchFrom && matchTo && matchDashboard;
   });
 
   if (!rows.length) {
@@ -185,6 +190,9 @@ function renderTable(sheetName) {
               ${fields.map(f => `<td>${formatCell(f, row[f.key], row)}</td>`).join('')}
               <td class="actions-cell">
                 ${_msgBtns(row)}
+                ${sheetName === 'Tasks' ? `<button class="btn-edit btn-icon-action" title="Log Time" onclick="logTaskTime('${escapeAttr(row.id)}')">⏱</button>` : ''}
+                ${sheetName === 'POs' ? `<button class="btn-edit btn-icon-action" title="Record Delivery" onclick="promptPODelivery('${escapeAttr(row.id)}')">📦</button>` : ''}
+                ${sheetName === 'POs' && row.amendment_log ? `<button class="btn-edit btn-icon-action" title="Amendment History" onclick="showPOAmendmentHistory('${escapeAttr(row.id)}')">🕘</button>` : ''}
                 <button class="btn-edit btn-icon-action"
                   data-sheet="${escapeAttr(sheetName)}" data-id="${escapeAttr(row.id)}"
                   onclick="openEditModal(this.dataset.sheet, this.dataset.id)" title="Edit">
@@ -400,6 +408,7 @@ async function openAddModal(sheetName) {
   buildModalForm(sheetName, {});
   document.getElementById('modal-overlay').classList.remove('hidden');
   if (sheetName === 'POs') { initPOComparisonDropdown(''); initPOPRDropdown(''); }
+  if (sheetName === 'Tasks') { initTaskSubtasksEditor(''); }
 }
 
 // ── Open Edit modal
@@ -415,6 +424,7 @@ async function openEditModal(sheetName, id) {
   buildModalForm(sheetName, row);
   document.getElementById('modal-overlay').classList.remove('hidden');
   if (sheetName === 'POs') { initPOComparisonDropdown(row.comparison_id || ''); initPOPRDropdown(row.pr_reference || ''); }
+  if (sheetName === 'Tasks') { initTaskSubtasksEditor(row.subtasks_json || ''); }
 }
 
 // ── Build modal form fields dynamically
@@ -456,6 +466,9 @@ function buildModalForm(sheetName, data) {
     }
     if (f.type === 'textarea') {
       return `<div class="form-group">${lbl}<textarea name="${f.key}" rows="3" ${f.required ? 'required' : ''}>${escapeAttr(val)}</textarea></div>`;
+    }
+    if (f.type === 'hidden') {
+      return `<input type="hidden" name="${f.key}" value="${escapeAttr(val)}"/>`;
     }
     return `<div class="form-group">${lbl}<input type="${f.type || 'text'}" name="${f.key}" value="${escapeAttr(val)}" ${f.required ? 'required' : ''} /></div>`;
   }
@@ -510,18 +523,21 @@ async function saveModal() {
   saveBtn.disabled    = true;
 
   try {
+    const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
     if (currentEditId) {
       await updateRow(currentSheet, currentEditId, payload);
       const idx = (tableData[currentSheet] || []).findIndex(r => String(r.id) === String(currentEditId));
       if (idx > -1) {
         tableData[currentSheet][idx] = { ...tableData[currentSheet][idx], ...payload };
       }
+      callAPI('logAudit', { user_email: user.email||'', action:'update', sheet: currentSheet, record_id: currentEditId, summary: `Updated record in ${currentSheet}` }).catch(()=>{});
     } else {
       const result = await addRow(currentSheet, payload);
       payload.id   = result.id;
       if (!tableData[currentSheet]) tableData[currentSheet] = [];
       tableData[currentSheet].push(payload);
       if (currentSheet === 'POs') autoCreateInvoiceFromPO(payload, result.id || payload.id);
+      callAPI('logAudit', { user_email: user.email||'', action:'create', sheet: currentSheet, record_id: result.id||'', summary: `Created record in ${currentSheet}` }).catch(()=>{});
     }
     closeModal();
     renderTable(currentSheet);
@@ -540,6 +556,8 @@ function confirmDelete(sheetName, id) {
       await deleteRow(sheetName, id);
       tableData[sheetName] = (tableData[sheetName] || []).filter(r => String(r.id) !== String(id));
       renderTable(sheetName);
+      const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+      callAPI('logAudit', { user_email: user.email||'', action:'delete', sheet: sheetName, record_id: id, summary: `Deleted record in ${sheetName}` }).catch(()=>{});
     } catch (e) {
       showToast('Delete failed: ' + e.message, 'error');
     }
@@ -577,6 +595,10 @@ function clearFilters(sheetName) {
   const p    = document.getElementById('filter-' + sheetName + '-project');
   const from = document.getElementById('filter-' + sheetName + '-from');
   const to   = document.getElementById('filter-' + sheetName + '-to');
+  if (typeof dashboardV2PendingFilters !== 'undefined') {
+    const view = { Tasks: 'tasks', POs: 'pos', Milestones: 'milestones', Expenses: 'expenses' }[sheetName];
+    if (view) delete dashboardV2PendingFilters[view];
+  }
   if (f)    f.value = '';
   if (p)    p.value = '';
   if (from) from.value = '';
@@ -758,5 +780,143 @@ async function autoCreateInvoiceFromPO(poData, poId) {
     showToast(`Invoice ${invoiceNum} auto-created from PO ✓`, 'success');
   } catch(e) {
     console.warn('Auto-invoice creation failed:', e.message);
+  }
+}
+
+// ── Full workbook export (all tabs, one .xlsx) ────────────────────────────────
+async function exportFullWorkbook() {
+  if (!window.XLSX) { showToast('Excel library not loaded', 'error'); return; }
+  const wb = XLSX.utils.book_new();
+  const sheets = ['Tasks','POs','Invoices','Vendors','PurchaseRequests','Comparisons','Milestones','Expenses'];
+  for (const name of sheets) {
+    try {
+      const rows = name === 'Invoices'          ? (await callAPI('getInvoices')).rows
+                 : name === 'Vendors'           ? (await callAPI('getVendors')).rows
+                 : name === 'PurchaseRequests'  ? (await callAPI('getPRs')).rows
+                 : (await callAPI('getAll', { sheet: name })).rows;
+      if (!rows || !rows.length) continue;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, name.substring(0,31));
+    } catch(e) {}
+  }
+  XLSX.writeFile(wb, `TaskTracker_FullExport_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Full workbook exported ✓', 'success');
+}
+
+// ── Task subtasks checklist editor (injected into the Tasks modal) ───────────
+function initTaskSubtasksEditor(jsonStr) {
+  const body = document.getElementById('modal-body');
+  if (!body) return;
+  document.getElementById('task-subtasks-editor')?.remove();
+
+  let subtasks = [];
+  try { subtasks = JSON.parse(jsonStr || '[]'); } catch(e) { subtasks = []; }
+
+  const wrap = document.createElement('div');
+  wrap.id = 'task-subtasks-editor';
+  wrap.className = 'form-group';
+  wrap.innerHTML = `
+    <label>Subtasks / Checklist</label>
+    <div id="task-subtasks-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+    <button type="button" class="btn-export" onclick="addTaskSubtask()">+ Add Subtask</button>`;
+  body.appendChild(wrap);
+
+  window.__taskSubtasks = subtasks;
+  renderTaskSubtasksList();
+}
+
+function renderTaskSubtasksList() {
+  const list = document.getElementById('task-subtasks-list');
+  if (!list) return;
+  const subtasks = window.__taskSubtasks || [];
+  list.innerHTML = subtasks.map((st, idx) => `
+    <div style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" ${st.done ? 'checked' : ''} onchange="toggleTaskSubtask(${idx})"/>
+      <input type="text" value="${escapeAttr(st.text||'')}" oninput="renameTaskSubtask(${idx}, this.value)"
+        style="flex:1;" placeholder="Subtask text"/>
+      <button type="button" onclick="removeTaskSubtask(${idx})" style="background:none;border:none;color:var(--accent-red);cursor:pointer;">✕</button>
+    </div>`).join('') || '<p style="font-size:12px;color:var(--text-3);">No subtasks yet.</p>';
+  syncTaskSubtasksHiddenField();
+}
+
+function addTaskSubtask() {
+  window.__taskSubtasks = window.__taskSubtasks || [];
+  window.__taskSubtasks.push({ text: '', done: false });
+  renderTaskSubtasksList();
+}
+
+function toggleTaskSubtask(idx) {
+  if (!window.__taskSubtasks?.[idx]) return;
+  window.__taskSubtasks[idx].done = !window.__taskSubtasks[idx].done;
+  syncTaskSubtasksHiddenField();
+}
+
+function renameTaskSubtask(idx, text) {
+  if (!window.__taskSubtasks?.[idx]) return;
+  window.__taskSubtasks[idx].text = text;
+  syncTaskSubtasksHiddenField();
+}
+
+function removeTaskSubtask(idx) {
+  window.__taskSubtasks?.splice(idx, 1);
+  renderTaskSubtasksList();
+}
+
+function syncTaskSubtasksHiddenField() {
+  const hidden = document.querySelector('#modal-body [name="subtasks_json"]');
+  if (hidden) hidden.value = JSON.stringify(window.__taskSubtasks || []);
+}
+
+// ── PO delivery tracking + amendment log ──────────────────────────────────────
+function promptPODelivery(id) {
+  const po = (tableData['POs'] || []).find(p => String(p.id) === String(id));
+  if (!po) return;
+  const qtyStr = prompt(`Received quantity (of ${po.quantity||0}):`, po.received_quantity || '');
+  if (qtyStr === null) return;
+  const qty = parseFloat(qtyStr);
+  if (isNaN(qty) || qty < 0) { showToast('Enter a valid quantity', 'error'); return; }
+  recordPODelivery(id, qty);
+}
+
+async function recordPODelivery(id, receivedQty) {
+  const po = (tableData['POs'] || []).find(p => String(p.id) === String(id));
+  if (!po) return;
+  const qty = parseFloat(po.quantity) || 0;
+  const newStatus = receivedQty >= qty ? 'received' : po.status;
+  let amendment = [];
+  try { amendment = JSON.parse(po.amendment_log || '[]'); } catch(e) { amendment = []; }
+  amendment.push({ field:'received_quantity', old: po.received_quantity||0, new: receivedQty, at: new Date().toISOString() });
+  await updateRow('POs', id, { received_quantity: receivedQty, status: newStatus, amendment_log: JSON.stringify(amendment) });
+  po.received_quantity = receivedQty;
+  po.status = newStatus;
+  po.amendment_log = JSON.stringify(amendment);
+  showToast('Delivery recorded' + (newStatus==='received' ? ' — PO closed ✓' : ''), 'success');
+  renderTable('POs');
+}
+
+function showPOAmendmentHistory(id) {
+  const po = (tableData['POs'] || []).find(p => String(p.id) === String(id));
+  if (!po) return;
+  let amendment = [];
+  try { amendment = JSON.parse(po.amendment_log || '[]'); } catch(e) { amendment = []; }
+  if (!amendment.length) { showToast('No amendment history', 'info'); return; }
+  const text = amendment.map(a => `${new Date(a.at).toLocaleString()} — ${a.field}: ${a.old} → ${a.new}`).join('\n');
+  alert('Amendment History:\n\n' + text);
+}
+
+// ── Task time tracking quick-action ───────────────────────────────────────────
+async function logTaskTime(id) {
+  const row = (tableData['Tasks'] || []).find(r => String(r.id) === String(id));
+  const minutesStr = prompt('Log time (minutes):', '');
+  if (minutesStr === null) return;
+  const minutes = parseFloat(minutesStr);
+  if (isNaN(minutes) || minutes <= 0) { showToast('Enter a valid number of minutes', 'error'); return; }
+  const newTotal = (parseFloat(row?.time_logged_minutes) || 0) + minutes;
+  try {
+    await updateRow('Tasks', id, { time_logged_minutes: newTotal });
+    if (row) row.time_logged_minutes = newTotal;
+    showToast(`Logged ${minutes}m — total ${newTotal}m`, 'success');
+  } catch(e) {
+    showToast('Failed to log time: ' + e.message, 'error');
   }
 }

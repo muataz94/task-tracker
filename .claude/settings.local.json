@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "WebFetch(domain:www.untitledui.com)",
+      "Bash(node --check frontend/ai-chat.js)",
+      "Bash(node -e ' *)",
+      "Bash(grep -n \"^\\\\/\\\\* .* \\\\*\\\\/$\" frontend/style.css)",
+      "Bash(node --check frontend/notifications.js)"
     ]
   }
 }

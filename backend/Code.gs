@@ -60,6 +60,31 @@ function doPost(e) {
       case 'updatePRLineQty':       return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
       case 'getUserPermissions':    return respond(getUserPermissions(body.email));
       case 'updateUserPermissions': return respond(updateUserPermissions(body.email, body.permissions));
+
+      case 'setupPhase1Columns': setupPhase1Columns(); return respond({ success: true });
+
+      case 'getBudgets':       return respond(getBudgets());
+      case 'saveBudget':       return respond(saveBudget(body));
+      case 'updateBudget':     return respond(updateBudget(body));
+      case 'deleteBudget':     return respond(deleteBudget(body.id));
+      case 'checkBudget':      return respond(checkBudget(body.department, body.amount));
+
+      case 'getNotifications':  return respond(getNotifications(body.email));
+      case 'createNotif':       return respond(createNotification(body));
+      case 'markNotifRead':     return respond(markNotifRead(body.id));
+      case 'markAllNotifsRead': return respond(markAllNotifsRead(body.email));
+
+      case 'logAudit':    return respond(logAudit(body));
+      case 'getAuditLog': return respond(getAuditLog(body.sheet, body.record_id));
+
+      case 'globalSearch': return respond(globalSearch(body.query));
+
+      case 'rateVendor':     return respond(rateVendor(body.vendor_id, body.scores));
+      case 'getVendorSpend': return respond(getVendorSpend(body.vendor_name));
+
+      case 'getInvoiceAging': return respond(getInvoiceAging());
+      case 'saveUserTheme':   return respond(saveUserTheme(body.email, body.theme));
+
       default:                      return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
@@ -590,13 +615,16 @@ function deleteInvoice(id) {
 function ensureVendorsSheet() {
   const ss = getSpreadsheet();
   let sh = ss.getSheetByName('Vendors');
+  const headers = ['id','vendor_name','category','contact_person','phone','email',
+    'address','website','payment_terms','currency','notes','logo_url','logo_base64',
+    'status','created_at','created_by','updated_at'];
   if (!sh) {
     sh = ss.insertSheet('Vendors');
-    const headers = ['id','vendor_name','category','contact_person','phone','email',
-      'address','website','payment_terms','currency','notes','logo_url','logo_base64',
-      'status','created_at','created_by','updated_at'];
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.setFrozenRows(1);
+  } else {
+    const existing = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    headers.forEach(h => { if (!existing.includes(h)) sh.getRange(1, sh.getLastColumn() + 1).setValue(h); });
   }
   return sh;
 }
@@ -697,25 +725,33 @@ function sendEmailAction(data) {
 
 function ensurePRSheets() {
   const ss = getSpreadsheet();
+  const prHeaders = [
+    'id','pr_number','description','requested_by','department','priority','status',
+    'budget_code','delivery_location','required_by_date','approval_date',
+    'approved_by','linked_po_ids','notes','attachment_url',
+    'total_estimated','currency','created_at','created_by','updated_at'
+  ];
   let sh1 = ss.getSheetByName('PurchaseRequests');
   if (!sh1) {
     sh1 = ss.insertSheet('PurchaseRequests');
-    sh1.getRange(1,1,1,20).setValues([[
-      'id','pr_number','description','requested_by','department','priority','status',
-      'budget_code','delivery_location','required_by_date','approval_date',
-      'approved_by','linked_po_ids','notes','attachment_url',
-      'total_estimated','currency','created_at','created_by','updated_at'
-    ]]);
+    sh1.getRange(1,1,1,prHeaders.length).setValues([prHeaders]);
     sh1.setFrozenRows(1);
+  } else {
+    const existing1 = sh1.getRange(1,1,1,sh1.getLastColumn()).getValues()[0];
+    prHeaders.forEach(h => { if (!existing1.includes(h)) sh1.getRange(1, sh1.getLastColumn()+1).setValue(h); });
   }
+  const lineHeaders = [
+    'id','pr_id','item_name','quantity','unit','estimated_price','currency',
+    'received_quantity','remaining_quantity','linked_po_id','notes','created_at'
+  ];
   let sh2 = ss.getSheetByName('PRLineItems');
   if (!sh2) {
     sh2 = ss.insertSheet('PRLineItems');
-    sh2.getRange(1,1,1,12).setValues([[
-      'id','pr_id','item_name','quantity','unit','estimated_price','currency',
-      'received_quantity','remaining_quantity','linked_po_id','notes','created_at'
-    ]]);
+    sh2.getRange(1,1,1,lineHeaders.length).setValues([lineHeaders]);
     sh2.setFrozenRows(1);
+  } else {
+    const existing2 = sh2.getRange(1,1,1,sh2.getLastColumn()).getValues()[0];
+    lineHeaders.forEach(h => { if (!existing2.includes(h)) sh2.getRange(1, sh2.getLastColumn()+1).setValue(h); });
   }
 }
 
@@ -871,11 +907,12 @@ function getUserPermissions(email) {
     const emailCol = headers.indexOf('email');
     const roleCol  = headers.indexOf('role');
     const permCol  = headers.indexOf('permissions');
+    const themeCol = headers.indexOf('theme');
     const row = data.find((r, i) => i > 0 && String(r[emailCol]).toLowerCase() === email.toLowerCase());
     if (!row) return { role: 'editor', permissions: {} };
     let perms = {};
     try { perms = JSON.parse(row[permCol] || '{}'); } catch(e) {}
-    return { role: row[roleCol] || 'editor', permissions: perms };
+    return { role: row[roleCol] || 'editor', permissions: perms, theme: themeCol >= 0 ? (row[themeCol] || '') : '' };
   } catch(e) { return { role: 'editor', permissions: {} }; }
 }
 
@@ -896,6 +933,323 @@ function updateUserPermissions(email, permissions) {
     sh.getRange(rowIdx + 1, permCol + 1).setValue(JSON.stringify(permissions));
     return { success: true };
   } catch(e) { return { error: e.message }; }
+}
+
+// ── PHASE 1 SETUP ─────────────────────────────────────────────────
+
+function addColumnsIfMissing(sheetName, columnNames) {
+  const sh = getSpreadsheet().getSheetByName(sheetName);
+  if (!sh) return;
+  const existing = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  columnNames.forEach(col => {
+    if (!existing.includes(col)) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(col);
+      existing.push(col);
+    }
+  });
+}
+
+function setupPhase1Columns() {
+  addColumnsIfMissing('Tasks', ['dependency_ids','recurring','time_logged_minutes','subtasks_json']);
+  addColumnsIfMissing('POs',   ['received_quantity','amendment_log']);
+  addColumnsIfMissing('Invoices', ['recurring','recurring_day']);
+  addColumnsIfMissing('Vendors', ['performance_score','total_spend','blacklist_reason','contract_expiry']);
+  addColumnsIfMissing('PurchaseRequests', ['approval_stage','dept_head_approval','finance_approval','gm_approval','aging_notified']);
+}
+
+// ── BUDGETS ──────────────────────────────────────────────────────
+
+function ensureBudgetsSheet() {
+  const ss = getSpreadsheet();
+  let sh = ss.getSheetByName('Budgets');
+  const headers = ['id','department','fiscal_year','total_budget','spent',
+    'currency','cost_center','status','created_at','created_by','updated_at'];
+  if (!sh) {
+    sh = ss.insertSheet('Budgets');
+    sh.getRange(1,1,1,headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  } else {
+    const existing = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    headers.forEach(h => { if (!existing.includes(h)) sh.getRange(1, sh.getLastColumn()+1).setValue(h); });
+  }
+  return sh;
+}
+
+function getBudgets() {
+  ensureBudgetsSheet();
+  const sh = getSpreadsheet().getSheetByName('Budgets');
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { rows: [] };
+  const headers = data[0];
+  const rows = data.slice(1).map(r => { const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||'')); return o; }).filter(r=>r.id);
+  return { rows };
+}
+
+function saveBudget(data) {
+  ensureBudgetsSheet();
+  const sh = getSpreadsheet().getSheetByName('Budgets');
+  const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+  const id = 'BDG-' + Date.now();
+  const now = new Date().toISOString();
+  if (!data.spent) data.spent = 0;
+  if (!data.status) data.status = 'Active';
+  const rowObj = Object.assign({ id, created_at: now, updated_at: now }, data);
+  sh.appendRow(headers.map(h => rowObj[h] !== undefined ? rowObj[h] : ''));
+  return { success: true, id };
+}
+
+function updateBudget(data) {
+  const sh = getSpreadsheet().getSheetByName('Budgets');
+  if (!sh) return { error: 'Not found' };
+  const allData = sh.getDataRange().getValues();
+  const headers = allData[0];
+  const idCol = headers.indexOf('id');
+  const rowIdx = allData.findIndex((r,i) => i>0 && String(r[idCol])===String(data.id));
+  if (rowIdx === -1) return { error: 'Not found' };
+  data.updated_at = new Date().toISOString();
+  headers.forEach((h,ci) => { if (data[h]!==undefined) sh.getRange(rowIdx+1,ci+1).setValue(data[h]); });
+  return { success: true };
+}
+
+function deleteBudget(id) {
+  const sh = getSpreadsheet().getSheetByName('Budgets');
+  if (!sh) return { error: 'Not found' };
+  const data = sh.getDataRange().getValues();
+  const idCol = data[0].indexOf('id');
+  const idx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(id));
+  if (idx === -1) return { error: 'Not found' };
+  sh.deleteRow(idx+1);
+  return { success: true };
+}
+
+function checkBudget(department, amount) {
+  const budgets = getBudgets().rows || [];
+  const year = String(new Date().getFullYear());
+  const dept = budgets.find(b => b.department === department && b.fiscal_year === year);
+  if (!dept) return { available: true, message: 'No budget set for this department' };
+  const total = parseFloat(dept.total_budget||0);
+  const spent = parseFloat(dept.spent||0);
+  const amt   = parseFloat(amount||0);
+  const pctAfter = total > 0 ? ((spent+amt)/total)*100 : 0;
+  return {
+    available: (spent+amt) <= total,
+    total, spent, remaining: total-spent, pct_after: pctAfter,
+    alert_level: pctAfter>=100 ? 'exceeded' : pctAfter>=90 ? 'critical' : pctAfter>=75 ? 'warning' : 'ok'
+  };
+}
+
+// ── NOTIFICATIONS ────────────────────────────────────────────────
+
+function ensureNotificationsSheet() {
+  const ss = getSpreadsheet();
+  let sh = ss.getSheetByName('Notifications');
+  const headers = ['id','user_email','type','title','message','link','read','created_at'];
+  if (!sh) {
+    sh = ss.insertSheet('Notifications');
+    sh.getRange(1,1,1,headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function createNotification(data) {
+  ensureNotificationsSheet();
+  const sh = getSpreadsheet().getSheetByName('Notifications');
+  const id = 'NTF-' + Date.now();
+  sh.appendRow([id, data.user_email||'all', data.type||'info', data.title||'',
+    data.message||'', data.link||'', 'false', new Date().toISOString()]);
+  return { success: true, id };
+}
+
+function getNotifications(email) {
+  ensureNotificationsSheet();
+  const sh = getSpreadsheet().getSheetByName('Notifications');
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { rows: [] };
+  const headers = data[0];
+  const rows = data.slice(1)
+    .map(r => { const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||'')); return o; })
+    .filter(r => r.id && (!email || r.user_email===email || r.user_email==='all'))
+    .sort((a,b) => new Date(b.created_at)-new Date(a.created_at))
+    .slice(0,50);
+  return { rows };
+}
+
+function markNotifRead(id) {
+  const sh = getSpreadsheet().getSheetByName('Notifications');
+  if (!sh) return { error: 'Not found' };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id'), readCol = headers.indexOf('read');
+  const idx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(id));
+  if (idx === -1) return { error: 'Not found' };
+  sh.getRange(idx+1, readCol+1).setValue('true');
+  return { success: true };
+}
+
+function markAllNotifsRead(email) {
+  const sh = getSpreadsheet().getSheetByName('Notifications');
+  if (!sh) return { error: 'Not found' };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const emailCol = headers.indexOf('user_email'), readCol = headers.indexOf('read');
+  data.forEach((r,i) => {
+    if (i>0 && (r[emailCol]===email || r[emailCol]==='all')) sh.getRange(i+1, readCol+1).setValue('true');
+  });
+  return { success: true };
+}
+
+// ── AUDIT LOG ────────────────────────────────────────────────────
+
+function ensureAuditSheet() {
+  const ss = getSpreadsheet();
+  let sh = ss.getSheetByName('AuditLog');
+  const headers = ['id','timestamp','user_email','action','sheet','record_id','summary'];
+  if (!sh) {
+    sh = ss.insertSheet('AuditLog');
+    sh.getRange(1,1,1,headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function logAudit(data) {
+  try {
+    ensureAuditSheet();
+    const sh = getSpreadsheet().getSheetByName('AuditLog');
+    sh.appendRow(['AUD-'+Date.now(), new Date().toISOString(),
+      data.user_email||'', data.action||'', data.sheet||'', data.record_id||'', data.summary||'']);
+    return { success: true };
+  } catch(e) { return { error: e.message }; }
+}
+
+function getAuditLog(sheetName, recordId) {
+  ensureAuditSheet();
+  const sh = getSpreadsheet().getSheetByName('AuditLog');
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { rows: [] };
+  const headers = data[0];
+  const rows = data.slice(1)
+    .map(r => { const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||'')); return o; })
+    .filter(r => (!sheetName || r.sheet===sheetName) && (!recordId || r.record_id===recordId))
+    .sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp))
+    .slice(0,200);
+  return { rows };
+}
+
+// ── GLOBAL SEARCH ────────────────────────────────────────────────
+
+function globalSearch(query) {
+  if (!query || String(query).length < 2) return { results: [] };
+  const q = String(query).toLowerCase();
+  const results = [];
+  const sheets = ['Tasks','POs','Invoices','PurchaseRequests','Vendors','Comparisons','Milestones','Expenses'];
+  sheets.forEach(sheetName => {
+    try {
+      const sh = getSpreadsheet().getSheetByName(sheetName);
+      if (!sh) return;
+      const data = sh.getDataRange().getValues();
+      if (data.length < 2) return;
+      const headers = data[0];
+      data.slice(1).forEach(row => {
+        const combined = row.join(' ').toLowerCase();
+        if (combined.includes(q)) {
+          const obj = {}; headers.forEach((h,i) => obj[h]=String(row[i]||''));
+          results.push({
+            sheet: sheetName, id: obj.id||'',
+            title: obj.title || obj.po_number || obj.invoice_number || obj.pr_number ||
+                   obj.vendor_name || obj.milestone_name || obj.category || '',
+          });
+        }
+      });
+    } catch(e) {}
+  });
+  return { results: results.slice(0, 30) };
+}
+
+// ── VENDOR RATING + SPEND ────────────────────────────────────────
+
+function rateVendor(vendorId, scores) {
+  const sh = getSpreadsheet().getSheetByName('Vendors');
+  if (!sh) return { error: 'Not found' };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id'), scoreCol = headers.indexOf('performance_score');
+  const rowIdx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(vendorId));
+  if (rowIdx === -1) return { error: 'Vendor not found' };
+  const avg = (parseFloat(scores.delivery||0)+parseFloat(scores.quality||0)+parseFloat(scores.price||0))/3;
+  const existing = parseFloat(data[rowIdx][scoreCol]||0);
+  const newScore = existing > 0 ? (existing+avg)/2 : avg;
+  sh.getRange(rowIdx+1, scoreCol+1).setValue(newScore.toFixed(1));
+  return { success: true, score: newScore };
+}
+
+function getVendorSpend(vendorName) {
+  let total = 0;
+  ['POs','Invoices'].forEach(sheetName => {
+    const sh = getSpreadsheet().getSheetByName(sheetName);
+    if (!sh) return;
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return;
+    const headers = data[0];
+    const vendorCol = headers.indexOf(sheetName==='POs' ? 'supplier' : 'vendor');
+    const amtCol = headers.indexOf(sheetName==='POs' ? 'total_value' : 'amount');
+    if (vendorCol<0 || amtCol<0) return;
+    data.slice(1).forEach(r => {
+      if (String(r[vendorCol]).toLowerCase() === String(vendorName).toLowerCase()) {
+        total += parseFloat(r[amtCol]) || 0;
+      }
+    });
+  });
+  const sh = getSpreadsheet().getSheetByName('Vendors');
+  if (sh) {
+    const data = sh.getDataRange().getValues();
+    const headers = data[0];
+    const nameCol = headers.indexOf('vendor_name'), spendCol = headers.indexOf('total_spend');
+    const rowIdx = data.findIndex((r,i) => i>0 && String(r[nameCol]).toLowerCase()===String(vendorName).toLowerCase());
+    if (rowIdx > -1 && spendCol > -1) sh.getRange(rowIdx+1, spendCol+1).setValue(total);
+  }
+  return { total_spend: total };
+}
+
+// ── INVOICE AGING ────────────────────────────────────────────────
+
+function getInvoiceAging() {
+  const sh = getSpreadsheet().getSheetByName('Invoices');
+  if (!sh) return { buckets: { current:[], d30:[], d60:[], d90:[] } };
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { buckets: { current:[], d30:[], d60:[], d90:[] } };
+  const headers = data[0];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const buckets = { current: [], d30: [], d60: [], d90: [] };
+  data.slice(1).forEach(row => {
+    const obj = {}; headers.forEach((h,i) => obj[h]=String(row[i]||''));
+    if (obj.status==='Paid' || obj.status==='Cancelled') return;
+    const due = new Date(obj.due_date);
+    if (isNaN(due)) return;
+    const days = Math.floor((today-due)/86400000);
+    if (days <= 0) buckets.current.push(obj);
+    else if (days <= 30) buckets.d30.push(obj);
+    else if (days <= 60) buckets.d60.push(obj);
+    else buckets.d90.push(obj);
+  });
+  return { buckets };
+}
+
+// ── THEME TO SERVER (Users sheet, keyed by email — not id) ───────
+
+function saveUserTheme(email, theme) {
+  const sh = getSpreadsheet().getSheetByName('Users');
+  if (!sh) return { error: 'Users sheet not found' };
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const emailCol = headers.indexOf('email');
+  let themeCol = headers.indexOf('theme');
+  if (themeCol === -1) { themeCol = headers.length; sh.getRange(1, themeCol+1).setValue('theme'); }
+  const rowIdx = data.findIndex((r,i) => i>0 && String(r[emailCol]).toLowerCase()===String(email).toLowerCase());
+  if (rowIdx === -1) return { error: 'User row not found' };
+  sh.getRange(rowIdx+1, themeCol+1).setValue(theme);
+  return { success: true };
 }
 
 // ── RESPONSE ──────────────────────────────────────────────────────

@@ -12,10 +12,12 @@ const CACHE_TTL = new Map([
   ['Invoices',            60 * 1000],
   ['Vendors',            120 * 1000],
   ['PurchaseRequests',    60 * 1000],
-  ['PRLineItems',         60 * 1000]
+  ['PRLineItems',         60 * 1000],
+  ['Notifications',      15 * 1000]
 ]);
 
 const _cache = new Map();
+const _inflight = new Map();
 
 function cacheGet(key) {
   const entry = _cache.get(key);
@@ -40,32 +42,49 @@ async function cachedFetch(key, fetchFn, onUpdate) {
   const cached = cacheGet(key);
   if (cached) {
     if (cached.stale) {
-      fetchFn().then(fresh => {
-        cacheSet(key, fresh);
-        if (onUpdate) onUpdate(fresh);
-      }).catch(() => {});
+      if (!_inflight.has(key)) {
+        const refresh = Promise.resolve()
+          .then(fetchFn)
+          .then(fresh => {
+            cacheSet(key, fresh);
+            if (onUpdate) onUpdate(fresh);
+            return fresh;
+          })
+          .finally(() => _inflight.delete(key));
+        _inflight.set(key, refresh);
+        refresh.catch(() => {});
+      }
     }
     return cached.data;
   }
-  const data = await fetchFn();
-  cacheSet(key, data);
-  return data;
+  if (_inflight.has(key)) return _inflight.get(key);
+  const request = Promise.resolve()
+    .then(fetchFn)
+    .then(data => {
+      cacheSet(key, data);
+      return data;
+    })
+    .finally(() => _inflight.delete(key));
+  _inflight.set(key, request);
+  return request;
 }
 
 // Warm the cache after sign-in — 2 calls instead of 5
 // getDashboard returns tasks/milestones/expenses rows so we can warm those caches too
 function prefetchAll() {
-  callAPI('getDashboard').then(d => {
+  getDashboard().then(d => {
     cacheSet('dashboard', d);
     if (d.tasks)      cacheSet('Tasks',      { rows: d.tasks });
     if (d.milestones) cacheSet('Milestones', { rows: d.milestones });
     if (d.expenses)   cacheSet('Expenses',   { rows: d.expenses });
   }).catch(() => {});
-  callAPI('getAll', { sheet: 'POs' }).then(d => cacheSet('POs', d)).catch(() => {});
+  getAll('POs').catch(() => {});
   
   // Prefetch quotation comparisons and vendors in parallel for instant data load
-  callAPI('getAll', { sheet: 'Comparisons' }).then(d => cacheSet('Comparisons', d)).catch(() => {});
-  callAPI('getAll', { sheet: 'ComparisonVendors' }).then(d => cacheSet('ComparisonVendors', d)).catch(() => {});
-  callAPI('getInvoices').then(d => cacheSet('Invoices', d)).catch(() => {});
-  callAPI('getVendors').then(d => { if (d && d.rows) { window._allVendors = d.rows; } }).catch(() => {});
+  getAll('Comparisons').catch(() => {});
+  getAll('ComparisonVendors').catch(() => {});
+  cachedFetch('Invoices', () => callAPI('getInvoices')).catch(() => {});
+  cachedFetch('Vendors', () => callAPI('getVendors')).then(d => {
+    if (d && d.rows) window._allVendors = d.rows;
+  }).catch(() => {});
 }

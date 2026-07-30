@@ -44,6 +44,10 @@ async function callAPI(action, params = {}, retryCount = 0) {
       console.warn('API call failed, retrying once...', err.message);
       return callAPI(action, params, 1);
     }
+    // Offline write: queue for later sync instead of just failing
+    if (!navigator.onLine && typeof queueOfflineWrite === 'function' && queueOfflineWrite(action, params)) {
+      throw new Error('You are offline — this change has been queued and will sync automatically when you reconnect.');
+    }
     throw err;
 
   } finally {

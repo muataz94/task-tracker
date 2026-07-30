@@ -19,6 +19,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
   <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="dashboard-v2.css?v=1" />
 </head>
 <body>
   <canvas id="particles-canvas" class="particles-canvas"></canvas>
@@ -155,6 +156,19 @@
           </svg>
           <span>Purchase Requests</span>
         </li>
+        <li class="nav-item" data-view="analytics">
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span data-i18n="analytics">Analytics</span>
+        </li>
+        <li class="nav-item" data-view="budget">
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          </svg>
+          <span data-i18n="budget">Budget</span>
+        </li>
         <li class="nav-item" data-view="milestones">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
             <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
@@ -216,6 +230,39 @@
         </button>
         <div id="topbar-title">Dashboard</div>
         <div id="topbar-right" class="topbar-right">
+          <div class="dash-global-search">
+            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input id="global-search-input" type="search"
+              data-i18n-placeholder="dash_search_placeholder"
+              placeholder="Search tasks, POs, PRs, invoices, vendors..."
+              autocomplete="off" aria-autocomplete="list" aria-controls="global-search-results"
+              oninput="handleGlobalSearch(this.value)"/>
+            <kbd>⌘K</kbd>
+            <div id="global-search-results" role="listbox" data-i18n-aria-label="dash_search_results" aria-label="Search results"></div>
+          </div>
+          <div class="dash-refresh-cluster">
+            <button id="dash-refresh-btn" class="dash-topbar-btn" onclick="refreshDashboardV2()" data-i18n-aria-label="refresh" aria-label="Refresh">
+              <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M20 11a8 8 0 10-2.34 5.66"/><polyline points="20 4 20 11 13 11"/>
+              </svg>
+            </button>
+            <span id="dash-last-refresh" aria-live="polite"></span>
+          </div>
+          <div style="position:relative;">
+            <button id="notif-bell-btn" onclick="toggleNotifPanel()" title="Notifications" aria-label="Notifications"
+              style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--glass-bg);border:1px solid var(--border);
+                color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 01-3.46 0"/>
+              </svg>
+              <span id="notif-badge" style="position:absolute;top:-4px;right:-4px;background:var(--accent-red);
+                color:white;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;
+                display:none;align-items:center;justify-content:center;padding:0 3px;">0</span>
+            </button>
+          </div>
           <button id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
             <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <circle cx="12" cy="12" r="5"/>
@@ -239,7 +286,97 @@
       <main id="main">
 
         <!-- Dashboard -->
-        <div id="view-dashboard" class="view active">
+        <div id="view-dashboard" class="view active dashboard-v2">
+          <div id="dashboard-v2-root" class="dash-v2-layout" aria-labelledby="dashboard-title">
+            <div class="dash-v2-shell">
+              <header class="dash-welcome dash-v2-card">
+                <div class="dash-welcome-copy">
+                  <p id="dash-greeting-kicker" class="dash-eyebrow"></p>
+                  <h1 id="dashboard-title"></h1>
+                  <p id="dash-welcome-message" data-i18n="dash_welcome_message"></p>
+                </div>
+                <div class="dash-welcome-insight" aria-hidden="true">
+                  <span data-i18n="dash_command_center">Operations command center</span>
+                </div>
+                <button id="dash-create-task" class="dash-primary-action" type="button" onclick="dashboardV2CreateTask()">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                  <span data-i18n="dash_create_task">Create task</span>
+                </button>
+              </header>
+
+              <section id="dash-kpi-grid" class="dash-kpi-grid" data-i18n-aria-label="dash_summary_aria" aria-label="Dashboard summary"></section>
+
+              <section id="dash-pr-summary" class="dash-v2-card dash-pr-summary" aria-labelledby="dash-pr-title">
+                <div class="dash-card-heading">
+                  <div>
+                    <p class="dash-eyebrow" data-i18n="dash_procurement_pipeline">Procurement pipeline</p>
+                    <h2 id="dash-pr-title" data-i18n="dash_purchase_requests">Purchase Requests</h2>
+                  </div>
+                  <span id="dash-pr-updated" class="dash-updated-label"></span>
+                </div>
+                <div id="dash-pr-content" class="dash-pr-content"></div>
+              </section>
+
+              <section class="dash-analytics-grid" data-i18n-aria-label="dash_analytics_aria" aria-label="Dashboard analytics">
+                <article class="dash-v2-card dash-trend-card">
+                  <div class="dash-card-heading">
+                    <div>
+                      <p class="dash-eyebrow" data-i18n="dash_task_flow">Task flow</p>
+                      <h2 id="dash-trend-title" data-i18n="dash_task_activity_trend">Task activity trend</h2>
+                    </div>
+                    <div id="dash-range-control" class="dash-segmented" data-i18n-aria-label="dash_range_aria" aria-label="Chart date range"></div>
+                  </div>
+                  <div id="dash-trend-body" class="dash-chart-body">
+                    <canvas id="dash-trend-chart" role="img" data-i18n-aria-label="dash_trend_chart_aria" aria-label="Task activity trend chart"></canvas>
+                  </div>
+                  <p id="dash-trend-summary" class="dash-sr-summary" aria-live="polite"></p>
+                </article>
+
+                <article class="dash-v2-card dash-status-card">
+                  <div class="dash-card-heading">
+                    <div>
+                      <p class="dash-eyebrow" data-i18n="dash_workload">Workload</p>
+                      <h2 data-i18n="dash_tasks_by_status">Tasks by status</h2>
+                    </div>
+                  </div>
+                  <div id="dash-status-body" class="dash-chart-body dash-chart-body-small">
+                    <canvas id="dash-status-chart" role="img" data-i18n-aria-label="dash_status_chart_aria" aria-label="Tasks by status chart"></canvas>
+                  </div>
+                  <p id="dash-status-summary" class="dash-sr-summary" aria-live="polite"></p>
+                </article>
+
+                <article class="dash-v2-card dash-spend-card">
+                  <div class="dash-card-heading">
+                    <div>
+                      <p class="dash-eyebrow" data-i18n="dash_procurement_mix">Procurement mix</p>
+                      <h2 data-i18n="dash_spend_overview">Spend overview</h2>
+                    </div>
+                    <select id="dash-spend-currency" class="dash-compact-select" onchange="dashboardV2SelectCurrency(this.value)" data-i18n-aria-label="dash_spend_currency_aria" aria-label="Spend currency"></select>
+                  </div>
+                  <div id="dash-spend-body" class="dash-chart-body dash-chart-body-small">
+                    <canvas id="dash-spend-chart" role="img" data-i18n-aria-label="dash_spend_chart_aria" aria-label="Spend overview chart"></canvas>
+                  </div>
+                  <p id="dash-spend-summary" class="dash-sr-summary" aria-live="polite"></p>
+                </article>
+              </section>
+
+              <section class="dash-operations-grid" data-i18n-aria-label="dash_operations_aria" aria-label="Operational actions">
+                <article id="dash-overdue-tasks-card" class="dash-v2-card"></article>
+                <article id="dash-overdue-pos-card" class="dash-v2-card"></article>
+                <article id="dash-deadlines-card" class="dash-v2-card dash-deadlines-card"></article>
+                <article id="dash-activity-card" class="dash-v2-card"></article>
+                <article id="dash-milestones-card" class="dash-v2-card"></article>
+              </section>
+            </div>
+
+            <aside class="dash-right-rail" data-i18n-aria-label="dash_details_aria" aria-label="Dashboard details">
+              <section id="dash-calendar-card" class="dash-v2-card dash-calendar-card"></section>
+              <section id="dash-vendors-card" class="dash-v2-card dash-vendors-card"></section>
+            </aside>
+          </div>
+
           <!-- Daily quote -->
           <div class="dash-quote-card glass" id="dash-quote-card">
             <div class="quote-mark">&ldquo;</div>
@@ -254,6 +391,38 @@
                   </svg>
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="glass" style="border-radius:var(--r-md);padding:1rem;margin-bottom:1rem;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Quick Actions</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="quick-action-btn" onclick="navigateTo('purchasereqs');setTimeout(()=>showPRModal&&showPRModal(null),300)">📝 New PR</button>
+              <button class="quick-action-btn" onclick="navigateTo('pos')">📋 New PO</button>
+              <button class="quick-action-btn" onclick="navigateTo('invoices');setTimeout(()=>showInvoiceModal&&showInvoiceModal(null),300)">🧾 New Invoice</button>
+              <button class="quick-action-btn" onclick="navigateTo('vendors');setTimeout(()=>showVendorModal&&showVendorModal(null),300)">🏢 New Vendor</button>
+              <button class="quick-action-btn" onclick="showComposeModal&&showComposeModal({})">💬 Send Message</button>
+              <button class="quick-action-btn" onclick="navigateTo('quotations')">⚖️ New Comparison</button>
+            </div>
+          </div>
+
+          <!-- KPI row -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1rem;">
+            <div class="glass-card" style="border-radius:var(--r-md);padding:1rem;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Budget Utilization</div>
+              <div id="kpi-budget-pct" style="font-size:26px;font-weight:800;color:var(--accent-amber);">—</div>
+              <div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden;">
+                <div id="kpi-budget-fill" style="height:100%;background:var(--accent-amber);width:0%;transition:width 0.6s;"></div>
+              </div>
+            </div>
+            <div class="glass-card" style="border-radius:var(--r-md);padding:1rem;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">On-Time Delivery</div>
+              <div id="kpi-otd-rate" style="font-size:26px;font-weight:800;color:var(--accent-green);">—</div>
+            </div>
+            <div class="glass-card" style="border-radius:var(--r-md);padding:1rem;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Avg Vendor Score</div>
+              <div id="kpi-vendor-score" style="font-size:26px;font-weight:800;color:var(--accent);">—</div>
             </div>
           </div>
 
@@ -897,19 +1066,14 @@
                     <div class="settings-card-sub" data-i18n="workspace_access_sub">Control workspace access</div>
                   </div>
                 </div>
-                <button class="btn-manage-perms-hub" id="btn-manage-perms-hub" onclick="showPermissionsHub()">
+                <button class="btn-manage-perms-hub" id="btn-goto-permissions" onclick="navigateTo('permissions')" style="display:none;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   </svg>
-                  Manage Permissions
+                  Permissions Tab →
                 </button>
               </div>
               <div id="team-list"></div>
-              <!-- Permissions (owner only) -->
-              <div id="permissions-section" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
-                <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">User Permissions</div>
-                <div id="permissions-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-              </div>
               <div class="add-member-row">
                 <input id="new-member-email" type="email" placeholder="colleague@gmail.com" />
                 <select id="new-member-role">
@@ -977,6 +1141,10 @@
                   <span data-i18n="milestones_csv">Milestones</span>
                 </button>
               </div>
+              <button class="export-btn" style="width:100%;margin-top:8px;" onclick="exportFullWorkbook()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Export Full Workbook (All Tabs)</span>
+              </button>
               <button class="export-btn export-btn-danger" style="width:100%;margin-top:8px;" onclick="clearLocalCache()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                 <span data-i18n="clear_cache">Clear local cache</span>
@@ -1067,6 +1235,7 @@
               </div>
             </div>
             <div class="tab-header-right">
+              <button class="btn-export" onclick="generateRecurringInvoices()">Generate This Month's Recurring Invoices</button>
               <button class="btn-primary" onclick="showInvoiceModal(null)">+ New Invoice</button>
             </div>
           </div>
@@ -1117,6 +1286,47 @@
           <div id="pr-wrap"></div>
         </div>
 
+        <!-- Budget -->
+        <div id="view-budget" class="view">
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon" style="background:rgba(251,191,36,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="budget_control">Budget Control</h2>
+                <p class="tab-subtitle" data-i18n="budget_control_sub">Annual departmental budgets and utilization</p>
+              </div>
+            </div>
+            <div class="tab-header-right">
+              <button class="btn-primary" onclick="showBudgetModal(null)">+ <span data-i18n="new_budget">New Budget</span></button>
+            </div>
+          </div>
+          <div id="budget-wrap"></div>
+        </div>
+
+        <!-- Analytics -->
+        <div id="view-analytics" class="view">
+          <div class="tab-header glass">
+            <div class="tab-header-left">
+              <div class="tab-header-icon" style="background:rgba(52,211,153,0.15);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6"  y1="20" x2="6"  y2="14"/>
+                </svg>
+              </div>
+              <div>
+                <h2 data-i18n="procurement_analytics">Procurement Analytics</h2>
+                <p class="tab-subtitle" data-i18n="procurement_analytics_sub">Spend analysis, vendor performance, and trends</p>
+              </div>
+            </div>
+          </div>
+          <div id="analytics-wrap"></div>
+        </div>
+
         <!-- Permissions (owner-only) -->
         <div id="view-permissions" class="view">
           <div class="tab-header glass">
@@ -1136,6 +1346,24 @@
             </div>
           </div>
           <div id="perms-view-wrap" style="padding:1.5rem 0;"></div>
+
+          <div id="audit-section" style="margin-top:1.5rem;">
+            <div class="tab-header glass" style="margin-bottom:1rem;">
+              <div class="tab-header-left">
+                <div class="tab-header-icon" style="background:rgba(239,68,68,0.12);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 style="font-size:14px;">Audit Log</h2>
+                  <p class="tab-subtitle">Who changed what and when</p>
+                </div>
+              </div>
+            </div>
+            <div id="audit-log-list" style="max-height:400px;overflow-y:auto;"></div>
+          </div>
         </div>
 
       </main>
@@ -1144,109 +1372,136 @@
 
   <!-- AI Chat Button + Panel -->
   <button id="ai-chat-fab" onclick="toggleAIChat()" title="AI Assistant"
-    style="position:fixed;bottom:5rem;right:1.5rem;z-index:150;width:48px;height:48px;border-radius:50%;border:none;
+    style="position:fixed;bottom:5rem;right:1.5rem;z-index:150;width:52px;height:52px;border-radius:50%;border:none;
     background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 20px rgba(99,102,241,0.5);transition:all 0.2s ease;">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2a10 10 0 110 20 10 10 0 010-20z" fill="rgba(255,255,255,0.15)"/>
-      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/>
+    box-shadow:0 4px 24px rgba(99,102,241,0.6),0 1px 4px rgba(0,0,0,0.3);transition:all 0.2s ease;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M10.5 2.4a.55.55 0 011 0l.85 2.75a4.4 4.4 0 002.5 2.5l2.75.85a.55.55 0 010 1l-2.75.85a4.4 4.4 0 00-2.5 2.5l-.85 2.75a.55.55 0 01-1 0l-.85-2.75a4.4 4.4 0 00-2.5-2.5L4.4 9.55a.55.55 0 010-1l2.75-.85a4.4 4.4 0 002.5-2.5l.85-2.75z"/>
+      <path d="M18.5 14.8a.35.35 0 01.65 0l.5 1.6 1.6.5a.35.35 0 010 .65l-1.6.5-.5 1.6a.35.35 0 01-.65 0l-.5-1.6-1.6-.5a.35.35 0 010-.65l1.6-.5.5-1.6z"/>
     </svg>
   </button>
 
   <!-- AI Chat Panel -->
-  <div id="ai-chat-panel" style="position:fixed;bottom:0;right:0;z-index:149;width:380px;max-height:600px;
+  <div id="ai-chat-panel" style="position:fixed;bottom:0;right:1rem;z-index:149;width:390px;
+    max-height:min(580px,calc(100vh - 5rem));
     display:flex;flex-direction:column;border-radius:var(--r-lg) var(--r-lg) 0 0;
     background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);
     border:1px solid var(--border);border-bottom:none;
-    box-shadow:0 -8px 40px rgba(0,0,0,0.3);
-    transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow:0 -12px 50px rgba(0,0,0,0.35);
+    transform:translateY(calc(100% + 2px));transition:transform 0.32s cubic-bezier(0.34,1.26,0.64,1);
     overflow:hidden;">
 
     <!-- Panel header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
-      border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08));">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);
-          display:flex;align-items:center;justify-content:center;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
-            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="white"/>
-            <circle cx="12" cy="12" r="10"/>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;flex-shrink:0;
+      border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.07));">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 10px rgba(99,102,241,0.4);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+            <path d="M10.5 2.4a.55.55 0 011 0l.85 2.75a4.4 4.4 0 002.5 2.5l2.75.85a.55.55 0 010 1l-2.75.85a4.4 4.4 0 00-2.5 2.5l-.85 2.75a.55.55 0 01-1 0l-.85-2.75a4.4 4.4 0 00-2.5-2.5L4.4 9.55a.55.55 0 010-1l2.75-.85a4.4 4.4 0 002.5-2.5l.85-2.75z"/>
+            <path d="M18.5 14.8a.35.35 0 01.65 0l.5 1.6 1.6.5a.35.35 0 010 .65l-1.6.5-.5 1.6a.35.35 0 01-.65 0l-.5-1.6-1.6-.5a.35.35 0 010-.65l1.6-.5.5-1.6z"/>
           </svg>
         </div>
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text-1);">AI Assistant</div>
-          <div style="font-size:10px;color:var(--text-3);" id="ai-status-label">Configure API key to start</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em;">AI Assistant</div>
+          <div style="font-size:10px;color:var(--text-3);margin-top:1px;" id="ai-status-label">Configure API key to start</div>
         </div>
       </div>
-      <div style="display:flex;gap:6px;">
-        <button onclick="toggleAIChatSettings()" title="Settings" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:26px;height:26px;border-radius:var(--r-xs);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <button onclick="toggleAIChatSettings()" title="Settings"
+          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
+          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
+          justify-content:center;transition:background 0.15s;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
         </button>
-        <button onclick="toggleAIChat()" title="Close" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:26px;height:26px;border-radius:var(--r-xs);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Inter,sans-serif;">✕</button>
+        <button onclick="clearAIChat()" title="Clear chat"
+          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
+          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
+          justify-content:center;transition:background 0.15s;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+        <button onclick="toggleAIChat()" title="Close"
+          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
+          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
+          justify-content:center;font-size:13px;transition:background 0.15s;">✕</button>
       </div>
     </div>
 
-    <!-- Settings panel (hidden by default) -->
-    <div id="ai-settings-panel" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(99,102,241,0.04);">
-      <div class="form-group" style="margin-bottom:10px;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Provider</label>
-        <select id="ai-provider" class="pref-select" style="width:100%;margin-top:4px;" onchange="onAIProviderChange()">
-          <option value="openai">OpenAI (GPT-4o / GPT-4)</option>
-          <option value="anthropic">Anthropic (Claude)</option>
-          <option value="gemini">Google Gemini</option>
-        </select>
+    <!-- Settings panel (hidden by default, scrollable) -->
+    <div id="ai-settings-panel" style="display:none;overflow-y:auto;flex-shrink:0;max-height:260px;
+      padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(99,102,241,0.03);">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">AI Settings</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="form-group">
+          <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;">Provider</label>
+          <select id="ai-provider" class="pref-select" style="width:100%;margin-top:4px;font-size:12px;" onchange="onAIProviderChange()">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;">Model</label>
+          <select id="ai-model" class="pref-select" style="width:100%;margin-top:4px;font-size:12px;">
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-4">gpt-4</option>
+            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+          </select>
+        </div>
       </div>
       <div class="form-group" style="margin-bottom:10px;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Model</label>
-        <select id="ai-model" class="pref-select" style="width:100%;margin-top:4px;">
-          <option value="gpt-4o">gpt-4o</option>
-          <option value="gpt-4">gpt-4</option>
-          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        </select>
-      </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">API Key</label>
-        <input type="password" id="ai-api-key" placeholder="sk-…" style="margin-top:4px;font-size:12px;" />
+        <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px;">
+          API Key
+          <span id="ai-provider-badge" style="display:none;font-size:10px;background:rgba(16,185,129,0.15);color:#10b981;padding:1px 7px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;"></span>
+        </label>
+        <input type="password" id="ai-api-key" placeholder="sk-… or sk-ant-… or AIza…"
+          oninput="onAIKeyInput(this)"
+          style="margin-top:4px;font-size:12px;font-family:monospace;" />
+        <div style="font-size:10px;color:var(--text-4);margin-top:3px;">Provider auto-detected from key prefix</div>
       </div>
       <button class="btn-primary" style="width:100%;font-size:12px;padding:7px;" onclick="saveAISettings()">Save Settings</button>
     </div>
 
-    <!-- Google Search Bar -->
-    <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+    <!-- Search bar -->
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-shrink:0;background:rgba(0,0,0,0.08);">
       <div style="position:relative;flex:1;">
-        <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="ai-google-search" type="text" placeholder="Search Google…"
-          style="width:100%;padding:7px 10px 7px 28px;font-size:12px;background:var(--glass-bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:Inter,sans-serif;"
-          onkeydown="if(event.key==='Enter')googleSearchFromAI()" />
+        <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="ai-google-search" type="text" placeholder="Search with AI…"
+          style="width:100%;padding:6px 10px 6px 26px;font-size:12px;background:var(--glass-bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:Inter,sans-serif;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();googleSearchFromAI();}" />
       </div>
-      <button onclick="googleSearchFromAI()" style="background:rgba(66,133,244,0.15);border:1px solid rgba(66,133,244,0.3);color:#4285f4;padding:7px 12px;border-radius:var(--r-sm);cursor:pointer;font-size:12px;font-weight:600;font-family:Inter,sans-serif;white-space:nowrap;">
-        Google
+      <button onclick="googleSearchFromAI()"
+        style="background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(99,102,241,0.3);
+        color:var(--accent);padding:6px 11px;border-radius:var(--r-sm);cursor:pointer;font-size:11px;font-weight:600;
+        font-family:Inter,sans-serif;white-space:nowrap;display:flex;align-items:center;gap:4px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Search
       </button>
     </div>
 
     <!-- Chat messages -->
-    <div id="ai-messages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:180px;max-height:320px;">
-      <div style="text-align:center;padding:1.5rem 0;">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.2));
-          display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="#8b5cf6"/><circle cx="12" cy="12" r="10"/></svg>
-        </div>
-        <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:4px;">AI Assistant ready</div>
-        <div style="font-size:11px;color:var(--text-3);">Ask anything about your tasks, POs, or workspace</div>
-      </div>
-    </div>
+    <div id="ai-messages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:140px;"></div>
 
     <!-- Input area -->
-    <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;">
-      <textarea id="ai-input" rows="1" placeholder="Ask the AI…"
-        style="flex:1;resize:none;padding:8px 12px;font-size:13px;line-height:1.4;border-radius:var(--r-md);max-height:100px;overflow-y:auto;font-family:Inter,sans-serif;background:var(--glass-bg);border:1px solid var(--border);color:var(--text-1);"
+    <div style="padding:9px 12px;border-top:1px solid var(--border);display:flex;gap:7px;align-items:flex-end;flex-shrink:0;background:rgba(0,0,0,0.06);">
+      <textarea id="ai-input" rows="1" placeholder="Ask anything…"
+        style="flex:1;resize:none;padding:8px 11px;font-size:13px;line-height:1.45;border-radius:var(--r-md);
+        max-height:90px;overflow-y:auto;font-family:Inter,sans-serif;background:var(--glass-bg);
+        border:1px solid var(--border);color:var(--text-1);"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage();}"
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px'"></textarea>
       <button onclick="sendAIMessage()" id="ai-send-btn"
         style="width:34px;height:34px;border-radius:var(--r-md);border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);
-        color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+        box-shadow:0 2px 10px rgba(99,102,241,0.4);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
   </div>
@@ -1306,6 +1561,11 @@
   <script src="messaging.js"></script>
   <script src="purchasereqs.js"></script>
   <script src="ai-chat.js"></script>
+  <script src="notifications.js"></script>
+  <script src="budget.js"></script>
+  <script src="analytics.js"></script>
+  <script src="offline.js"></script>
+  <script src="dashboard-v2.js?v=1"></script>
   <script>
     var idToken = null;
 
@@ -1314,6 +1574,7 @@
     const OWNER_EMAIL  = 'muatazthaaer@gmail.com';
     let currentUserIsAdmin = false;
     let currentUserPermissions = {};
+    let currentView = 'dashboard';
 
     function isOwner() {
       const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
@@ -1564,6 +1825,40 @@
       }
     }, true);
 
+    // ── Keyboard shortcuts ────────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('global-search-input')?.focus();
+      }
+      if (e.key === 'Escape') {
+        closeSearchResults();
+        document.getElementById('msg-modal-overlay')?.remove();
+        document.getElementById('vnd-modal-overlay')?.remove();
+        document.getElementById('pr-modal-overlay')?.remove();
+        document.getElementById('inv-modal-overlay')?.remove();
+        document.getElementById('modal-overlay')?.classList.add('hidden');
+        const notifPanel = document.getElementById('notif-panel');
+        if (notifPanel) { notifPanel.style.display='none'; _notifOpen=false; }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        const tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        const map = {
+          invoices:     () => showInvoiceModal?.(null),
+          vendors:      () => showVendorModal?.(null),
+          purchasereqs: () => showPRModal?.(null),
+        };
+        map[currentView]?.();
+      }
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const views = ['dashboard','tasks','pos','quotations','invoices','vendors','purchasereqs','milestones','expenses'];
+        navigateTo(views[parseInt(e.key)-1] || 'dashboard');
+      }
+    });
+
     // ── THEME SYSTEM ─────────────────────────────────────────────────
     function initTheme() {
       const saved = localStorage.getItem('tt_theme') || 'dark';
@@ -1591,6 +1886,8 @@
       const next = curr === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('tt_theme', next);
+      const themeUser = JSON.parse(localStorage.getItem('tt_user_profile')||'{}');
+      if (themeUser.email) callAPI('saveUserTheme', { email: themeUser.email, theme: next }).catch(()=>{});
       const sidebarLogo = document.getElementById('sidebar-logo');
       const loginIcon   = document.getElementById('login-icon');
       if (sidebarLogo) sidebarLogo.src = next === 'light' ? 'assets/logo-light.svg' : 'assets/logo-dark.svg';
@@ -1808,6 +2105,7 @@
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         prefetchAll();
+        loadNotifications();
         renderTwemoji(document.body);
         initParticles();
         initTopbarScroll();
@@ -1903,6 +2201,12 @@
         currentUserPermissions = { can_edit: true, can_delete: currentUserIsAdmin, can_manage_team: currentUserIsAdmin };
       }
 
+      // Apply server-saved theme preference (syncs across devices), if set
+      if (userRecord?.theme && (userRecord.theme === 'light' || userRecord.theme === 'dark')) {
+        document.documentElement.setAttribute('data-theme', userRecord.theme);
+        localStorage.setItem('tt_theme', userRecord.theme);
+      }
+
       // Save auth confirmation for fast restore on next load
       localStorage.setItem('tt_auth_ok', JSON.stringify({
         email: profile.email, ts: Date.now(),
@@ -1922,6 +2226,7 @@
       document.getElementById('app').classList.remove('hidden');
 
       prefetchAll();
+      loadNotifications();
       renderTwemoji(document.body);
       initParticles();
       initTopbarScroll();
@@ -1988,6 +2293,7 @@
 
     // ── Navigate ─────────────────────────────────────────────────────
     function navigateTo(view) {
+      currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -2008,7 +2314,7 @@
         milestones: 'milestones', expenses: 'expenses',
         chat: 'team_chat', settings: 'settings', quotations: 'quotations',
         invoices: 'invoices', vendors: 'vendors', purchasereqs: 'Purchase Requests',
-        permissions: 'Permissions'
+        permissions: 'Permissions', budget: 'budget', analytics: 'analytics'
       };
       const titleEl = document.getElementById('topbar-title');
       if (titleEl && titleMap[view]) {
@@ -2020,13 +2326,15 @@
 
       const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
 
-      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); loadDailyQuote(); }
+      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
       else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
       else if (view === 'settings')     { stopDashboardRefresh(); loadSettings(); }
       else if (view === 'quotations')   { stopDashboardRefresh(); loadQuotations(); }
       else if (view === 'invoices')     { stopDashboardRefresh(); if (typeof loadInvoices === 'function') loadInvoices(); }
       else if (view === 'vendors')      { stopDashboardRefresh(); if (typeof loadVendors === 'function') loadVendors(); }
       else if (view === 'purchasereqs') { stopDashboardRefresh(); if (typeof loadPRs === 'function') loadPRs(); }
+      else if (view === 'budget')       { stopDashboardRefresh(); if (typeof loadBudgets === 'function') loadBudgets(); }
+      else if (view === 'analytics')    { stopDashboardRefresh(); if (typeof loadAnalytics === 'function') loadAnalytics(); }
       else if (view === 'permissions')  { stopDashboardRefresh(); loadPermissionsView(); }
       else                              { stopDashboardRefresh(); }
 
@@ -2115,7 +2423,8 @@
       if (addBtn)  addBtn.onclick  = addMember;
       if (saveBtn) saveBtn.onclick = savePrefs;
 
-      loadPermissionsSection();
+      const gotoPermBtn = document.getElementById('btn-goto-permissions');
+      if (gotoPermBtn) gotoPermBtn.style.display = isOwner() ? '' : 'none';
     }
 
     async function loadPermissionsSection() {
@@ -2198,6 +2507,7 @@
       const wrap = document.getElementById('perms-view-wrap');
       if (!wrap) return;
       wrap.innerHTML = '<p style="padding:2rem;color:var(--text-3);font-size:13px;">Loading users…</p>';
+      loadAuditSection();
 
       const permToggles = [
         { key:'can_edit_tasks',         label:'Edit tasks',                   default: true  },
@@ -2218,52 +2528,65 @@
         const res   = await callAPI('getAll', { sheet: 'Users' });
         const users = (res.rows || []).filter(u => u.email && u.email.toLowerCase() !== OWNER_EMAIL.toLowerCase());
         if (!users.length) {
-          wrap.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-3);">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin:0 auto 1rem;display:block;opacity:0.3">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-            </svg>
-            <div style="font-size:14px;font-weight:600;margin-bottom:8px;">No team members yet</div>
-            <div style="font-size:12px;margin-bottom:20px;">Add team members to configure their permissions</div>
-            <button class="btn-primary" onclick="showAddMemberModal()">+ Add First Member</button>
+          wrap.innerHTML = `<div class="empty-state">
+            <div class="empty-state-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+            </div>
+            <div class="empty-state-title">No team members yet</div>
+            <div class="empty-state-sub">Add team members to control what they can access and modify</div>
+            <button class="btn-primary" style="margin-top:4px;" onclick="showAddMemberModal()">+ Add First Member</button>
           </div>`;
           return;
         }
-        wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1rem;">
-          ${users.map(u => {
+        const roleColors = { admin:'rgba(245,158,11,0.15)', viewer:'rgba(148,163,184,0.1)', editor:'rgba(99,102,241,0.12)' };
+        const roleTextC  = { admin:'#fbbf24', viewer:'#94a3b8', editor:'#818cf8' };
+        wrap.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;max-width:780px;">
+          ${users.map((u,i) => {
             let perms = {};
             try { perms = JSON.parse(u.permissions || '{}'); } catch(_) {}
+            const role = u.role || 'editor';
+            const enabledCount = permToggles.filter(p => perms[p.key] !== undefined ? perms[p.key] : p.default).length;
             return `
-            <div class="glass" style="border-radius:var(--r-lg);padding:1.25rem;overflow:hidden;">
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding-bottom:12px;border-bottom:1px solid var(--border);">
-                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:white;flex-shrink:0;">
-                  ${(u.email||'?').charAt(0).toUpperCase()}
+            <div class="perm-user-card" id="perm-card-${i}">
+              <div class="perm-user-card-header" onclick="togglePermCard(${i})" style="cursor:pointer;">
+                <div class="perm-user-avatar">${(u.email||'?').charAt(0).toUpperCase()}</div>
+                <div class="perm-user-info">
+                  <div class="perm-user-name">${escapeHtml(u.email)}</div>
+                  <div style="font-size:11px;color:var(--text-3);margin-top:1px;">
+                    <span style="background:${roleColors[role]||roleColors.editor};color:${roleTextC[role]||roleTextC.editor};padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;">${role}</span>
+                    <span style="margin-left:6px;opacity:0.7;">${enabledCount}/${permToggles.length} permissions enabled</span>
+                  </div>
                 </div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:600;font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(u.email)}</div>
-                  <div style="font-size:11px;color:var(--text-3);">${escapeHtml(u.name||'')}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                  <select class="pref-select" style="padding:5px 8px;font-size:11px;"
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
+                  <select class="perm-user-role-select"
                     data-perm-email="${escapeHtml(u.email)}" data-perm-key="role" onchange="saveUserPerm(this)">
-                    <option value="viewer"  ${u.role==='viewer' ?'selected':''}>Viewer</option>
-                    <option value="editor"  ${(u.role||'editor')==='editor'?'selected':''}>Editor</option>
-                    <option value="admin"   ${u.role==='admin'  ?'selected':''}>Admin</option>
+                    <option value="viewer"  ${role==='viewer' ?'selected':''}>Viewer</option>
+                    <option value="editor"  ${role==='editor'?'selected':''}>Editor</option>
+                    <option value="admin"   ${role==='admin'  ?'selected':''}>Admin</option>
                   </select>
-                  <button class="btn-delete" style="padding:5px 8px;font-size:11px;" onclick="removeUserFromPermsView('${escapeHtml(u.email)}')">Remove</button>
+                  <button class="btn-delete" style="padding:5px 7px;border-radius:var(--r-sm);" onclick="removeUserFromPermsView('${escapeHtml(u.email)}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 </div>
+                <svg class="perm-card-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;transition:transform 0.2s;">
+                  <polyline points="6,9 12,15 18,9"/>
+                </svg>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;">
+              <div class="perm-toggles-grid" style="display:none;">
+                <div style="grid-column:1/-1;padding:8px 16px 4px;border-bottom:1px solid rgba(255,255,255,0.04);">
+                  <div style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.07em;">Permissions</div>
+                </div>
                 ${permToggles.map(p => {
                   const checked = perms[p.key] !== undefined ? perms[p.key] : p.default;
-                  return `<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);cursor:pointer;padding:4px 0;user-select:none;">
+                  return `<label class="perm-toggle-row">
                     <input type="checkbox"
                       data-perm-email="${escapeHtml(u.email)}"
                       data-perm-key="${p.key}"
                       onchange="saveUserPerm(this)"
-                      ${checked ? 'checked' : ''}
-                      style="accent-color:var(--accent);width:14px;height:14px;"/>
+                      ${checked ? 'checked' : ''}/>
                     ${escapeHtml(p.label)}
                   </label>`;
                 }).join('')}
@@ -2703,6 +3026,29 @@
         el.classList.add('hiding');
         setTimeout(function() { el.remove(); }, 240);
       }, duration);
+    }
+
+    // ── Audit log (owner-only, shown in Permissions tab) ────────────
+    async function loadAuditSection() {
+      const list = document.getElementById('audit-log-list');
+      if (!list) return;
+      try {
+        const res  = await callAPI('getAuditLog', {});
+        const rows = res.rows || [];
+        if (!rows.length) { list.innerHTML = '<p style="color:var(--text-3);font-size:12px;padding:8px;">No audit records.</p>'; return; }
+        list.innerHTML = rows.slice(0,50).map(r => `
+          <div style="padding:5px 0;border-bottom:1px solid var(--border);
+            display:flex;gap:8px;align-items:flex-start;">
+            <span style="font-size:10px;color:var(--text-4);white-space:nowrap;">
+              ${new Date(r.timestamp).toLocaleDateString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+            <div style="flex:1;">
+              <span style="font-size:11px;font-weight:600;color:var(--text-1);">${escapeHtml(r.user_email||'')}</span>
+              <span style="font-size:11px;color:var(--text-2);"> ${escapeHtml(r.action)} </span>
+              <span style="font-size:11px;color:var(--accent);">${escapeHtml(r.sheet)} #${escapeHtml(r.record_id)}</span>
+              ${r.summary ? `<div style="font-size:10px;color:var(--text-3);">${escapeHtml(r.summary)}</div>` : ''}
+            </div>
+          </div>`).join('');
+      } catch(e) { list.innerHTML = `<p style="color:var(--accent-red);font-size:12px;">${escapeHtml(e.message)}</p>`; }
     }
 
     // ── escapeHtml (used by loadRecentUsers and chat.js) ────────────

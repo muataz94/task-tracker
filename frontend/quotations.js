@@ -221,6 +221,11 @@ function renderCompForm(comp) {
         <label>${bl('Comment / Recommendation','ملاحظات / توصية')}</label>
         <textarea id="qf-comment" rows="3" placeholder="${bl('e.g. Vendor A offers best value with full specification compliance...','مثال: المورد أ يقدم أفضل قيمة مع امتثال كامل للمواصفات...')}">${escapeHtml(comp?.winner_comment||'')}</textarea>
       </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button class="btn-export" onclick="toggleQCViewMode()" id="qc-view-toggle-btn" style="font-size:11px;padding:4px 10px;">
+          ${bl('Side-by-Side View','عرض جنبًا إلى جنب')}
+        </button>
+      </div>
       <div id="qf-scores"></div>
     </div>
 
@@ -572,9 +577,76 @@ function recalcScores() {
   });
   const w      = getWeights();
   const scored = scoreVendors(_compVendors, w);
-  renderScoresTable(scored);
+  renderScoresView(scored);
   updateWinnerDisplay(scored);
   return scored;
+}
+
+// ── Table vs side-by-side view toggle ─────────────────────────────────────────
+let _qcViewMode  = 'table';
+let _qcLastScored = [];
+
+function renderScoresView(scored) {
+  _qcLastScored = scored;
+  if (_qcViewMode === 'sidebyside') renderSideBySideView(scored);
+  else renderScoresTable(scored);
+}
+
+function toggleQCViewMode() {
+  _qcViewMode = _qcViewMode === 'table' ? 'sidebyside' : 'table';
+  const btn = document.getElementById('qc-view-toggle-btn');
+  if (btn) btn.textContent = _qcViewMode === 'table' ? bl('Side-by-Side View','عرض جنبًا إلى جنب') : bl('Table View','عرض الجدول');
+  renderScoresView(_qcLastScored);
+}
+
+function renderSideBySideView(scored) {
+  const el = document.getElementById('qf-scores');
+  if (!el) return;
+  if (!scored.length || scored.every(s=>!s.vendor_name)) {
+    el.innerHTML = `<p class="empty" style="padding:1rem;text-align:center;">${bl('Enter vendor data above to see live scores.','أدخل بيانات الموردين أعلاه لمشاهدة النقاط المباشرة.')}</p>`;
+    return;
+  }
+
+  const SCORE_KEYS = ['price_score','requirements_score','delivery_score','warranty_score','payment_score','commitment_score','total_score'];
+  const LABELS     = [bl('Price','السعر'),bl('Requirements','المتطلبات'),bl('Delivery','التسليم'),
+                      bl('Warranty','الضمان'),bl('Payment','الدفع'),bl('Commitment','الالتزام'),'TOTAL'];
+
+  const colorMap = SCORE_KEYS.map(key => {
+    const vals = scored.map(s => parseFloat(s[key])||0);
+    return scored.map((_,i) => colColor(vals, i));
+  });
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="qc-stbl">
+        <thead>
+          <tr>
+            <th style="text-align:left;">${bl('Criteria','المعيار')}</th>
+            ${scored.map((s,ri) => `<th>${ri===0?'🏆 ':''}${escapeHtml(s.vendor_name||bl('Vendor','مورد')+' '+(ri+1))}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align:left;font-weight:600;">${bl('Cost','التكلفة')}</td>
+            ${scored.map(s => `<td style="font-weight:600;color:var(--accent-amber);">${Number(s.total_cost||0).toLocaleString()}</td>`).join('')}
+          </tr>
+          ${SCORE_KEYS.map((key, ci) => {
+            const isTotal = key === 'total_score';
+            return `
+              <tr>
+                <td style="text-align:left;${isTotal?'font-weight:700;':''}">${LABELS[ci]}</td>
+                ${scored.map((s, ri) => {
+                  const c = colorMap[ci][ri];
+                  const style = c==='best' ? 'color:var(--accent-green);font-weight:700;' :
+                                c==='worst'? 'color:var(--accent-red);' :
+                                isTotal    ? 'font-weight:700;color:var(--text-1);' : '';
+                  return `<td style="${style}">${parseFloat(s[key]||0).toFixed(isTotal?2:1)}</td>`;
+                }).join('')}
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 function manualRecalc() {

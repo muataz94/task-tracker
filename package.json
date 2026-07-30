@@ -2,11 +2,15 @@
   "name": "task-tracker",
   "version": "1.0.0",
   "type": "module",
+  "homepage": "https://muataz94.github.io/task-tracker",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "cssnano": "^7.0.0",
+    "gh-pages": "^6.3.0",
     "html-minifier-terser": "^7.2.0",
     "postcss": "^8.4.0",
     "terser": "^5.36.0"

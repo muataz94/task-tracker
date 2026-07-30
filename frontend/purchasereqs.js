@@ -53,12 +53,34 @@ async function loadPRs() {
     const res = await callAPI('getPRs');
     _allPRs   = res.rows || [];
     renderPRTable();
+    checkPRAging();
     const sub = document.getElementById('pr-subtitle');
     if (sub) sub.textContent = _allPRs.length + ' request' + (_allPRs.length !== 1 ? 's' : '');
   } catch(e) {
     const tw = document.getElementById('pr-table-wrap');
     if (tw) tw.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--accent-red);">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
+}
+
+// ── Aging alert — run once per session load, not on every render ─────────────
+let _prAgingChecked = false;
+function checkPRAging() {
+  if (_prAgingChecked) return;
+  _prAgingChecked = true;
+  const now = new Date();
+  _allPRs.filter(pr => pr.status === 'Submitted' && pr.created_at && pr.aging_notified !== 'true')
+    .forEach(pr => {
+      const ageDays = (now - new Date(pr.created_at)) / 86400000;
+      if (ageDays < 5) return;
+      pr.aging_notified = 'true';
+      callAPI('createNotif', {
+        user_email: 'all', type: 'approval',
+        title: 'PR Aging Alert',
+        message: `${pr.pr_number} has been awaiting approval for ${Math.floor(ageDays)} day(s)`,
+        link: '#purchasereqs'
+      }).catch(() => {});
+      callAPI('updatePR', { id: pr.id, aging_notified: 'true' }).catch(() => {});
+    });
 }
 
 function setPRFilter(f) {
@@ -220,6 +242,8 @@ async function showPRModal(id) {
 
         ${renderPRLineItemsForm(existingItems)}
 
+        ${['Submitted','Approved'].includes(pr.status) ? renderPRApprovalStages(pr) : ''}
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="form-group"><label>Approved By</label><input id="pr-f-approvedby" type="text" value="${escapeHtml(pr.approved_by||'')}"/></div>
           <div class="form-group"><label>Approval Date</label><input id="pr-f-approvaldate" type="date" value="${escapeHtml(pr.approval_date||'')}"/></div>
@@ -246,6 +270,48 @@ async function showPRModal(id) {
   document.body.insertAdjacentHTML('beforeend', html);
   _attachPRLineItemListeners();
   updatePRTotal();
+}
+
+function renderPRApprovalStages(pr) {
+  const canApprove = !!(typeof currentUserPermissions !== 'undefined' && currentUserPermissions && currentUserPermissions.can_approve);
+  const stage = parseInt(pr.approval_stage) || 0;
+  const stages = [
+    { key: 'dept_head_approval', label: 'Dept Head', min: 0 },
+    { key: 'finance_approval',   label: 'Finance',   min: 1 },
+    { key: 'gm_approval',        label: 'GM',         min: 2 },
+  ];
+  return `
+    <div style="background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.2);
+      border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">
+        Approval Stages ${!canApprove ? '(view-only — requires approval permission)' : ''}
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        ${stages.map((s, idx) => `
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);">
+            <input type="checkbox" id="pr-f-${s.key}" ${pr[s.key]==='true'||pr[s.key]===true?'checked':''}
+              ${canApprove && stage >= s.min ? '' : 'disabled'}
+              onchange="onPRApprovalStageChange(this, ${idx})"/>
+            ${s.label}
+          </label>`).join('')}
+      </div>
+    </div>`;
+}
+
+function onPRApprovalStageChange(el, stageIdx) {
+  if (!el.checked) return;
+  const hidden = document.getElementById('pr-f-approval-stage-hidden');
+  const newStage = stageIdx + 1;
+  if (hidden) hidden.value = newStage;
+  else {
+    const input = document.createElement('input');
+    input.type = 'hidden'; input.id = 'pr-f-approval-stage-hidden'; input.value = newStage;
+    document.getElementById('pr-modal-overlay')?.appendChild(input);
+  }
+  if (newStage >= 3) {
+    const statusEl = document.getElementById('pr-f-status');
+    if (statusEl) statusEl.value = 'Approved';
+  }
 }
 
 function renderPRLineItemsForm(items) {
@@ -402,6 +468,22 @@ async function submitPRForm() {
     created_by:       user.email || '',
   };
 
+  if (['Submitted','Approved'].includes(payload.status)) {
+    payload.dept_head_approval = document.getElementById('pr-f-dept_head_approval')?.checked ? 'true' : 'false';
+    payload.finance_approval   = document.getElementById('pr-f-finance_approval')?.checked   ? 'true' : 'false';
+    payload.gm_approval        = document.getElementById('pr-f-gm_approval')?.checked        ? 'true' : 'false';
+    const stageHidden = document.getElementById('pr-f-approval-stage-hidden');
+    if (stageHidden) payload.approval_stage = stageHidden.value;
+  }
+
+  if (payload.department && totalEst) {
+    const check = typeof checkDeptBudget === 'function' ? await checkDeptBudget(payload.department, totalEst) : null;
+    if (check && check.alert_level && check.alert_level !== 'ok') {
+      const proceed = confirm(`Budget ${check.alert_level.toUpperCase()}: this PR will bring ${payload.department} to ${check.pct_after.toFixed(0)}% of budget. Continue?`);
+      if (!proceed) return;
+    }
+  }
+
   const btn = document.querySelector('#pr-modal-overlay .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
@@ -414,16 +496,26 @@ async function submitPRForm() {
       if (idx !== -1) Object.assign(_allPRs[idx], payload);
       prId = _editingPRId;
       showToast('PR updated ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'update', sheet:'PurchaseRequests', record_id: prId, summary: `Updated PR ${number}` }).catch(()=>{});
     } else {
       const res = await callAPI('savePR', payload);
       prId = res.id;
       payload.id = prId;
       _allPRs.unshift(payload);
       showToast('PR created ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'create', sheet:'PurchaseRequests', record_id: prId, summary: `Created PR ${number}` }).catch(()=>{});
     }
     // Save line items
     if (items.length && prId) {
       await callAPI('savePRLineItems', { pr_id: prId, items }).catch(() => {});
+    }
+    if (payload.status === 'Submitted') {
+      callAPI('createNotif', {
+        user_email: 'all', type: 'approval',
+        title: 'PR Submitted for Approval',
+        message: `${number} — ${desc}`,
+        link: '#purchasereqs'
+      }).catch(() => {});
     }
     closePRModal();
     renderPRTable();
@@ -440,6 +532,8 @@ async function deletePRById(id) {
     _allPRs = _allPRs.filter(p => p.id !== id);
     renderPRTable();
     showToast('PR deleted', 'info');
+    const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+    callAPI('logAudit', { user_email: user.email||'', action:'delete', sheet:'PurchaseRequests', record_id: id, summary: 'Deleted PR' }).catch(()=>{});
   } catch(e) { showToast('Delete failed: ' + e.message, 'error'); }
 }
 

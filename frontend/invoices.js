@@ -3,6 +3,8 @@
 let _allInvoices  = [];
 let _editingInvId = null;
 let _invFilter    = 'all';
+let _invAgingFilter = null;
+let _invAgingBuckets = null;
 
 const INV_STATUSES        = ['Unpaid', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'];
 const INV_CURRENCIES      = ['IQD', 'USD', 'EUR', 'GBP', 'AED', 'SAR'];
@@ -51,6 +53,7 @@ async function loadInvoices() {
       </button>
       <span class="row-count" id="inv-row-count"></span>
     </div>
+    <div id="inv-aging-pills" style="display:flex;gap:8px;margin-bottom:1rem;"></div>
     <div id="inv-table-wrap"></div>`;
 
   try {
@@ -60,6 +63,7 @@ async function loadInvoices() {
     renderInvoiceTable();
     updateInvoiceSidebarBadge();
     refreshInvoiceDashboard();
+    loadInvoiceAging();
     const sub = document.getElementById('invoices-subtitle');
     if (sub) sub.textContent = _allInvoices.length + ' invoice' + (_allInvoices.length !== 1 ? 's' : '');
   } catch(e) {
@@ -96,9 +100,11 @@ function renderInvoiceTable() {
   if (!wrap) return;
 
   const search = (document.getElementById('inv-search')?.value || '').toLowerCase();
+  const agingIds = _invAgingFilter && _invAgingBuckets ? new Set((_invAgingBuckets[_invAgingFilter]||[]).map(r=>r.id)) : null;
   let rows = _allInvoices.filter(inv => {
     const effectiveStatus = (inv._isOverdue && inv.status === 'Unpaid') ? 'Overdue' : inv.status;
     if (_invFilter !== 'all' && effectiveStatus !== _invFilter) return false;
+    if (agingIds && !agingIds.has(inv.id)) return false;
     if (search) {
       const hay = [inv.invoice_number, inv.vendor, inv.po_reference, inv.status, inv.description, inv.approved_by].join(' ').toLowerCase();
       if (!hay.includes(search)) return false;
@@ -152,6 +158,7 @@ function renderInvoiceTable() {
     </div>
     <div id="inv-bulk-bar" class="inv-bulk-bar hidden">
       <span id="inv-bulk-count">0 selected</span>
+      <button class="btn-edit" onclick="bulkMarkPaid()">Mark Paid</button>
       <button class="btn-delete" onclick="bulkDeleteInvoices()">Delete Selected</button>
       <button class="btn-export" onclick="bulkExportInvoices()">Export Selected</button>
     </div>`;
@@ -261,6 +268,8 @@ async function deleteInvoiceById(id) {
     updateInvoiceSidebarBadge();
     refreshInvoiceDashboard();
     showToast('Invoice deleted', 'info');
+    const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+    callAPI('logAudit', { user_email: user.email||'', action:'delete', sheet:'Invoices', record_id: id, summary: 'Deleted invoice' }).catch(()=>{});
   } catch(e) { showToast('Delete failed: ' + e.message, 'error'); }
 }
 
@@ -292,6 +301,85 @@ async function bulkDeleteInvoices() {
 function bulkExportInvoices() {
   const ids  = [...document.querySelectorAll('.inv-row-check:checked')].map(cb => cb.value);
   exportInvoicesCSV(_allInvoices.filter(i => ids.includes(i.id)));
+}
+
+// ── Recurring invoices (manual trigger — no backend cron) ────────────────────
+async function generateRecurringInvoices() {
+  const now = new Date();
+  const monthKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const recurring = _allInvoices.filter(i => i.recurring === 'monthly');
+  if (!recurring.length) { showToast('No recurring invoices set up', 'info'); return; }
+
+  const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
+  let created = 0;
+  for (const src of recurring) {
+    const generatedNumber = `${src.invoice_number}-${monthKey}`;
+    const alreadyExists = _allInvoices.some(i => i.invoice_number === generatedNumber);
+    if (alreadyExists) continue;
+    const day = parseInt(src.recurring_day) || 1;
+    const invoiceDate = `${monthKey}-${String(day).padStart(2,'0')}`;
+    const payload = {
+      invoice_number: generatedNumber,
+      vendor: src.vendor, amount: src.amount, currency: src.currency || 'IQD',
+      invoice_date: invoiceDate, due_date: src.due_date, status: 'Unpaid',
+      po_reference: src.po_reference, description: `Recurring: ${src.description||src.invoice_number}`,
+      recurring: 'none', created_by: user.email || '',
+    };
+    try {
+      const res = await callAPI('saveInvoice', payload);
+      payload.id = res.id;
+      _allInvoices.push(payload);
+      created++;
+    } catch(e) {}
+  }
+  if (created) {
+    autoMarkOverdueInvoices();
+    renderInvoiceTable();
+    refreshInvoiceDashboard();
+  }
+  showToast(created ? `${created} recurring invoice(s) generated ✓` : 'All recurring invoices already generated for this month', created ? 'success' : 'info');
+}
+
+// ── Aging report ──────────────────────────────────────────────────────────────
+async function loadInvoiceAging() {
+  const el = document.getElementById('inv-aging-pills');
+  if (!el) return;
+  try {
+    const res = await callAPI('getInvoiceAging');
+    _invAgingBuckets = res.buckets || { current:[], d30:[], d60:[], d90:[] };
+    renderInvoiceAgingPills();
+  } catch(e) {}
+}
+
+function renderInvoiceAgingPills() {
+  const el = document.getElementById('inv-aging-pills');
+  if (!el || !_invAgingBuckets) return;
+  const labels = { current: 'Current', d30: '1-30 Days', d60: '31-60 Days', d90: '61+ Days' };
+  el.innerHTML = Object.keys(labels).map(key => {
+    const count = (_invAgingBuckets[key] || []).length;
+    const active = _invAgingFilter === key;
+    return `<button class="inv-filter-btn${active?' active':''}" onclick="setInvAgingFilter('${key}')">
+      ${labels[key]} (${count})
+    </button>`;
+  }).join('');
+}
+
+function setInvAgingFilter(key) {
+  _invAgingFilter = _invAgingFilter === key ? null : key;
+  renderInvoiceAgingPills();
+  renderInvoiceTable();
+}
+
+async function bulkMarkPaid() {
+  const ids = [...document.querySelectorAll('.inv-row-check:checked')].map(cb => cb.value);
+  if (!ids.length) return;
+  for (const id of ids) {
+    await callAPI('updateInvoice', { id, status: 'Paid' }).catch(()=>{});
+    const inv = _allInvoices.find(i => i.id === id);
+    if (inv) inv.status = 'Paid';
+  }
+  renderInvoiceTable(); refreshInvoiceDashboard();
+  showToast(`${ids.length} invoice(s) marked paid`, 'success');
 }
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
@@ -563,6 +651,19 @@ async function showInvoiceModal(id) {
           <div class="form-group"><label>Attachment URL</label><input id="inv-f-attach" type="url" placeholder="https://…" value="${escapeHtml(inv.attachment_url||'')}"/></div>
         </div>
 
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group"><label>Recurring</label>
+            <select id="inv-f-recurring" class="pref-select" style="width:100%;" onchange="toggleInvRecurringDay(this.value)">
+              <option value="none" ${(inv.recurring||'none')==='none'?'selected':''}>None</option>
+              <option value="monthly" ${inv.recurring==='monthly'?'selected':''}>Monthly</option>
+            </select>
+          </div>
+          <div id="inv-f-recurring-day-wrap" class="form-group" style="display:${inv.recurring==='monthly'?'':'none'};">
+            <label>Day of Month</label>
+            <input id="inv-f-recurring-day" type="number" min="1" max="28" placeholder="e.g. 1" value="${escapeHtml(inv.recurring_day||'')}"/>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom:1.25rem;">
           <label>Notes</label>
           <textarea id="inv-f-notes" rows="2" placeholder="Additional notes…" style="resize:vertical;">${escapeHtml(inv.notes||'')}</textarea>
@@ -604,6 +705,11 @@ function toggleInvPaymentSection(status) {
   if (payMethodEl) toggleInvBankField(payMethodEl.value);
 }
 
+function toggleInvRecurringDay(value) {
+  const wrap = document.getElementById('inv-f-recurring-day-wrap');
+  if (wrap) wrap.style.display = value === 'monthly' ? '' : 'none';
+}
+
 function toggleInvBankField(method) {
   const bankWrap = document.getElementById('inv-f-bank-wrap');
   if (!bankWrap) return;
@@ -631,6 +737,7 @@ function onInvVendorSelect(sel) {
   if (nameInput && val) nameInput.value = val;
   const opt = sel.options[sel.selectedIndex];
   if (opt && opt.dataset.currency) { const cf = document.getElementById('inv-f-currency'); if (cf) cf.value = opt.dataset.currency; }
+  if (typeof warnIfVendorBlocked === 'function') warnIfVendorBlocked(val);
 }
 
 function onInvPOSelect(sel) {
@@ -682,6 +789,8 @@ async function submitInvoiceForm() {
     notes:          document.getElementById('inv-f-notes')?.value?.trim() || '',
     linked_po_id:   document.getElementById('inv-linked-po')?.value || '',
     amount_paid:    g('inv-f-amountpaid') || '',
+    recurring:      document.getElementById('inv-f-recurring')?.value || 'none',
+    recurring_day:  g('inv-f-recurring-day') || '',
     created_by:     user.email || '',
   };
 
@@ -695,11 +804,13 @@ async function submitInvoiceForm() {
       const idx = _allInvoices.findIndex(i => i.id === _editingInvId);
       if (idx !== -1) Object.assign(_allInvoices[idx], payload);
       showToast('Invoice updated ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'update', sheet:'Invoices', record_id: _editingInvId, summary: `Updated invoice ${number}` }).catch(()=>{});
     } else {
       const res  = await callAPI('saveInvoice', payload);
       payload.id = res.id;
       _allInvoices.unshift(payload);
       showToast('Invoice created ✓', 'success');
+      callAPI('logAudit', { user_email: user.email||'', action:'create', sheet:'Invoices', record_id: res.id||'', summary: `Created invoice ${number}` }).catch(()=>{});
     }
     closeInvoiceModal();
     autoMarkOverdueInvoices();

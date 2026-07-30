@@ -20,11 +20,16 @@ writeFileSync(join(DIST, '.nojekyll'), '');
 cpSync(join(SRC, 'assets'), join(DIST, 'assets'), { recursive: true });
 console.log('✓ assets copied');
 
+// Copy service worker as-is (not minified — keep it simple/reliable)
+cpSync(join(SRC, 'sw.js'), join(DIST, 'sw.js'));
+console.log('✓ sw.js copied');
+
 // Minify JS — keep top-level names intact (called from HTML/other scripts)
 const jsFiles = [
   'config.js', 'i18n.js', 'cache.js', 'api.js',
   'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js', 'invoices.js', 'vendors.js',
-  'messaging.js', 'purchasereqs.js'
+  'messaging.js', 'purchasereqs.js', 'ai-chat.js', 'notifications.js', 'budget.js', 'analytics.js', 'offline.js',
+  'dashboard-v2.js'
 ];
 for (const file of jsFiles) {
   const src = readFileSync(join(SRC, file), 'utf8');
@@ -38,10 +43,13 @@ for (const file of jsFiles) {
 }
 
 // Minify CSS
-const cssSrc = readFileSync(join(SRC, 'style.css'), 'utf8');
-const cssResult = await postcss([cssnano({ preset: 'default' })]).process(cssSrc, { from: undefined });
-writeFileSync(join(DIST, 'style.css'), cssResult.css);
-console.log(`✓ ${'style.css'.padEnd(16)} ${kb(cssSrc.length).padStart(8)} → ${kb(cssResult.css.length).padStart(8)}`);
+const cssFiles = ['style.css', 'dashboard-v2.css'];
+for (const file of cssFiles) {
+  const cssSrc = readFileSync(join(SRC, file), 'utf8');
+  const cssResult = await postcss([cssnano({ preset: 'default' })]).process(cssSrc, { from: undefined });
+  writeFileSync(join(DIST, file), cssResult.css);
+  console.log(`✓ ${file.padEnd(16)} ${kb(cssSrc.length).padStart(8)} → ${kb(cssResult.css.length).padStart(8)}`);
+}
 
 // Minify HTML (also minifies any inline <style>/<script> blocks)
 const htmlSrc = readFileSync(join(SRC, 'index.html'), 'utf8');
@@ -62,7 +70,7 @@ console.log(`✓ ${'index.html'.padEnd(16)} ${kb(htmlSrc.length).padStart(8)} �
 
 // Summary
 let totalSrc = 0, totalDist = 0;
-[...jsFiles, 'style.css', 'index.html'].forEach(f => {
+[...jsFiles, ...cssFiles, 'index.html'].forEach(f => {
   totalSrc  += statSync(join(SRC, f)).size;
   totalDist += statSync(join(DIST, f)).size;
 });
