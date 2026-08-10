@@ -262,6 +262,8 @@ test('unauthenticated startup resolves to the login screen without persisting a 
   await expect(page.locator('#loading-screen')).toHaveClass(/hidden/);
   await expect(page.locator('#login-screen')).not.toHaveClass(/hidden/);
   await expect(page.locator('#app')).toHaveClass(/hidden/);
+  await expect(page.locator('#ai-chat-fab')).toBeHidden();
+  await expect(page.locator('#ai-chat-panel')).toBeHidden();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
   expect(await page.evaluate(() => window.__authMock.initializeCount)).toBe(1);
 
@@ -696,7 +698,7 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
   const swResponse = await page.request.get(new URL('sw.js', page.url()).href);
   expect(swResponse.status()).toBe(200);
   const serviceWorker = await swResponse.text();
-  expect(serviceWorker).toContain("tasktracker-shell-v6");
+  expect(serviceWorker).toContain("tasktracker-shell-v7");
   expect(serviceWorker).not.toContain('tt_user_profile');
   expect(serviceWorker).not.toContain('API_URL');
 });
