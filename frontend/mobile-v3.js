@@ -123,6 +123,7 @@ function renderMobileV3Tasks() {
     overdue: rows.filter(row => mobileV3IsOverdue(row)).length,
   };
   summary.innerHTML = [
+    mobileV3SummaryItem('tasks', rows.length, 'is-neutral', 'all'),
     mobileV3SummaryItem('open', counts.open, 'is-accent', 'all'),
     mobileV3SummaryItem('in_progress', counts.in_progress, 'is-progress', 'all'),
     mobileV3SummaryItem('completed', counts.completed, 'is-success', 'completed'),
@@ -279,8 +280,17 @@ function mobileV3PRCard(row) {
 
 function renderMobileV3Vendors() {
   const list = document.getElementById('mobile-v3-vendor-list');
+  const summary = document.getElementById('mobile-v4-vendor-summary');
   if (!list) return;
   const rows = typeof _allVendors !== 'undefined' ? _allVendors : (window._allVendors || []);
+  if (summary) {
+    summary.innerHTML = [
+      mobileV3SummaryItem('vendors', rows.length, 'is-accent'),
+      mobileV3SummaryItem('active', rows.filter(row => mobileV3Normalize(row.status) === 'active').length, 'is-success'),
+      mobileV3SummaryItem('inactive', rows.filter(row => mobileV3Normalize(row.status) === 'inactive').length, 'is-warning'),
+      mobileV3SummaryItem('blocked', rows.filter(row => mobileV3Normalize(row.status) === 'blocked').length, 'is-danger'),
+    ].join('');
+  }
   const query = (document.getElementById('mobile-v3-vendor-search')?.value || '').trim().toLowerCase();
   const status = document.getElementById('mobile-v3-vendor-status')?.value || '';
   const filtered = rows.filter(row => {

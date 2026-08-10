@@ -6,8 +6,15 @@ const TRANSLATIONS = {
     purchase_requests:'Purchase Requests',
     permissions:      'Permissions',
     primary_navigation: 'Primary navigation',
+    mobile_secondary_navigation: 'Workspace navigation',
+    mobile_search:    'Search workspace',
     mobile_orders:    'Orders',
     mobile_requests:  'Requests',
+    vendor_summary:   'Vendor summary',
+    appearance:       'Appearance',
+    appearance_subtitle: 'Choose the theme used on this device.',
+    theme_light:      'Light',
+    theme_dark:       'Dark',
     milestones:       'Milestones',
     expenses:         'Expenses',
     team_chat:        'Team Chat',
@@ -459,8 +466,15 @@ const TRANSLATIONS = {
     purchase_requests:'طلبات الشراء الداخلية',
     permissions:      'الصلاحيات',
     primary_navigation: 'التنقل الرئيسي',
+    mobile_secondary_navigation: 'التنقل في مساحة العمل',
+    mobile_search:    'البحث في مساحة العمل',
     mobile_orders:    'الطلبات',
     mobile_requests:  'الطلبات الداخلية',
+    vendor_summary:   'ملخص الموردين',
+    appearance:       'المظهر',
+    appearance_subtitle: 'اختر السمة المستخدمة على هذا الجهاز.',
+    theme_light:      'فاتح',
+    theme_dark:       'داكن',
     milestones:       'المراحل',
     expenses:         'المصروفات',
     team_chat:        'دردشة الفريق',
@@ -967,7 +981,8 @@ function applyLanguage() {
       milestones: 'milestones', expenses: 'expenses',
       chat: 'team_chat', settings: 'settings', quotations: 'quotations',
       invoices: 'invoices', vendors: 'vendors', purchasereqs: 'purchase_requests',
-      permissions: 'permissions', budget: 'budget', analytics: 'analytics'
+      permissions: 'users_roles', budget: 'budget', analytics: 'analytics',
+      ai: 'ai_assistant', integrations: 'integrations'
     };
     if (titleEl && titleMap[view]) titleEl.textContent = t(titleMap[view]);
   }

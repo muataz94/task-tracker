@@ -5,7 +5,7 @@
   "homepage": "https://muataz94.github.io/task-tracker",
   "scripts": {
     "build": "node build.mjs",
-    "lint": "eslint build.mjs frontend/ai-chat.js frontend/icons.js frontend/api.js frontend/forms-v4.js frontend/mobile-nav.js frontend/mobile-v3.js frontend/desktop-v1.js frontend/notifications.js worker/ai-gateway/src/index.js playwright.config.js tests/**/*.js tests/**/*.mjs",
+    "lint": "eslint build.mjs frontend/ai-chat.js frontend/icons.js frontend/api.js frontend/forms-v4.js frontend/mobile-nav.js frontend/mobile-v3.js frontend/mobile-v4.js frontend/desktop-v1.js frontend/notifications.js worker/ai-gateway/src/index.js playwright.config.js tests/**/*.js tests/**/*.mjs",
     "test:gateway": "node --test tests/gateway/*.test.js",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test",
