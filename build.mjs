@@ -22,6 +22,7 @@ console.log('✓ assets copied');
 
 // Copy service worker as-is (not minified — keep it simple/reliable)
 cpSync(join(SRC, 'sw.js'), join(DIST, 'sw.js'));
+cpSync(join(SRC, 'manifest.webmanifest'), join(DIST, 'manifest.webmanifest'));
 console.log('✓ sw.js copied');
 
 // Minify JS — keep top-level names intact (called from HTML/other scripts)

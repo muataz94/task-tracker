@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#060812"/>
+  <rect x="112" y="112" width="288" height="288" rx="72" fill="#085041" stroke="#1D9E75" stroke-width="16"/>
+  <text x="256" y="316" font-family="Georgia, 'Times New Roman', serif" font-size="184" font-weight="700" fill="#5DCAA5" text-anchor="middle">T</text>
+  <line x1="278" y1="342" x2="360" y2="342" stroke="#9FE1CB" stroke-width="18" stroke-linecap="round"/>
+</svg>
