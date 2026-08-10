@@ -29,17 +29,26 @@ test.afterEach(async ({ page }) => {
 
 const populatedData = {
   tasks: [
-    { id: 'task-late', title: 'Late task', status: 'open', due_date: '2020-01-01', priority: 'high' },
-    { id: 'task-soon', title: 'Upcoming task', status: 'open', due_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), priority: 'medium' },
+    { id: 'task-late', title: 'Late task', status: 'open', due_date: '2020-01-01', priority: 'high', assignee: 'Amina Hassan', project: 'Office renewal' },
+    { id: 'task-soon', title: 'Upcoming task', status: 'open', due_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), priority: 'medium', assignee: 'Omar Ali', project: 'Equipment' },
+    { id: 'task-progress', title: 'Review supplier quotations', status: 'in_progress', priority: 'medium', assignee: 'Test User', project: 'Procurement' },
+    { id: 'task-done', title: 'Approve facilities scope', status: 'done', priority: 'low', assignee: 'Sara Karim', project: 'Facilities' },
   ],
   pos: [
-    { id: 'po-late', po_number: 'PO-100', supplier: 'Vendor One', status: 'submitted', expected_delivery: '2020-01-02', amount: 1200, currency: 'IQD' },
+    { id: 'po-late', po_number: 'PO-100', supplier: 'Vendor One', item_description: 'Office equipment', status: 'submitted', expected_delivery: '2020-01-02', total_value: 1200, currency: 'IQD', created_at: new Date().toISOString() },
+    { id: 'po-received', po_number: 'PO-101', supplier: 'Technology Partner', item_description: 'Network equipment', status: 'received', expected_delivery: new Date().toISOString().slice(0, 10), total_value: 2850, currency: 'USD', created_at: new Date().toISOString() },
   ],
   milestones: [
     { id: 'mile-soon', name: 'Delivery milestone', status: 'in_progress', target_date: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), completion_pct: 60 },
   ],
   prs: [
     { id: 'pr-pending', pr_number: 'PR-200', description: 'Office supplies', status: 'Pending', created_at: new Date().toISOString() },
+    { id: 'pr-approved', pr_number: 'PR-201', description: 'Ergonomic chairs', department: 'Facilities', status: 'Approved', total_estimated: 2450, currency: 'USD', created_at: new Date().toISOString() },
+    { id: 'pr-draft', pr_number: 'PR-202', description: 'Printer toner supply', department: 'Operations', status: 'Draft', total_estimated: 780000, currency: 'IQD', created_at: new Date().toISOString() },
+  ],
+  vendors: [
+    { id: 'vendor-one', vendor_name: 'Vendor One', category: 'Supplier', location: 'Baghdad', contact_person: 'Lina Abbas', email: 'vendor@example.test', status: 'Active', performance_score: 4.6 },
+    { id: 'vendor-tech', vendor_name: 'Technology Partner', category: 'IT', location: 'Erbil', phone: '+000000000', status: 'Active', performance_score: 4.8 },
   ],
 };
 
@@ -53,7 +62,7 @@ async function installMocks(page, {
   tokenExpiryOffset = 3600,
 } = {}) {
   const token = createTestToken(tokenExpiryOffset);
-  const data = empty ? { tasks: [], pos: [], milestones: [], prs: [] } : populatedData;
+  const data = empty ? { tasks: [], pos: [], milestones: [], prs: [], vendors: [] } : populatedData;
 
   await page.addInitScript(({ profile, credential, shouldAuthenticate, profileValue, canAutoAuthenticate }) => {
     window.Chart = class ChartMock {
@@ -151,7 +160,7 @@ async function installMocks(page, {
         POs: data.pos,
         Milestones: data.milestones,
         Expenses: [],
-        Vendors: [],
+        Vendors: data.vendors,
         Comparisons: [],
         ComparisonVendors: [],
       };
@@ -160,7 +169,9 @@ async function installMocks(page, {
       response = { rows: [] };
     } else if (request.action === 'getPRs') {
       response = { rows: data.prs };
-    } else if (request.action === 'getVendors' || request.action === 'getInvoices' || request.action === 'getBudgets') {
+    } else if (request.action === 'getVendors') {
+      response = { rows: data.vendors };
+    } else if (request.action === 'getInvoices' || request.action === 'getBudgets') {
       response = { rows: [] };
     }
     await route.fulfill({
@@ -319,7 +330,10 @@ test('mobile layouts have no page overflow at all required viewport sizes in LTR
 
   await page.evaluate(() => window.toggleTheme());
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  for (const view of ['vendors', 'tasks', 'dashboard', 'purchasereqs', 'pos']) {
+    await page.locator(`[data-mobile-view="${view}"]`).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
 
   await page.evaluate(() => localStorage.setItem('tt_lang', 'ar'));
   await page.reload();
@@ -331,7 +345,10 @@ test('mobile layouts have no page overflow at all required viewport sizes in LTR
   );
   expect(positions.map(item => item.view)).toEqual(['pos', 'purchasereqs', 'dashboard', 'tasks', 'vendors']);
   expect(positions[0].left).toBeLessThan(positions[4].left);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  for (const view of ['vendors', 'tasks', 'dashboard', 'purchasereqs', 'pos']) {
+    await page.locator(`[data-mobile-view="${view}"]`).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
 });
 
 test('notification bell opens on first click, renders actionable data, and routes to its record', async ({ page }) => {
@@ -352,7 +369,7 @@ test('notification bell opens on first click, renders actionable data, and route
   await expect(page.locator('#ai-chat-fab')).toBeHidden();
   await page.locator('.notif-item').filter({ hasText: 'Late task' }).click();
   await expect(page.locator('#view-tasks')).toHaveClass(/active/);
-  await expect(page.locator('[data-record-id="task-late"]')).toBeFocused();
+  await expect(page.locator('[data-record-id="task-late"]:visible')).toBeFocused();
 });
 
 test('notification empty state and desktop visibility are intentional', async ({ page }) => {
@@ -370,6 +387,20 @@ test('notification error state exposes a retry action without a blank panel', as
   await page.locator('#notif-bell-btn').click();
   await expect(page.locator('#notif-list')).toContainText('Notifications could not be loaded.');
   await expect(page.locator('.notif-retry-btn')).toBeVisible();
+});
+
+test('notification mark-all, close, and focus behavior remain wired', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+  await page.locator('#notif-bell-btn').click();
+  await expect(page.locator('#notif-panel')).toBeVisible();
+  await expect(page.locator('#notif-mark-all')).toBeVisible();
+  await page.locator('#notif-mark-all').click();
+  await expect(page.locator('#notif-badge')).toBeHidden();
+  await expect(page.locator('#notif-mark-all')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#notif-panel')).toBeHidden();
+  await expect(page.locator('#notif-bell-btn')).toBeFocused();
 });
 
 test('session restoration survives navigation and rapid reloads without duplicate initialization', async ({ page }) => {
@@ -439,7 +470,7 @@ test('slow, invalid, expired, and unavailable automatic authentication resolve s
 
 test('desktop layouts remain full width and mobile navigation stays hidden', async ({ page }) => {
   await openAuthenticatedApp(page);
-  for (const [width, height] of [[1366, 768], [1440, 900]]) {
+  for (const [width, height] of [[1024, 768], [1366, 768], [1440, 900]]) {
     await page.setViewportSize({ width, height });
     await expect(page.locator('#mobile-primary-nav')).toBeHidden();
     const metrics = await page.evaluate(() => ({
@@ -452,16 +483,109 @@ test('desktop layouts remain full width and mobile navigation stays hidden', asy
   }
 });
 
-test('captures mobile recovery screenshots', async ({ page }) => {
+test('all routable modules, mobile global search, and the AI sheet open without runtime errors', async ({ page }) => {
   test.setTimeout(60000);
-  mkdirSync('artifacts/mobile-recovery', { recursive: true });
+  await page.setViewportSize({ width: 1366, height: 768 });
   await openAuthenticatedApp(page);
-  for (const [width, height] of [[390, 844], [430, 932], [1366, 768]]) {
-    await page.setViewportSize({ width, height });
-    await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
-    await expect(page.locator('.dash-kpi-card')).toHaveCount(5);
-    await page.screenshot({ path: `artifacts/mobile-recovery/dashboard-${width}x${height}.png` });
+  const views = ['dashboard', 'tasks', 'pos', 'quotations', 'invoices', 'vendors', 'purchasereqs', 'analytics', 'budget', 'milestones', 'expenses', 'permissions', 'settings'];
+  for (const view of views) {
+    await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+    await expect(page.locator(`#view-${view}`)).toHaveClass(/active/);
   }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
+  await page.locator('#global-search-input').fill('late');
+  await expect(page.locator('.dash-search-result').first()).toBeVisible();
+  await page.locator('.dash-search-result').first().click();
+  await expect(page.locator('#view-tasks')).toHaveClass(/active/);
+
+  await page.locator('#ai-chat-fab').click();
+  await expect(page.locator('#ai-chat-panel')).toBeVisible();
+  await expect(page.locator('#ai-chat-fab')).toBeHidden();
+  await page.evaluate(() => window.toggleAIChat());
+  await expect(page.locator('#ai-chat-panel')).toBeHidden();
+});
+
+test('mobile V3 filters, live cards, and create actions are wired to existing workflows', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+
+  for (const view of ['pos', 'purchasereqs', 'dashboard', 'tasks', 'vendors']) {
+    await page.locator(`[data-mobile-view="${view}"]`).click();
+    const topbar = await page.evaluate(() => {
+      const bar = document.getElementById('topbar');
+      const menu = document.getElementById('mobile-menu-btn').getBoundingClientRect();
+      const title = document.getElementById('topbar-title').getBoundingClientRect();
+      const actions = document.getElementById('topbar-right').getBoundingClientRect();
+      return { clientWidth: bar.clientWidth, scrollWidth: bar.scrollWidth, menuRight: menu.right, titleLeft: title.left, titleRight: title.right, actionsLeft: actions.left };
+    });
+    expect(topbar.scrollWidth, `${view} topbar width`).toBeLessThanOrEqual(topbar.clientWidth + 1);
+    expect(topbar.titleLeft, `${view} title/menu overlap`).toBeGreaterThanOrEqual(topbar.menuRight - 1);
+    expect(topbar.titleRight, `${view} title/action overlap`).toBeLessThanOrEqual(topbar.actionsLeft + 1);
+  }
+
+  await page.locator('[data-mobile-view="tasks"]').click();
+  await expect(page.locator('#mobile-v3-tasks')).toBeVisible();
+  await expect(page.locator('#mobile-v3-task-summary .mobile-v3-summary-item')).toHaveCount(4);
+  await expect(page.locator('#mobile-v3-task-list .mobile-v3-record')).toHaveCount(4);
+  await page.locator('[data-mobile-task-filter="overdue"]').click();
+  await expect(page.locator('#mobile-v3-task-list .mobile-v3-record')).toHaveCount(1);
+  await expect(page.locator('#mobile-v3-task-list')).toContainText('Late task');
+  await page.locator('[data-mobile-task-filter="all"]').click();
+  await page.locator('#mobile-v3-task-search').fill('supplier');
+  await expect(page.locator('#mobile-v3-task-list')).toContainText('Review supplier quotations');
+  await page.locator('#mobile-v3-task-search').fill('');
+  await page.locator('[data-mobile-create="Tasks"]').click();
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
+  await page.locator('#modal-cancel').click();
+
+  await page.locator('[data-mobile-view="pos"]').click();
+  await expect(page.locator('#mobile-v3-po-list .mobile-v3-record')).toHaveCount(2);
+  await page.locator('[data-mobile-create="POs"]').click();
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
+  await page.locator('#modal-cancel').click();
+
+  await page.locator('[data-mobile-view="purchasereqs"]').click();
+  await expect(page.locator('#mobile-v3-pr-list .mobile-v3-record')).toHaveCount(3);
+  await page.locator('[data-mobile-pr-filter="approved"]').click();
+  await expect(page.locator('#mobile-v3-pr-list')).toContainText('Ergonomic chairs');
+  await page.locator('[data-mobile-create="PRs"]').click();
+  await expect(page.locator('#pr-modal-overlay')).toBeVisible();
+  await page.evaluate(() => window.closePRModal());
+
+  await page.locator('[data-mobile-view="vendors"]').click();
+  await expect(page.locator('#mobile-v3-vendor-list .mobile-v3-record')).toHaveCount(2);
+  await page.locator('#mobile-v3-vendor-search').fill('technology');
+  await expect(page.locator('#mobile-v3-vendor-list .mobile-v3-record')).toHaveCount(1);
+  await page.locator('[data-mobile-create="Vendors"]').click();
+  await expect(page.locator('#vnd-modal-overlay')).toBeVisible();
+  await page.evaluate(() => window.closeVendorModal());
+});
+
+test('captures the required Mobile V3 visual regression screens', async ({ page }) => {
+  test.setTimeout(90000);
+  mkdirSync('artifacts/mobile-v3', { recursive: true });
+  await openAuthenticatedApp(page);
+  const views = [
+    ['dashboard', '.dash-kpi-card'],
+    ['tasks', '#mobile-v3-task-list .mobile-v3-record'],
+    ['purchasereqs', '#mobile-v3-pr-list .mobile-v3-record'],
+    ['pos', '#mobile-v3-po-list .mobile-v3-record'],
+    ['vendors', '#mobile-v3-vendor-list .mobile-v3-record'],
+  ];
+  for (const [width, height] of [[390, 844], [430, 932]]) {
+    await page.setViewportSize({ width, height });
+    for (const [view, readySelector] of views) {
+      await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+      await expect(page.locator(readySelector).first()).toBeVisible();
+      await page.screenshot({ path: `artifacts/mobile-v3/${view}-${width}x${height}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
+  await expect(page.locator('.dash-kpi-card')).toHaveCount(4);
+  await page.screenshot({ path: 'artifacts/mobile-v3/dashboard-1366x768.png' });
 });
 
 test('an API authorization failure is recovered through one supported Google session prompt', async ({ page }) => {

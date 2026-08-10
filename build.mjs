@@ -29,7 +29,7 @@ const jsFiles = [
   'config.js', 'i18n.js', 'cache.js', 'api.js',
   'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js', 'invoices.js', 'vendors.js',
   'messaging.js', 'purchasereqs.js', 'ai-chat.js', 'notifications.js', 'budget.js', 'analytics.js', 'offline.js',
-  'dashboard-v2.js', 'mobile-nav.js'
+  'dashboard-v2.js', 'mobile-nav.js', 'mobile-v3.js'
 ];
 for (const file of jsFiles) {
   const src = readFileSync(join(SRC, file), 'utf8');
@@ -43,7 +43,7 @@ for (const file of jsFiles) {
 }
 
 // Minify CSS
-const cssFiles = ['style.css', 'dashboard-v2.css', 'mobile-v2.css'];
+const cssFiles = ['style.css', 'dashboard-v2.css', 'mobile-v2.css', 'mobile-v3.css'];
 for (const file of cssFiles) {
   const cssSrc = readFileSync(join(SRC, file), 'utf8');
   const cssResult = await postcss([cssnano({ preset: 'default' })]).process(cssSrc, { from: undefined });
