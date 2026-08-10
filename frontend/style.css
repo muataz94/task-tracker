@@ -57,6 +57,24 @@
   --topbar-h: calc(var(--topbar-content-h) + env(safe-area-inset-top));
   --mobile-nav-content-h: 64px;
   --mobile-nav-h: var(--mobile-nav-content-h);
+
+  /* Shared spacing, radius, touch, and icon scales */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --touch-target: 44px;
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 28px;
 }
 
 .mobile-primary-nav {

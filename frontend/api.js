@@ -4,9 +4,16 @@ let isLoading = false;
 // ── Core API function
 // Apps Script quirk: must use 'text/plain' as Content-Type
 // Using 'application/json' triggers a CORS preflight that Apps Script rejects
-async function callAPI(action, params = {}, retryCount = 0) {
+async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) {
   if (!idToken) {
-    throw new Error('Not signed in. Please refresh and sign in again.');
+    const recovered = authRetryCount === 0 && typeof window.ensureFreshSession === 'function'
+      ? await window.ensureFreshSession()
+      : false;
+    if (recovered) return callAPI(action, params, retryCount, authRetryCount + 1);
+    const authError = new Error(typeof t === 'function' ? t('auth_session_expired') : 'Session expired.');
+    authError.code = 'AUTH_EXPIRED';
+    if (typeof handleSessionExpired === 'function') handleSessionExpired({ attemptRecovery: false });
+    throw authError;
   }
 
   isLoading = true;
@@ -28,7 +35,6 @@ async function callAPI(action, params = {}, retryCount = 0) {
     const data = await res.json();
 
     if (data.error === 'Unauthorized' || data.error === 'Not authenticated') {
-      idToken = null;
       const authError = new Error(typeof t === 'function' ? t('auth_session_expired') : 'Session expired.');
       authError.code = 'AUTH_EXPIRED';
       throw authError;
@@ -42,13 +48,18 @@ async function callAPI(action, params = {}, retryCount = 0) {
 
   } catch (err) {
     if (err.code === 'AUTH_EXPIRED') {
-      if (typeof handleSessionExpired === 'function') handleSessionExpired();
+      idToken = null;
+      const recovered = authRetryCount === 0 && typeof window.ensureFreshSession === 'function'
+        ? await window.ensureFreshSession()
+        : false;
+      if (recovered) return callAPI(action, params, retryCount, authRetryCount + 1);
+      if (typeof handleSessionExpired === 'function') handleSessionExpired({ attemptRecovery: false });
       throw err;
     }
     // Retry once on network failure before giving up
     if (retryCount === 0 && !err.code && err.message !== 'Not signed in. Please refresh and sign in again.') {
       console.warn('API call failed, retrying once...', err.message);
-      return callAPI(action, params, 1);
+      return callAPI(action, params, 1, authRetryCount);
     }
     // Offline write: queue for later sync instead of just failing
     if (!navigator.onLine && typeof queueOfflineWrite === 'function' && queueOfflineWrite(action, params)) {

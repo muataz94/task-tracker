@@ -60,11 +60,12 @@ async function installMocks(page, {
   storedProfile = undefined,
   autoAuthAvailable = true,
   tokenExpiryOffset = 3600,
+  authPromptDelay = 0,
 } = {}) {
   const token = createTestToken(tokenExpiryOffset);
   const data = empty ? { tasks: [], pos: [], milestones: [], prs: [], vendors: [] } : populatedData;
 
-  await page.addInitScript(({ profile, credential, shouldAuthenticate, profileValue, canAutoAuthenticate }) => {
+  await page.addInitScript(({ profile, credential, shouldAuthenticate, profileValue, canAutoAuthenticate, promptDelay }) => {
     window.Chart = class ChartMock {
       destroy() {}
       resize() {}
@@ -99,7 +100,7 @@ async function installMocks(page, {
                   isDismissedMoment: () => false,
                 });
               }
-            }, 0);
+            }, promptDelay);
           },
           cancel() {},
           disableAutoSelect() { window.__authMock.disableCount += 1; },
@@ -117,6 +118,7 @@ async function installMocks(page, {
     shouldAuthenticate: authenticated,
     profileValue: storedProfile,
     canAutoAuthenticate: autoAuthAvailable,
+    promptDelay: authPromptDelay,
   });
 
   await page.route('https://accounts.google.com/**', route => route.fulfill({
@@ -597,8 +599,104 @@ test('an API authorization failure is recovered through one supported Google ses
     body: JSON.stringify({ error: 'Unauthorized' }),
   }), { times: 1 });
 
-  await page.evaluate(() => window.callAPI('getAll', { sheet: 'Tasks' }).catch(() => {}));
+  const recovered = await page.evaluate(() => window.callAPI('getAll', { sheet: 'Tasks' }));
+  expect(recovered.rows).toHaveLength(populatedData.tasks.length);
   await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
   await expect.poll(() => page.evaluate(() => window.__authMock.promptCount)).toBe(promptsBefore + 1);
   expect(await page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
+});
+
+test('concurrent authorization failures share one refresh and retry once', async ({ page }) => {
+  await openAuthenticatedApp(page, { authPromptDelay: 60 });
+  const promptsBefore = await page.evaluate(() => window.__authMock.promptCount);
+  let probeRequests = 0;
+  await page.route('**/exec', async route => {
+    let payload = {};
+    try { payload = JSON.parse(route.request().postData() || '{}'); } catch {}
+    if (payload.action !== 'authProbe') {
+      await route.fallback();
+      return;
+    }
+    probeRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(probeRequests <= 2 ? { error: 'Unauthorized' } : { success: true, attempt: probeRequests }),
+    });
+  });
+
+  const results = await page.evaluate(() => Promise.all([
+    window.callAPI('authProbe'),
+    window.callAPI('authProbe'),
+  ]));
+
+  expect(results).toHaveLength(2);
+  expect(probeRequests).toBe(4);
+  expect(await page.evaluate(() => window.__authMock.promptCount)).toBe(promptsBefore + 1);
+  await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
+});
+
+test('PWA metadata and iPhone install assets load from repository-relative paths', async ({ page }) => {
+  await installMocks(page);
+  await page.goto('/');
+
+  const metadata = await page.evaluate(() => ({
+    manifest: document.querySelector('link[rel="manifest"]')?.getAttribute('href'),
+    appleIcon: document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute('href'),
+    appTitle: document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content,
+    capable: document.querySelector('meta[name="apple-mobile-web-app-capable"]')?.content,
+    statusBar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content,
+    themeColor: document.querySelector('meta[name="theme-color"]')?.content,
+  }));
+  expect(metadata).toEqual({
+    manifest: './manifest.webmanifest?v=1',
+    appleIcon: './assets/icons/apple-touch-icon.png?v=1',
+    appTitle: 'Task Tracker',
+    capable: 'yes',
+    statusBar: 'black-translucent',
+    themeColor: '#060812',
+  });
+
+  const manifestResponse = await page.request.get(new URL('manifest.webmanifest', page.url()).href);
+  expect(manifestResponse.status()).toBe(200);
+  expect(manifestResponse.headers()['content-type']).toContain('application/manifest+json');
+  const manifest = await manifestResponse.json();
+  expect(manifest).toMatchObject({
+    name: 'Task Tracker',
+    start_url: './',
+    scope: './',
+    display: 'standalone',
+    orientation: 'portrait-primary',
+  });
+  expect(manifest.icons.map(icon => `${icon.sizes}:${icon.purpose}`)).toEqual([
+    '192x192:any', '192x192:maskable', '512x512:any', '512x512:maskable',
+  ]);
+
+  const expectedAssets = [
+    ['assets/icons/apple-touch-icon.png', 180],
+    ['assets/icons/icon-192.png', 192],
+    ['assets/icons/icon-512.png', 512],
+    ['assets/icons/icon-maskable-192.png', 192],
+    ['assets/icons/icon-maskable-512.png', 512],
+  ];
+  for (const [path, expectedSize] of expectedAssets) {
+    const response = await page.request.get(new URL(path, page.url()).href);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()['content-type'], path).toContain('image/png');
+    const dimensions = await page.evaluate(async ({ src, expected }) => {
+      const image = document.createElement('img');
+      image.src = src;
+      await image.decode();
+      return { width: image.naturalWidth, height: image.naturalHeight, expected };
+    }, { src: new URL(path, page.url()).href, expected: expectedSize });
+    expect(dimensions.width, path).toBe(dimensions.expected);
+    expect(dimensions.height, path).toBe(dimensions.expected);
+  }
+
+  const swResponse = await page.request.get(new URL('sw.js', page.url()).href);
+  expect(swResponse.status()).toBe(200);
+  const serviceWorker = await swResponse.text();
+  expect(serviceWorker).toContain("tasktracker-shell-v6");
+  expect(serviceWorker).not.toContain('tt_user_profile');
+  expect(serviceWorker).not.toContain('API_URL');
 });

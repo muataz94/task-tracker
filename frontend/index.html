@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#060812" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Task Tracker" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Task Tracker</title>
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-  <link rel="apple-touch-icon" href="assets/icon-solid.svg">
+  <link rel="manifest" href="./manifest.webmanifest?v=1">
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg?v=1">
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png?v=1">
+  <link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/favicon-16.png?v=1">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png?v=1">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.7.0/dist/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
   <link rel="stylesheet" href="dashboard-v2.css?v=3" />
   <link rel="stylesheet" href="mobile-v2.css?v=2" />
   <link rel="stylesheet" href="mobile-v3.css?v=1" />
@@ -1695,7 +1703,7 @@
   <script src="i18n.js"></script>
   <script src="config.js"></script>
   <script src="cache.js"></script>
-  <script src="api.js"></script>
+  <script src="api.js?v=2"></script>
   <script src="tables.js"></script>
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
@@ -1709,7 +1717,7 @@
   <script src="notifications.js?v=2"></script>
   <script src="budget.js"></script>
   <script src="analytics.js"></script>
-  <script src="offline.js"></script>
+  <script src="offline.js?v=2"></script>
   <script src="dashboard-v2.js?v=3"></script>
   <script src="mobile-nav.js?v=3"></script>
   <script src="mobile-v3.js?v=1"></script>
@@ -1735,6 +1743,9 @@
     let silentRefreshInProgress = false;
     let tokenRefreshTimer = null;
     let credentialProcessingPromise = null;
+    let sessionRefreshPromise = null;
+    let sessionRefreshResolve = null;
+    let sessionRefreshTimeout = null;
 
     function setAuthState(nextState) {
       authState = nextState;
@@ -1800,6 +1811,44 @@
         silentRefreshInProgress = false;
         console.warn('[auth] Silent token refresh failed:', error.message);
       }
+    }
+
+    function finishSessionRefresh(success) {
+      if (!sessionRefreshResolve) return;
+      if (sessionRefreshTimeout) window.clearTimeout(sessionRefreshTimeout);
+      sessionRefreshTimeout = null;
+      const resolve = sessionRefreshResolve;
+      sessionRefreshResolve = null;
+      resolve(Boolean(success));
+    }
+
+    function ensureFreshSession() {
+      if (idToken) return Promise.resolve(true);
+      if (sessionRefreshPromise) return sessionRefreshPromise;
+      if (!tryRestoreSession() || !initGoogleAuth()) return Promise.resolve(false);
+
+      const refreshAttempt = new Promise(resolve => {
+        sessionRefreshResolve = resolve;
+        sessionRefreshTimeout = window.setTimeout(() => finishSessionRefresh(false), 8000);
+        try {
+          google.accounts.id.prompt(notification => {
+            if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.() || notification.isDismissedMoment?.()) {
+              finishSessionRefresh(false);
+            }
+          });
+        } catch (error) {
+          console.warn('[auth] Session refresh failed:', error.message);
+          finishSessionRefresh(false);
+        }
+      });
+
+      sessionRefreshPromise = refreshAttempt.finally(() => {
+        sessionRefreshPromise = null;
+        sessionRefreshResolve = null;
+        if (sessionRefreshTimeout) window.clearTimeout(sessionRefreshTimeout);
+        sessionRefreshTimeout = null;
+      });
+      return sessionRefreshPromise;
     }
 
     // ── Notifications (auto-request on sign-in) ──────────────────────
@@ -1872,14 +1921,15 @@
         }
         return false;
       }
-      const recent    = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
-      const lastEmail = recent.length ? recent[0].email : '';
+      const recent        = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
+      const storedProfile = tryRestoreSession();
+      const lastEmail     = storedProfile?.email || (recent.length ? recent[0].email : '');
       // auto_select: true when a recent user exists so the JWT expiry triggers silent re-auth
       // google.accounts.id.disableAutoSelect() (called on sign-out) suppresses this after explicit logout
       google.accounts.id.initialize({
         client_id: CLIENT_ID, callback: handleGoogleCredential,
-        auto_select: recent.length > 0, cancel_on_tap_outside: !recent.length,
-        use_fedcm_for_prompt: false,
+        auto_select: Boolean(storedProfile || recent.length), cancel_on_tap_outside: !storedProfile && !recent.length,
+        use_fedcm_for_prompt: true,
         ...(lastEmail ? { hint: lastEmail } : {})
       });
       googleAuthInitialized = true;
@@ -2232,6 +2282,24 @@
     function handleGoogleCredential(response) {
       authRestoreInProgress = false;
       silentRefreshInProgress = false;
+      if (sessionRefreshResolve) {
+        try {
+          const refreshedPayload = decodeJwt(response?.credential || '');
+          const audience = Array.isArray(refreshedPayload.aud) ? refreshedPayload.aud : [refreshedPayload.aud];
+          if (refreshedPayload.email && audience.includes(CLIENT_ID) &&
+              Number(refreshedPayload.exp) > Math.floor(Date.now() / 1000) + 30) {
+            idToken = response.credential;
+            setAuthState(AUTH_STATES.AUTHENTICATED);
+            setupTokenRefresh();
+            finishSessionRefresh(true);
+            return Promise.resolve();
+          }
+        } catch (error) {
+          console.warn('[auth] Refreshed credential was invalid:', error.message);
+        }
+        finishSessionRefresh(false);
+        return Promise.resolve();
+      }
       if (authState === AUTH_STATES.AUTHENTICATED && response?.credential) {
         try {
           const refreshedPayload = decodeJwt(response.credential);
@@ -3247,6 +3315,7 @@
     // ── Sign out ─────────────────────────────────────────────────────
     function doSignOut() {
       idToken = null;
+      finishSessionRefresh(false);
       clearSession();
       localStorage.removeItem('tt_user_profile');
       localStorage.removeItem('tt_auth_ok');
@@ -3269,7 +3338,7 @@
       showLoginScreen();
     }
 
-    function handleSessionExpired() {
+    function handleSessionExpired({ attemptRecovery = true } = {}) {
       if (authState === AUTH_STATES.INITIALIZING || authState === AUTH_STATES.EXPIRED) return;
       idToken = null;
       clearSession();
@@ -3278,7 +3347,8 @@
       document.getElementById('app').classList.add('hidden');
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('loading-screen').classList.remove('hidden');
-      attemptSilentLogin();
+      if (attemptRecovery) attemptSilentLogin();
+      else showLoginScreen();
     }
 
     // ── Event wiring (runs synchronously at parse time) ──────────────
@@ -3385,11 +3455,18 @@
       loadRecentUsers();
     }
 
+    function initInstalledMode() {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+      document.documentElement.toggleAttribute('data-standalone', isStandalone);
+    }
+
     function checkForUpdates() { /* placeholder for future SW update checks */ }
 
     // ── Init on load ──────────────────────────────────────────────────
     window.onload = function() {
       initTheme(); // MUST be first — applies data-theme before anything renders
+      initInstalledMode();
       initLanguage();
 
       window.tableData = tableData;
