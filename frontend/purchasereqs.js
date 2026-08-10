@@ -138,7 +138,7 @@ function renderPRTable() {
         </tr></thead>
         <tbody>
           ${rows.map(pr => `
-            <tr style="cursor:pointer;" onclick="showPRModal('${escapeHtml(pr.id)}')">
+            <tr data-record-id="${escapeHtml(pr.id)}" style="cursor:pointer;" onclick="showPRModal('${escapeHtml(pr.id)}')">
               <td style="font-weight:600;color:var(--accent);font-size:12px;">${escapeHtml(pr.pr_number||'—')}</td>
               <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(pr.description||'—')}</td>
               <td style="font-size:12px;">${escapeHtml(pr.requested_by||'—')}</td>

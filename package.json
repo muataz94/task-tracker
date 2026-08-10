@@ -5,14 +5,20 @@
   "homepage": "https://muataz94.github.io/task-tracker",
   "scripts": {
     "build": "node build.mjs",
+    "lint": "eslint build.mjs frontend/api.js frontend/mobile-nav.js frontend/notifications.js playwright.config.js tests/**/*.js tests/**/*.mjs",
+    "test": "npm run test:e2e",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run build && npm test",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
-    "cssnano": "^7.0.0",
+    "@playwright/test": "^1.62.1",
+    "cssnano": "^7.1.9",
+    "eslint": "^9.39.5",
     "gh-pages": "^6.3.0",
     "html-minifier-terser": "^7.2.0",
-    "postcss": "^8.4.0",
+    "postcss": "^8.5.26",
     "terser": "^5.36.0"
   }
 }

@@ -186,7 +186,7 @@ function renderTable(sheetName) {
         </thead>
         <tbody>
           ${filtered.length ? filtered.map(row => `
-            <tr>
+            <tr data-record-id="${escapeAttr(row.id)}">
               ${fields.map(f => `<td>${formatCell(f, row[f.key], row)}</td>`).join('')}
               <td class="actions-cell">
                 ${_msgBtns(row)}

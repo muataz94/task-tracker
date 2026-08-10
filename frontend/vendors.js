@@ -110,7 +110,7 @@ function renderVendorCard(v) {
     : `<div style="width:40px;height:40px;border-radius:var(--r-sm);background:rgba(167,139,250,0.18);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#a78bfa;flex-shrink:0;">${initials}</div>`;
 
   return `
-    <div class="glass glass-card" style="border-radius:var(--r-md);padding:1.1rem;cursor:pointer;" ondblclick="showVendorModal('${escapeHtml(v.id)}')">
+    <div class="glass glass-card" data-record-id="${escapeAttr(v.id)}" style="border-radius:var(--r-md);padding:1.1rem;cursor:pointer;" ondblclick="showVendorModal('${escapeHtml(v.id)}')">
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
         ${logoHtml}
         <div style="min-width:0;flex:1;">

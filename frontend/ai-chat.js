@@ -12,6 +12,8 @@ const AI_MODELS = {
 };
 
 function initAIChat() {
+  const panel = document.getElementById('ai-chat-panel');
+  if (panel) panel.style.pointerEvents = 'none';
   const saved = _loadAISettings();
 
   // Re-detect provider from saved key — corrects stale/wrong saved provider silently
@@ -63,6 +65,7 @@ function toggleAIChat() {
   if (!panel) return;
   if (_aiOpen) {
     panel.style.transform = 'translateY(0)';
+    panel.style.pointerEvents = 'auto';
     if (btn) btn.style.display = 'none';
     _renderAIMessages();
     setTimeout(() => {
@@ -73,6 +76,7 @@ function toggleAIChat() {
     if (!saved.apiKey) setTimeout(toggleAIChatSettings, 400);
   } else {
     panel.style.transform = 'translateY(calc(100% + 2px))';
+    panel.style.pointerEvents = 'none';
     if (btn) btn.style.display = '';
     const sp = document.getElementById('ai-settings-panel');
     if (sp) sp.style.display = 'none';

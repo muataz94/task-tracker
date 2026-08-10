@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -35,7 +35,7 @@
   </svg>
 
   <!-- ── LOGIN SCREEN ── -->
-  <div id="login-screen">
+  <div id="login-screen" class="hidden">
     <div class="login-bg-glow"></div>
     <div class="login-card" id="login-card">
       <!-- Brand -->
@@ -73,15 +73,15 @@
   </div>
 
   <!-- Loading screen — shown during silent re-auth attempt -->
-  <div id="loading-screen" class="hidden">
+  <div id="loading-screen">
     <div class="loading-card">
       <img id="loading-avatar" src="" class="loading-avatar" alt="" />
-      <div class="loading-name" id="loading-name">Welcome back</div>
+      <div class="loading-name" id="loading-name" data-i18n="welcome_back">Welcome back</div>
       <div class="loading-email" id="loading-email"></div>
       <div class="loading-spinner">
         <div class="spinner-ring"></div>
       </div>
-      <p class="loading-sub">Signing you in...</p>
+      <p class="loading-sub" data-i18n="auth_restoring">Restoring your session...</p>
     </div>
   </div>
 
@@ -131,7 +131,7 @@
           </svg>
           <span data-i18n="quotations">Quotations</span>
         </li>
-        <li class="nav-item" data-view="invoices" onclick="navigateTo('invoices')">
+        <li class="nav-item" data-view="invoices">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
@@ -147,14 +147,14 @@
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
             <polyline points="9,22 9,12 15,12 15,22"/>
           </svg>
-          <span>Vendors</span>
+          <span data-i18n="vendors">Vendors</span>
         </li>
-        <li class="nav-item" data-view="purchasereqs" onclick="navigateTo('purchasereqs')">
+        <li class="nav-item" data-view="purchasereqs">
           <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
             <rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
           </svg>
-          <span>Purchase Requests</span>
+          <span data-i18n="purchase_requests">Purchase Requests</span>
         </li>
         <li class="nav-item" data-view="analytics">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -183,11 +183,11 @@
           </svg>
           <span data-i18n="expenses">Expenses</span>
         </li>
-        <li class="nav-item" id="nav-permissions" data-view="permissions" onclick="navigateTo('permissions')" style="display:none;">
+        <li class="nav-item" id="nav-permissions" data-view="permissions" style="display:none;">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fill-opacity="0.1"/>
           </svg>
-          <span>Permissions</span>
+          <span data-i18n="permissions">Permissions</span>
         </li>
         <li class="nav-item" data-view="settings">
           <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -251,7 +251,8 @@
             <span id="dash-last-refresh" aria-live="polite"></span>
           </div>
           <div style="position:relative;">
-            <button id="notif-bell-btn" onclick="toggleNotifPanel()" title="Notifications" aria-label="Notifications"
+            <button id="notif-bell-btn" type="button" data-i18n-aria-label="notifications" aria-label="Notifications"
+              aria-controls="notif-panel" aria-expanded="false"
               style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--glass-bg);border:1px solid var(--border);
                 color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1368,6 +1369,39 @@
 
       </main>
     </div><!-- end #app-right -->
+
+    <nav id="mobile-primary-nav" class="mobile-primary-nav" aria-label="Primary navigation" data-i18n-aria-label="primary_navigation">
+      <button type="button" class="mobile-tab" data-mobile-view="pos" data-i18n-aria-label="purchase_orders" aria-label="Purchase Orders">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M6 3h12l2 4v13H4V7l2-4Z"/><path d="M4 7h16M9 11h6"/>
+        </svg>
+        <span data-i18n="mobile_orders">Orders</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-view="purchasereqs" data-i18n-aria-label="purchase_requests" aria-label="Purchase Requests">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2Z"/><path d="M9 2h6v4H9zM8 11h8M8 15h5"/>
+        </svg>
+        <span data-i18n="mobile_requests">Requests</span>
+      </button>
+      <button type="button" class="mobile-tab mobile-tab-center" data-mobile-view="dashboard" data-i18n-aria-label="dashboard" aria-label="Dashboard">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>
+        </svg>
+        <span data-i18n="dashboard">Dashboard</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-view="tasks" data-i18n-aria-label="tasks" aria-label="Tasks">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-5"/>
+        </svg>
+        <span data-i18n="tasks">Tasks</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-view="vendors" data-i18n-aria-label="vendors" aria-label="Vendors">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="m3 9 9-6 9 6v11H3z"/><path d="M9 20v-7h6v7"/>
+        </svg>
+        <span data-i18n="vendors">Vendors</span>
+      </button>
+    </nav>
   </div><!-- end #app -->
 
   <!-- AI Chat Button + Panel -->
@@ -1566,6 +1600,7 @@
   <script src="analytics.js"></script>
   <script src="offline.js"></script>
   <script src="dashboard-v2.js?v=1"></script>
+  <script src="mobile-nav.js"></script>
   <script>
     var idToken = null;
 
@@ -1575,6 +1610,24 @@
     let currentUserIsAdmin = false;
     let currentUserPermissions = {};
     let currentView = 'dashboard';
+    const AUTH_STATES = Object.freeze({
+      INITIALIZING: 'initializing',
+      AUTHENTICATED: 'authenticated',
+      UNAUTHENTICATED: 'unauthenticated',
+      EXPIRED: 'expired',
+      ERROR: 'error'
+    });
+    let authState = AUTH_STATES.INITIALIZING;
+    let googleAuthInitialized = false;
+    let authRestoreInProgress = false;
+    let silentRefreshInProgress = false;
+    let tokenRefreshTimer = null;
+    let credentialProcessingPromise = null;
+
+    function setAuthState(nextState) {
+      authState = nextState;
+      document.documentElement.dataset.authState = nextState;
+    }
 
     function isOwner() {
       const user = JSON.parse(localStorage.getItem('tt_user_profile') || '{}');
@@ -1594,74 +1647,48 @@
     }
 
     // ── Session persistence ──────────────────────────────────────────
-    function saveSession(token, payload) {
-      localStorage.setItem('tt_session', JSON.stringify({
-        token, exp: payload.exp,
-        email: payload.email, name: payload.name || '', picture: payload.picture || ''
-      }));
-    }
-
     function clearSession() {
       localStorage.removeItem('tt_session');
       localStorage.removeItem('tt_auth_ok');
+      if (tokenRefreshTimer) window.clearInterval(tokenRefreshTimer);
+      tokenRefreshTimer = null;
     }
 
     function tryRestoreSession() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('tt_session') || 'null');
-        if (saved && saved.token && saved.exp) {
-          if (Math.floor(Date.now() / 1000) < saved.exp - 30) {
-            handleCredentialResponse({ credential: saved.token });
-            return true;
-          }
-          localStorage.removeItem('tt_session');
-        }
-      } catch (e) {}
+      localStorage.removeItem('tt_session');
       return false;
     }
 
     // ── Silent token refresh (every 45 min, before 1hr expiry) ──────
     function setupTokenRefresh() {
-      setInterval(silentRefresh, 45 * 60 * 1000);
+      if (tokenRefreshTimer) window.clearInterval(tokenRefreshTimer);
+      tokenRefreshTimer = window.setInterval(silentRefresh, 45 * 60 * 1000);
     }
 
     function silentRefresh() {
-      if (!idToken) return;
+      if (!idToken || silentRefreshInProgress || !googleAuthInitialized) return;
+      silentRefreshInProgress = true;
       try {
-        google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: (response) => {
-            if (response.credential) {
-              idToken = response.credential;
-              const payload = decodeJwt(idToken);
-              saveSession(idToken, payload);
-            }
-          },
-          auto_select: true,
-          use_fedcm_for_prompt: false
+        google.accounts.id.prompt(notification => {
+          if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.() || notification.isDismissedMoment?.()) {
+            silentRefreshInProgress = false;
+          }
         });
-        google.accounts.id.prompt(() => {});
-      } catch (e) {
-        console.warn('Silent token refresh failed:', e);
+        window.setTimeout(() => { silentRefreshInProgress = false; }, 8000);
+      } catch (error) {
+        silentRefreshInProgress = false;
+        console.warn('[auth] Silent token refresh failed:', error.message);
       }
     }
 
     // ── Notifications (auto-request on sign-in) ──────────────────────
     function setupNotifications() {
       if (!('Notification' in window)) return;
-      if (localStorage.getItem('tt_notif_granted') === 'true') return;
-      if (Notification.permission === 'granted') {
-        localStorage.setItem('tt_notif_granted', 'true');
+      if (Notification.permission !== 'granted') {
+        localStorage.removeItem('tt_notif_granted');
         return;
       }
-      if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            localStorage.setItem('tt_notif_granted', 'true');
-            new Notification('Task Tracker', { body: 'Notifications enabled ✓' });
-          }
-        });
-      }
+      localStorage.setItem('tt_notif_granted', 'true');
     }
 
     // ── Recent users ─────────────────────────────────────────────────
@@ -1694,45 +1721,51 @@
       const recent = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
       const user   = recent[index];
       if (!user) return;
-      google.accounts.id.initialize({
-        client_id: CLIENT_ID, callback: handleCredentialResponse,
-        auto_select: true, hint: user.email, use_fedcm_for_prompt: false,
-        cancel_on_tap_outside: false
-      });
-      const btnContainer = document.getElementById('g-signin-btn');
-      if (btnContainer) {
-        google.accounts.id.renderButton(btnContainer, {
-          theme: 'outline', size: 'large', type: 'standard', text: 'signin_with'
+      const loadingScreen = document.getElementById('loading-screen');
+      document.getElementById('login-screen').classList.add('hidden');
+      loadingScreen.classList.remove('hidden');
+      document.getElementById('loading-name').textContent = user.name || user.email;
+      document.getElementById('loading-email').textContent = user.email;
+      setAuthState(AUTH_STATES.INITIALIZING);
+      try {
+        google.accounts.id.prompt(notification => {
+          if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.() || notification.isDismissedMoment?.()) {
+            showLoginScreen();
+          }
         });
-        setTimeout(() => {
-          const btn = btnContainer.querySelector('[role="button"], button, div[tabindex]');
-          if (btn) btn.click();
-        }, 100);
+      } catch (error) {
+        console.warn('[auth] Account prompt failed:', error.message);
+        showLoginScreen();
       }
     }
 
     // ── Google Auth init ─────────────────────────────────────────────
     function initGoogleAuth() {
+      if (googleAuthInitialized) return true;
+      if (!window.google?.accounts?.id) {
+        setAuthState(AUTH_STATES.ERROR);
+        const errEl = document.getElementById('login-access-error');
+        if (errEl) {
+          errEl.textContent = t('auth_google_unavailable');
+          errEl.classList.remove('hidden');
+        }
+        return false;
+      }
       const recent    = JSON.parse(localStorage.getItem('tt_recent_users') || '[]');
       const lastEmail = recent.length ? recent[0].email : '';
       // auto_select: true when a recent user exists so the JWT expiry triggers silent re-auth
       // google.accounts.id.disableAutoSelect() (called on sign-out) suppresses this after explicit logout
       google.accounts.id.initialize({
-        client_id: CLIENT_ID, callback: handleCredentialResponse,
+        client_id: CLIENT_ID, callback: handleGoogleCredential,
         auto_select: recent.length > 0, cancel_on_tap_outside: !recent.length,
         use_fedcm_for_prompt: false,
         ...(lastEmail ? { hint: lastEmail } : {})
       });
+      googleAuthInitialized = true;
       google.accounts.id.renderButton(
         document.getElementById('g-signin-btn'),
         { theme: 'outline', size: 'large', width: 300 }
       );
-      // Trigger One Tap silently when there's a known user (handles JWT expiry without visible login)
-      if (recent.length > 0) {
-        google.accounts.id.prompt((n) => {
-          // If One Tap is blocked or skipped, the button is still visible — no extra action needed
-        });
-      }
     }
 
     // ── Chat filter state ─────────────────────────────────────────────
@@ -2075,10 +2108,57 @@
     }
 
     // ── Handle sign-in response ──────────────────────────────────────
-    async function handleCredentialResponse(response) {
-      idToken = response.credential;
+    function handleGoogleCredential(response) {
+      authRestoreInProgress = false;
+      silentRefreshInProgress = false;
+      if (authState === AUTH_STATES.AUTHENTICATED && response?.credential) {
+        try {
+          const refreshedPayload = decodeJwt(response.credential);
+          if (Number(refreshedPayload.exp) > Math.floor(Date.now() / 1000) + 30) {
+            idToken = response.credential;
+            setupTokenRefresh();
+            return Promise.resolve();
+          }
+        } catch (error) {
+          console.warn('[auth] Refreshed credential was invalid:', error.message);
+        }
+      }
+      return handleCredentialResponse(response);
+    }
 
-      const payload = decodeJwt(idToken);
+    function handleCredentialResponse(response) {
+      if (!credentialProcessingPromise) {
+        credentialProcessingPromise = processCredentialResponse(response)
+          .finally(() => { credentialProcessingPromise = null; });
+      }
+      return credentialProcessingPromise;
+    }
+
+    async function processCredentialResponse(response) {
+      if (!response?.credential) {
+        setAuthState(AUTH_STATES.UNAUTHENTICATED);
+        showLoginScreen();
+        return;
+      }
+
+      let payload;
+      try {
+        payload = decodeJwt(response.credential);
+      } catch (error) {
+        console.warn('[auth] Google credential could not be decoded:', error.message);
+        setAuthState(AUTH_STATES.ERROR);
+        showLoginScreen();
+        return;
+      }
+      const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+      if (!payload.email || !audience.includes(CLIENT_ID) || Number(payload.exp) <= Math.floor(Date.now() / 1000) + 30) {
+        setAuthState(AUTH_STATES.EXPIRED);
+        showLoginScreen();
+        return;
+      }
+
+      idToken = response.credential;
+      setAuthState(AUTH_STATES.INITIALIZING);
 
       const profile = {
         email:   payload.email,
@@ -2087,54 +2167,7 @@
         sub:     payload.sub
       };
 
-      // ── Fast restore: skip loading screen if auth was recently confirmed ──
-      const _authOk = (() => { try { return JSON.parse(localStorage.getItem('tt_auth_ok') || 'null'); } catch(e) { return null; } })();
-      const _authFresh = _authOk && _authOk.email === profile.email && (Date.now() - (_authOk.ts || 0)) < 8 * 3600 * 1000;
-
-      if (_authFresh) {
-        currentUserIsAdmin      = _authOk.isAdmin;
-        currentUserPermissions  = _authOk.perms || { can_edit: true, can_delete: _authOk.isAdmin, can_manage_team: _authOk.isAdmin };
-        localStorage.setItem('tt_user_profile', JSON.stringify(profile));
-        applyUserProfile(profile);
-        saveRecentUser(profile.email, profile.name, profile.picture);
-        saveSession(idToken, payload);
-        setupTokenRefresh();
-        setupNotifications();
-        initChat(profile.email, profile.name, profile.picture);
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-        prefetchAll();
-        loadNotifications();
-        renderTwemoji(document.body);
-        initParticles();
-        initTopbarScroll();
-        initRipples();
-        if (isOwner()) {
-          const permNav = document.getElementById('nav-permissions');
-          if (permNav) permNav.style.display = '';
-        }
-        navigateTo('dashboard');
-        applyLanguage();
-        if (typeof initAIChat === 'function') initAIChat();
-        // Background auth refresh — silently update permissions and re-validate
-        callAPI('getAll', { sheet: 'Users' }).then(result => {
-          const _users = result.rows || [];
-          const _ok = _users.some(u => (u.email||'').toLowerCase().trim() === profile.email.toLowerCase().trim());
-          if (!_ok) { doSignOut(); return; }
-          const _rec = _users.find(u => (u.email||'').toLowerCase().trim() === profile.email.toLowerCase().trim());
-          const _admin = profile.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-          const _perms = (!_admin && _rec?.permissions)
-            ? (() => { try { return JSON.parse(_rec.permissions); } catch(e) { return {}; } })()
-            : { can_edit: true, can_delete: _admin, can_manage_team: _admin };
-          currentUserIsAdmin     = _admin;
-          currentUserPermissions = _perms;
-          localStorage.setItem('tt_auth_ok', JSON.stringify({ email: profile.email, ts: Date.now(), isAdmin: _admin, perms: _perms }));
-        }).catch(() => {});
-        return;
-      }
-
-      // ── Full auth check (first login or expired cache) ────────────
+      // Validate every restored Google credential against the Users sheet.
       const errEl = document.getElementById('login-access-error');
       if (errEl) errEl.classList.add('hidden');
 
@@ -2147,7 +2180,7 @@
       if (loadAvatar && profile.picture) loadAvatar.src = profile.picture;
       if (loadName)  loadName.textContent  = profile.name;
       if (loadEmail) loadEmail.textContent = profile.email;
-      if (loadSub)   loadSub.textContent   = 'Verifying access…';
+      if (loadSub)   loadSub.textContent   = t('auth_verifying');
       if (loginCard) loginCard.classList.add('login-exiting');
       await new Promise(r => setTimeout(r, 230));
       document.getElementById('login-screen').classList.add('hidden');
@@ -2184,8 +2217,8 @@
               </svg>
             </div>
             <div class="access-err-text">
-              <div class="access-err-title">Access denied</div>
-              <div class="access-err-body"><strong>${escapeHtml(profile.email)}</strong> is not in the authorized user list. Contact your administrator to request access.</div>
+              <div class="access-err-title">${escapeHtml(t('auth_access_denied'))}</div>
+              <div class="access-err-body">${escapeHtml(t('auth_access_denied_body').replace('{email}', profile.email))}</div>
             </div>`;
           errEl.classList.remove('hidden');
         }
@@ -2207,26 +2240,21 @@
         localStorage.setItem('tt_theme', userRecord.theme);
       }
 
-      // Save auth confirmation for fast restore on next load
-      localStorage.setItem('tt_auth_ok', JSON.stringify({
-        email: profile.email, ts: Date.now(),
-        isAdmin: currentUserIsAdmin, perms: currentUserPermissions
-      }));
-
       // ── Authorized — enter the app ────────────────────────────────
       localStorage.setItem('tt_user_profile', JSON.stringify(profile));
       applyUserProfile(profile);
       saveRecentUser(profile.email, profile.name, profile.picture);
-      saveSession(idToken, payload);
       setupTokenRefresh();
       setupNotifications();
       initChat(profile.email, profile.name, profile.picture);
 
       loadingScreen.classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
+      setAuthState(AUTH_STATES.AUTHENTICATED);
 
       prefetchAll();
       loadNotifications();
+      startNotificationPolling();
       renderTwemoji(document.body);
       initParticles();
       initTopbarScroll();
@@ -2235,7 +2263,7 @@
         const permNav = document.getElementById('nav-permissions');
         if (permNav) permNav.style.display = '';
       }
-      navigateTo('dashboard');
+      navigateTo(getInitialView(), { replaceHistory: true });
       applyLanguage();
       if (typeof initAIChat === 'function') initAIChat();
     }
@@ -2292,51 +2320,78 @@
     }
 
     // ── Navigate ─────────────────────────────────────────────────────
-    function navigateTo(view) {
+    const ROUTABLE_VIEWS = new Set([
+      'dashboard', 'tasks', 'pos', 'quotations', 'invoices', 'vendors',
+      'purchasereqs', 'analytics', 'budget', 'milestones', 'expenses',
+      'permissions', 'settings'
+    ]);
+
+    function getInitialView() {
+      const hashView = decodeURIComponent(window.location.hash.replace(/^#\/?/, '').split('?')[0]);
+      if (!ROUTABLE_VIEWS.has(hashView)) return 'dashboard';
+      if (hashView === 'permissions' && !isOwner()) return 'dashboard';
+      return hashView;
+    }
+
+    function navigateTo(view, options = {}) {
+      if (!ROUTABLE_VIEWS.has(view)) return;
+      if (view === 'permissions' && !isOwner()) return;
+
+      const viewEl = document.getElementById('view-' + view);
+      if (!viewEl) return;
+      const shouldLoad = currentView !== view || !viewEl.classList.contains('active') || options.forceReload;
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-      const viewEl  = document.getElementById('view-' + view);
       const navItem = document.querySelector('[data-view="' + view + '"]');
-      if (viewEl) {
-        viewEl.classList.add('active');
+      viewEl.classList.add('active');
+      if (shouldLoad) {
         viewEl.classList.remove('view-entering');
         void viewEl.offsetWidth;
         viewEl.classList.add('view-entering');
         setTimeout(function() { viewEl.classList.remove('view-entering'); }, 400);
       }
       if (navItem) navItem.classList.add('active');
+      if (typeof syncMobileNavActiveState === 'function') syncMobileNavActiveState(view);
       closeSidebar();
+
+      const nextHash = '#' + encodeURIComponent(view);
+      if (!options.skipHistory && window.location.hash !== nextHash) {
+        const method = options.replaceHistory ? 'replaceState' : 'pushState';
+        window.history[method]({ view }, '', nextHash);
+      }
 
       const titleMap = {
         dashboard: 'dashboard', tasks: 'tasks', pos: 'purchase_orders',
         milestones: 'milestones', expenses: 'expenses',
         chat: 'team_chat', settings: 'settings', quotations: 'quotations',
-        invoices: 'invoices', vendors: 'vendors', purchasereqs: 'Purchase Requests',
-        permissions: 'Permissions', budget: 'budget', analytics: 'analytics'
+        invoices: 'invoices', vendors: 'vendors', purchasereqs: 'purchase_requests',
+        permissions: 'permissions', budget: 'budget', analytics: 'analytics'
       };
       const titleEl = document.getElementById('topbar-title');
       if (titleEl && titleMap[view]) {
         const mapped = titleMap[view];
-        titleEl.textContent = (typeof t === 'function' && mapped !== 'Purchase Requests' && mapped !== 'Permissions') ? t(mapped) : mapped;
+        titleEl.textContent = typeof t === 'function' ? t(mapped) : mapped;
       }
 
       document.getElementById('profile-dropdown').classList.add('hidden');
 
       const sheetMap = { tasks: 'Tasks', pos: 'POs', milestones: 'Milestones', expenses: 'Expenses' };
 
-      if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
-      else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
-      else if (view === 'settings')     { stopDashboardRefresh(); loadSettings(); }
-      else if (view === 'quotations')   { stopDashboardRefresh(); loadQuotations(); }
-      else if (view === 'invoices')     { stopDashboardRefresh(); if (typeof loadInvoices === 'function') loadInvoices(); }
-      else if (view === 'vendors')      { stopDashboardRefresh(); if (typeof loadVendors === 'function') loadVendors(); }
-      else if (view === 'purchasereqs') { stopDashboardRefresh(); if (typeof loadPRs === 'function') loadPRs(); }
-      else if (view === 'budget')       { stopDashboardRefresh(); if (typeof loadBudgets === 'function') loadBudgets(); }
-      else if (view === 'analytics')    { stopDashboardRefresh(); if (typeof loadAnalytics === 'function') loadAnalytics(); }
-      else if (view === 'permissions')  { stopDashboardRefresh(); loadPermissionsView(); }
-      else                              { stopDashboardRefresh(); }
+      if (shouldLoad) {
+        if (view === 'dashboard')  { stopDashboardRefresh(); loadDashboard(); }
+        else if (sheetMap[view])   { stopDashboardRefresh(); loadTable(sheetMap[view]); }
+        else if (view === 'settings')     { stopDashboardRefresh(); loadSettings(); }
+        else if (view === 'quotations')   { stopDashboardRefresh(); loadQuotations(); }
+        else if (view === 'invoices')     { stopDashboardRefresh(); if (typeof loadInvoices === 'function') loadInvoices(); }
+        else if (view === 'vendors')      { stopDashboardRefresh(); if (typeof loadVendors === 'function') loadVendors(); }
+        else if (view === 'purchasereqs') { stopDashboardRefresh(); if (typeof loadPRs === 'function') loadPRs(); }
+        else if (view === 'budget')       { stopDashboardRefresh(); if (typeof loadBudgets === 'function') loadBudgets(); }
+        else if (view === 'analytics')    { stopDashboardRefresh(); if (typeof loadAnalytics === 'function') loadAnalytics(); }
+        else if (view === 'permissions')  { stopDashboardRefresh(); loadPermissionsView(); }
+        else                              { stopDashboardRefresh(); }
+      }
 
       // Re-apply translations to the newly shown view
       applyLanguage();
@@ -2344,6 +2399,11 @@
       // Re-attach ripples to any new buttons in the view
       if (typeof initRipples === 'function') initRipples();
     }
+
+    window.addEventListener('popstate', () => {
+      if (!idToken) return;
+      navigateTo(getInitialView(), { skipHistory: true });
+    });
 
     // ── Settings ─────────────────────────────────────────────────────
     async function loadSettings() {
@@ -3062,12 +3122,34 @@
       clearSession();
       localStorage.removeItem('tt_user_profile');
       localStorage.removeItem('tt_auth_ok');
+      authRestoreInProgress = false;
+      silentRefreshInProgress = false;
       stopChatPolling();
+      if (typeof stopNotificationPolling === 'function') stopNotificationPolling();
+      if (typeof closeNotifPanel === 'function') closeNotifPanel();
       if (typeof stopDashboardRefresh === 'function') stopDashboardRefresh();
-      google.accounts.id.disableAutoSelect();
+      try {
+        google.accounts.id.cancel();
+        google.accounts.id.disableAutoSelect();
+      } catch (error) {
+        console.warn('[auth] Google sign-out cleanup failed:', error.message);
+      }
+      setAuthState(AUTH_STATES.UNAUTHENTICATED);
       document.getElementById('profile-dropdown').classList.add('hidden');
       document.getElementById('app').classList.add('hidden');
       showLoginScreen();
+    }
+
+    function handleSessionExpired() {
+      if (authState === AUTH_STATES.INITIALIZING || authState === AUTH_STATES.EXPIRED) return;
+      idToken = null;
+      clearSession();
+      setAuthState(AUTH_STATES.EXPIRED);
+      if (typeof stopNotificationPolling === 'function') stopNotificationPolling();
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('loading-screen').classList.remove('hidden');
+      attemptSilentLogin();
     }
 
     // ── Event wiring (runs synchronously at parse time) ──────────────
@@ -3113,6 +3195,7 @@
 
     // ── Silent login ─────────────────────────────────────────────────
     function attemptSilentLogin() {
+      if (authRestoreInProgress) return;
       const stored = localStorage.getItem('tt_user_profile');
       if (!stored) {
         showLoginScreen();
@@ -3120,7 +3203,15 @@
       }
 
       // Profile found — show loading screen with user info
-      const profile = JSON.parse(stored);
+      let profile;
+      try {
+        profile = JSON.parse(stored);
+      } catch (error) {
+        localStorage.removeItem('tt_user_profile');
+        console.warn('[auth] Stored profile could not be restored:', error.message);
+        showLoginScreen();
+        return;
+      }
       const loadingScreen = document.getElementById('loading-screen');
       const loginScreen   = document.getElementById('login-screen');
 
@@ -3128,34 +3219,29 @@
       const loadName   = document.getElementById('loading-name');
       const loadEmail  = document.getElementById('loading-email');
       if (loadAvatar) loadAvatar.src = profile.picture || '';
-      if (loadName)   loadName.textContent  = 'Welcome back, ' + (profile.name || profile.email.split('@')[0]);
+      if (loadName)   loadName.textContent  = t('auth_welcome_back_name').replace('{name}', profile.name || profile.email.split('@')[0]);
       if (loadEmail)  loadEmail.textContent = profile.email;
 
       loginScreen.classList.add('hidden');
       loadingScreen.classList.remove('hidden');
 
       // Try restoring saved JWT first (instant, avoids Google round-trip)
-      if (tryRestoreSession()) return;
+      tryRestoreSession();
+      if (!initGoogleAuth()) {
+        showLoginScreen();
+        return;
+      }
+      authRestoreInProgress = true;
+      setAuthState(AUTH_STATES.INITIALIZING);
 
       // JWT expired — attempt silent re-auth with Google One Tap
       let authResolved = false;
 
-      google.accounts.id.initialize({
-        client_id:             CLIENT_ID,
-        callback:              (response) => {
-          authResolved = true;
-          handleCredentialResponse(response);
-        },
-        auto_select:           true,
-        hint:                  profile.email,
-        use_fedcm_for_prompt:  false,
-        cancel_on_tap_outside: false
-      });
-
       google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          if (!authResolved) {
+        if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.() || notification.isDismissedMoment?.()) {
+          if (!authResolved && !credentialProcessingPromise && authState !== AUTH_STATES.AUTHENTICATED) {
             authResolved = true;
+            authRestoreInProgress = false;
             showLoginScreen();
           }
         }
@@ -3163,14 +3249,17 @@
 
       // Fallback timeout — if no response in 4 seconds, show login
       setTimeout(() => {
-        if (!authResolved) {
+        if (!authResolved && !credentialProcessingPromise && authState !== AUTH_STATES.AUTHENTICATED) {
           authResolved = true;
+          authRestoreInProgress = false;
           showLoginScreen();
         }
-      }, 4000);
+      }, 8000);
     }
 
     function showLoginScreen() {
+      authRestoreInProgress = false;
+      if (authState !== AUTH_STATES.ERROR) setAuthState(AUTH_STATES.UNAUTHENTICATED);
       document.getElementById('loading-screen').classList.add('hidden');
       document.getElementById('login-screen').classList.remove('hidden');
       document.getElementById('app').classList.add('hidden');
@@ -3185,23 +3274,8 @@
       initTheme(); // MUST be first — applies data-theme before anything renders
       initLanguage();
 
-      // Initialize Google Auth
-      google.accounts.id.initialize({
-        client_id:            CLIENT_ID,
-        callback:             handleCredentialResponse,
-        auto_select:          false,
-        use_fedcm_for_prompt: false
-      });
-
-      // Render sign-in button (needed even if we try silent auth)
-      google.accounts.id.renderButton(
-        document.getElementById('g-signin-btn'),
-        { theme: 'outline', size: 'large', type: 'standard' }
-      );
-
       window.tableData = tableData;
-
-      // Try silent login first
+      initGoogleAuth();
       attemptSilentLogin();
 
       // Check for app updates

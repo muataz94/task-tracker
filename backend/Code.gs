@@ -3,6 +3,8 @@
 // Set script property SPREADSHEET_ID to your sheet's ID (optional — falls back to active spreadsheet)
 
 let _ss = null;
+const GOOGLE_CLIENT_ID = '536004951636-66ltg9ksnvts6m90mftcl6fd99avbdcv.apps.googleusercontent.com';
+const OWNER_EMAIL = 'muatazthaaer@gmail.com';
 function getSpreadsheet() {
   if (!_ss) {
     try {
@@ -59,7 +61,9 @@ function doPost(e) {
       case 'savePRLineItems':  return respond(savePRLineItems(body.pr_id, body.items));
       case 'updatePRLineQty':       return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
       case 'getUserPermissions':    return respond(getUserPermissions(body.email));
-      case 'updateUserPermissions': return respond(updateUserPermissions(body.email, body.permissions));
+      case 'updateUserPermissions':
+        if (user.email.toLowerCase() !== OWNER_EMAIL.toLowerCase()) return respond({ error: 'Unauthorized' });
+        return respond(updateUserPermissions(body.email, body.permissions));
 
       case 'setupPhase1Columns': setupPhase1Columns(); return respond({ success: true });
 
@@ -69,10 +73,10 @@ function doPost(e) {
       case 'deleteBudget':     return respond(deleteBudget(body.id));
       case 'checkBudget':      return respond(checkBudget(body.department, body.amount));
 
-      case 'getNotifications':  return respond(getNotifications(body.email));
+      case 'getNotifications':  return respond(getNotifications(user.email));
       case 'createNotif':       return respond(createNotification(body));
-      case 'markNotifRead':     return respond(markNotifRead(body.id));
-      case 'markAllNotifsRead': return respond(markAllNotifsRead(body.email));
+      case 'markNotifRead':     return respond(markNotifRead(body.id, user.email));
+      case 'markAllNotifsRead': return respond(markAllNotifsRead(user.email));
 
       case 'logAudit':    return respond(logAudit(body));
       case 'getAuditLog': return respond(getAuditLog(body.sheet, body.record_id));
@@ -83,7 +87,7 @@ function doPost(e) {
       case 'getVendorSpend': return respond(getVendorSpend(body.vendor_name));
 
       case 'getInvoiceAging': return respond(getInvoiceAging());
-      case 'saveUserTheme':   return respond(saveUserTheme(body.email, body.theme));
+      case 'saveUserTheme':   return respond(saveUserTheme(user.email, body.theme));
 
       default:                      return respond({ error: 'Unknown action: ' + action });
     }
@@ -100,9 +104,13 @@ function doGet() {
 
 function validateToken(token) {
   try {
+    if (!token) return null;
     const res  = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token));
     const info = JSON.parse(res.getContentText());
     if (info.error) return null;
+    if (info.aud !== GOOGLE_CLIENT_ID) return null;
+    if (info.iss !== 'accounts.google.com' && info.iss !== 'https://accounts.google.com') return null;
+    if (String(info.email_verified).toLowerCase() !== 'true') return null;
     if (info.exp && Number(info.exp) < Math.floor(Date.now() / 1000)) return null;
     return { email: info.email, name: info.name || info.email, picture: info.picture || '' };
   } catch (e) { return null; }
@@ -111,12 +119,12 @@ function validateToken(token) {
 function isAuthorized(email) {
   try {
     const sheet   = getSpreadsheet().getSheetByName('Users');
-    if (!sheet) return true; // No Users sheet = open access (set up Users sheet to restrict)
+    if (!sheet) return false;
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return true;
+    if (lastRow < 2) return false;
     const emails  = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat().map(String);
     return emails.some(e => e.trim().toLowerCase() === email.toLowerCase());
-  } catch (e) { return true; }
+  } catch (e) { return false; }
 }
 
 // ── BULK GET ─────────────────────────────────────────────────────
@@ -1069,19 +1077,20 @@ function getNotifications(email) {
   const headers = data[0];
   const rows = data.slice(1)
     .map(r => { const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||'')); return o; })
-    .filter(r => r.id && (!email || r.user_email===email || r.user_email==='all'))
+    .filter(r => r.id && (!email || String(r.user_email).toLowerCase()===String(email).toLowerCase() || String(r.user_email).toLowerCase()==='all'))
     .sort((a,b) => new Date(b.created_at)-new Date(a.created_at))
     .slice(0,50);
   return { rows };
 }
 
-function markNotifRead(id) {
+function markNotifRead(id, email) {
   const sh = getSpreadsheet().getSheetByName('Notifications');
   if (!sh) return { error: 'Not found' };
   const data = sh.getDataRange().getValues();
   const headers = data[0];
-  const idCol = headers.indexOf('id'), readCol = headers.indexOf('read');
-  const idx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(id));
+  const idCol = headers.indexOf('id'), readCol = headers.indexOf('read'), emailCol = headers.indexOf('user_email');
+  const idx = data.findIndex((r,i) => i>0 && String(r[idCol])===String(id) &&
+    String(r[emailCol]).toLowerCase() === String(email).toLowerCase());
   if (idx === -1) return { error: 'Not found' };
   sh.getRange(idx+1, readCol+1).setValue('true');
   return { success: true };
@@ -1094,7 +1103,9 @@ function markAllNotifsRead(email) {
   const headers = data[0];
   const emailCol = headers.indexOf('user_email'), readCol = headers.indexOf('read');
   data.forEach((r,i) => {
-    if (i>0 && (r[emailCol]===email || r[emailCol]==='all')) sh.getRange(i+1, readCol+1).setValue('true');
+    if (i>0 && String(r[emailCol]).toLowerCase()===String(email).toLowerCase()) {
+      sh.getRange(i+1, readCol+1).setValue('true');
+    }
   });
   return { success: true };
 }

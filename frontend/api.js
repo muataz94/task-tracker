@@ -20,16 +20,18 @@ async function callAPI(action, params = {}, retryCount = 0) {
     });
 
     if (!res.ok) {
-      throw new Error('Server error: ' + res.status);
+      const httpError = new Error('Server error: ' + res.status);
+      httpError.code = res.status === 401 ? 'AUTH_EXPIRED' : 'HTTP_ERROR';
+      throw httpError;
     }
 
     const data = await res.json();
 
     if (data.error === 'Unauthorized' || data.error === 'Not authenticated') {
       idToken = null;
-      document.getElementById('app')?.classList.add('hidden');
-      document.getElementById('login-screen')?.classList.remove('hidden');
-      throw new Error('Session expired. Please sign in again.');
+      const authError = new Error(typeof t === 'function' ? t('auth_session_expired') : 'Session expired.');
+      authError.code = 'AUTH_EXPIRED';
+      throw authError;
     }
 
     if (data.error) {
@@ -39,8 +41,12 @@ async function callAPI(action, params = {}, retryCount = 0) {
     return data;
 
   } catch (err) {
+    if (err.code === 'AUTH_EXPIRED') {
+      if (typeof handleSessionExpired === 'function') handleSessionExpired();
+      throw err;
+    }
     // Retry once on network failure before giving up
-    if (retryCount === 0 && err.message !== 'Not signed in. Please refresh and sign in again.') {
+    if (retryCount === 0 && !err.code && err.message !== 'Not signed in. Please refresh and sign in again.') {
       console.warn('API call failed, retrying once...', err.message);
       return callAPI(action, params, 1);
     }
