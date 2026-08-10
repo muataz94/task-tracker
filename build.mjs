@@ -43,7 +43,7 @@ for (const file of jsFiles) {
 }
 
 // Minify CSS
-const cssFiles = ['style.css', 'dashboard-v2.css'];
+const cssFiles = ['style.css', 'dashboard-v2.css', 'mobile-v2.css'];
 for (const file of cssFiles) {
   const cssSrc = readFileSync(join(SRC, file), 'utf8');
   const cssResult = await postcss([cssnano({ preset: 'default' })]).process(cssSrc, { from: undefined });

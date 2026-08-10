@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 
 const CLIENT_ID = '536004951636-66ltg9ksnvts6m90mftcl6fd99avbdcv.apps.googleusercontent.com';
 const PROFILE = {
@@ -8,12 +9,12 @@ const PROFILE = {
   sub: 'test-user-1',
 };
 
-function createTestToken() {
+function createTestToken(expiryOffsetSeconds = 3600) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   return `${encode({ alg: 'none', typ: 'JWT' })}.${encode({
     ...PROFILE,
     aud: CLIENT_ID,
-    exp: Math.floor(Date.now() / 1000) + 3600,
+    exp: Math.floor(Date.now() / 1000) + expiryOffsetSeconds,
   })}.test-signature`;
 }
 
@@ -42,11 +43,19 @@ const populatedData = {
   ],
 };
 
-async function installMocks(page, { authenticated = false, empty = false, apiDelay = 0, failAllData = false } = {}) {
-  const token = createTestToken();
+async function installMocks(page, {
+  authenticated = false,
+  empty = false,
+  apiDelay = 0,
+  failAllData = false,
+  storedProfile = undefined,
+  autoAuthAvailable = true,
+  tokenExpiryOffset = 3600,
+} = {}) {
+  const token = createTestToken(tokenExpiryOffset);
   const data = empty ? { tasks: [], pos: [], milestones: [], prs: [] } : populatedData;
 
-  await page.addInitScript(({ profile, credential, shouldAuthenticate }) => {
+  await page.addInitScript(({ profile, credential, shouldAuthenticate, profileValue, canAutoAuthenticate }) => {
     window.Chart = class ChartMock {
       destroy() {}
       resize() {}
@@ -72,7 +81,7 @@ async function installMocks(page, { authenticated = false, empty = false, apiDel
           prompt(momentCallback) {
             window.__authMock.promptCount += 1;
             setTimeout(() => {
-              if (localStorage.getItem('tt_user_profile')) {
+              if (canAutoAuthenticate && localStorage.getItem('tt_user_profile')) {
                 window.__authMock.callback({ credential });
               } else {
                 momentCallback?.({
@@ -88,10 +97,18 @@ async function installMocks(page, { authenticated = false, empty = false, apiDel
         },
       },
     };
-    if (shouldAuthenticate) {
+    if (profileValue !== undefined) {
+      localStorage.setItem('tt_user_profile', profileValue);
+    } else if (shouldAuthenticate) {
       localStorage.setItem('tt_user_profile', JSON.stringify(profile));
     }
-  }, { profile: PROFILE, credential: token, shouldAuthenticate: authenticated });
+  }, {
+    profile: PROFILE,
+    credential: token,
+    shouldAuthenticate: authenticated,
+    profileValue: storedProfile,
+    canAutoAuthenticate: autoAuthAvailable,
+  });
 
   await page.route('https://accounts.google.com/**', route => route.fulfill({
     status: 200,
@@ -162,6 +179,70 @@ async function openAuthenticatedApp(page, options = {}) {
   await expect(page.locator('#app')).not.toHaveClass(/hidden/);
 }
 
+async function readMobileGeometry(page) {
+  return page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight;
+    const nav = document.getElementById('mobile-primary-nav');
+    const main = document.getElementById('main');
+    const topbar = document.getElementById('topbar');
+    const dashboard = document.getElementById('dashboard-v2-root');
+    const welcome = document.querySelector('.dash-welcome');
+    const rightRail = document.querySelector('.dash-right-rail');
+    const activeView = document.querySelector('.view.active');
+    const navRect = nav.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    const topbarRect = topbar.getBoundingClientRect();
+    const dashboardRect = dashboard.getBoundingClientRect();
+    const welcomeRect = welcome.getBoundingClientRect();
+    const rightRailRect = rightRail.getBoundingClientRect();
+    const activeViewRect = activeView.getBoundingClientRect();
+    const excluded = [
+      '#sidebar', '.table-wrap *', '.table-scroll *', '#global-search-results',
+      '#profile-dropdown', '.chat-panel', '#notif-panel', '#notif-backdrop',
+    ].join(',');
+    const offenders = Array.from(document.querySelectorAll('#app-right *'))
+      .filter(element => element.getClientRects().length && !element.matches(excluded) && !element.closest(excluded))
+      .map(element => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.width > 1 && (rect.left < -1 || rect.right > viewportWidth + 1))
+      .slice(0, 12)
+      .map(({ element, rect }) => ({
+        tag: element.tagName,
+        id: element.id,
+        className: String(element.className).slice(0, 80),
+        parentClass: String(element.parentElement?.className || '').slice(0, 80),
+        text: String(element.textContent || '').trim().slice(0, 40),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+      }));
+
+    return {
+      viewportWidth,
+      viewportHeight,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      nav: {
+        position: window.getComputedStyle(nav).position,
+        top: navRect.top,
+        bottom: navRect.bottom,
+        height: navRect.height,
+      },
+      main: {
+        left: mainRect.left,
+        right: mainRect.right,
+        width: mainRect.width,
+        paddingBottom: parseFloat(window.getComputedStyle(main).paddingBottom),
+      },
+      topbar: { bottom: topbarRect.bottom, height: topbarRect.height },
+      activeView: { left: activeViewRect.left, right: activeViewRect.right, width: activeViewRect.width },
+      dashboard: { left: dashboardRect.left, right: dashboardRect.right, width: dashboardRect.width },
+      welcome: { left: welcomeRect.left, right: welcomeRect.right, width: welcomeRect.width, height: welcomeRect.height },
+      rightRail: { left: rightRailRect.left, right: rightRailRect.right, width: rightRailRect.width },
+      offenders,
+    };
+  });
+}
+
 test('unauthenticated startup resolves to the login screen without persisting a token', async ({ page }) => {
   await installMocks(page);
   await page.goto('/');
@@ -200,12 +281,20 @@ test('mobile tabs keep their explicit order, route state, history, and safe layo
   await page.evaluate(() => window.navigateTo('settings'));
   await expect(page.locator('#mobile-primary-nav [aria-current="page"]')).toHaveCount(0);
   expect(await page.evaluate(() => window.__authMock.initializeCount)).toBe(1);
+
+  await page.locator('#mobile-menu-btn').click();
+  await expect(page.locator('#mobile-menu-btn')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('body')).toHaveClass(/sidebar-open/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#mobile-menu-btn')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#sidebar')).not.toHaveClass(/open/);
 });
 
 test('mobile layouts have no page overflow at all required viewport sizes in LTR and RTL', async ({ page }) => {
+  test.setTimeout(90000);
   await openAuthenticatedApp(page);
   const sizes = [
-    [430, 932], [428, 926], [414, 896], [390, 844], [375, 812], [360, 800],
+    [360, 800], [375, 812], [390, 844], [393, 852], [414, 896], [428, 926], [430, 932], [768, 1024],
   ];
   for (const [width, height] of sizes) {
     await page.setViewportSize({ width, height });
@@ -213,9 +302,22 @@ test('mobile layouts have no page overflow at all required viewport sizes in LTR
       await page.locator(`[data-mobile-view="${view}"]`).click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
+    await page.locator('[data-mobile-view="dashboard"]').click();
+    const metrics = await readMobileGeometry(page);
+    expect(metrics.nav.position, `${width}x${height} nav positioning`).toBe('fixed');
+    expect(Math.abs(metrics.viewportHeight - metrics.nav.bottom), `${width}x${height} nav bottom`).toBeLessThan(2);
+    expect(metrics.nav.top, `${width}x${height} nav must remain at the bottom`).toBeGreaterThan(height / 2);
+    expect(metrics.main.width, `${width}x${height} main width`).toBeLessThanOrEqual(width + 1);
+    expect(metrics.main.paddingBottom, `${width}x${height} main bottom safe space`).toBeGreaterThanOrEqual(80);
+    expect(metrics.dashboard.width, `${width}x${height} dashboard width`).toBeGreaterThanOrEqual(metrics.main.width - 25);
+    expect(metrics.welcome.width, `${width}x${height} welcome width`).toBeGreaterThanOrEqual(metrics.dashboard.width - 1);
+    expect(metrics.welcome.height, `${width}x${height} welcome height`).toBeLessThanOrEqual(220);
+    expect(metrics.rightRail.right, `${width}x${height} right rail edge`).toBeLessThanOrEqual(width + 1);
+    expect(metrics.documentScrollWidth, `${width}x${height} document width`).toBeLessThanOrEqual(width + 1);
+    expect(metrics.offenders, `${width}x${height} unintended overflow: ${JSON.stringify(metrics.offenders)}`).toEqual([]);
   }
 
-  await page.locator('#theme-toggle').click();
+  await page.evaluate(() => window.toggleTheme());
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
@@ -239,6 +341,15 @@ test('notification bell opens on first click, renders actionable data, and route
   await expect(page.locator('#notif-panel')).toBeVisible();
   await expect(page.locator('.notif-item')).toHaveCount(5);
   await expect(page.locator('#notif-badge')).toBeVisible();
+  const notificationGeometry = await page.evaluate(() => {
+    const panel = document.getElementById('notif-panel').getBoundingClientRect();
+    const nav = document.getElementById('mobile-primary-nav').getBoundingClientRect();
+    const topbar = document.getElementById('topbar').getBoundingClientRect();
+    return { panelTop: panel.top, panelBottom: panel.bottom, navTop: nav.top, topbarBottom: topbar.bottom };
+  });
+  expect(notificationGeometry.panelBottom).toBeLessThanOrEqual(notificationGeometry.navTop + 1);
+  expect(notificationGeometry.panelTop).toBeGreaterThanOrEqual(notificationGeometry.topbarBottom - 1);
+  await expect(page.locator('#ai-chat-fab')).toBeHidden();
   await page.locator('.notif-item').filter({ hasText: 'Late task' }).click();
   await expect(page.locator('#view-tasks')).toHaveClass(/active/);
   await expect(page.locator('[data-record-id="task-late"]')).toBeFocused();
@@ -272,6 +383,24 @@ test('session restoration survives navigation and rapid reloads without duplicat
   expect(await page.evaluate(() => window.__authMock.initializeCount)).toBe(1);
   expect(await page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
 
+  const restoredProfile = await page.evaluate(() => {
+    localStorage.setItem('tt_session', 'legacy-session-placeholder');
+    const profile = window.tryRestoreSession();
+    return { email: profile?.email, legacySession: localStorage.getItem('tt_session') };
+  });
+  expect(restoredProfile.email).toBe(PROFILE.email);
+  expect(restoredProfile.legacySession).toBe('legacy-session-placeholder');
+
+  const aiCredentialStorage = await page.evaluate(() => {
+    window._saveAISettingsToStorage({ provider: 'openai', model: 'test-model', apiKey: 'test-session-key' });
+    return {
+      persisted: JSON.parse(localStorage.getItem('tt_ai_settings') || '{}'),
+      sessionKey: sessionStorage.getItem('tt_ai_session_key'),
+    };
+  });
+  expect(aiCredentialStorage.persisted).toEqual({ provider: 'openai', model: 'test-model' });
+  expect(aiCredentialStorage.sessionKey).toBe('test-session-key');
+
   const initialTheme = await page.locator('html').getAttribute('data-theme');
   await page.locator('#theme-toggle').click();
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', initialTheme);
@@ -280,6 +409,59 @@ test('session restoration survives navigation and rapid reloads without duplicat
   await expect(page.locator('#login-screen')).toBeVisible();
   await expect(page.locator('#app')).toHaveClass(/hidden/);
   expect(await page.evaluate(() => localStorage.getItem('tt_user_profile'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('tt_ai_session_key'))).toBeNull();
+});
+
+test('slow, invalid, expired, and unavailable automatic authentication resolve safely', async ({ page }) => {
+  await installMocks(page, { authenticated: true, apiDelay: 500 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#login-screen')).toHaveClass(/hidden/);
+  await expect(page.locator('#loading-screen')).not.toHaveClass(/hidden/);
+  await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
+
+  const invalidContext = await page.context().browser().newContext();
+  const invalidPage = await invalidContext.newPage();
+  await installMocks(invalidPage, { storedProfile: '{invalid', autoAuthAvailable: false });
+  await invalidPage.goto('http://127.0.0.1:4174/');
+  await expect(invalidPage.locator('#login-screen')).toBeVisible();
+  expect(await invalidPage.evaluate(() => localStorage.getItem('tt_user_profile'))).toBeNull();
+  await invalidContext.close();
+
+  const expiredContext = await page.context().browser().newContext();
+  const expiredPage = await expiredContext.newPage();
+  await installMocks(expiredPage, { authenticated: true, tokenExpiryOffset: -60 });
+  await expiredPage.goto('http://127.0.0.1:4174/');
+  await expect(expiredPage.locator('#login-screen')).toBeVisible();
+  await expect(expiredPage.locator('html')).toHaveAttribute('data-auth-state', 'unauthenticated');
+  await expiredContext.close();
+});
+
+test('desktop layouts remain full width and mobile navigation stays hidden', async ({ page }) => {
+  await openAuthenticatedApp(page);
+  for (const [width, height] of [[1366, 768], [1440, 900]]) {
+    await page.setViewportSize({ width, height });
+    await expect(page.locator('#mobile-primary-nav')).toBeHidden();
+    const metrics = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      dashboardRight: document.getElementById('dashboard-v2-root').getBoundingClientRect().right,
+    }));
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+    expect(metrics.dashboardRight).toBeLessThanOrEqual(width + 1);
+  }
+});
+
+test('captures mobile recovery screenshots', async ({ page }) => {
+  test.setTimeout(60000);
+  mkdirSync('artifacts/mobile-recovery', { recursive: true });
+  await openAuthenticatedApp(page);
+  for (const [width, height] of [[390, 844], [430, 932], [1366, 768]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
+    await expect(page.locator('.dash-kpi-card')).toHaveCount(5);
+    await page.screenshot({ path: `artifacts/mobile-recovery/dashboard-${width}x${height}.png` });
+  }
 });
 
 test('an API authorization failure is recovered through one supported Google session prompt', async ({ page }) => {

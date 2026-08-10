@@ -1,6 +1,7 @@
 // ─── AI Chat Assistant ────────────────────────────────────────────────────────
 
 const AI_STORAGE_KEY = 'tt_ai_settings';
+const AI_SESSION_KEY = 'tt_ai_session_key';
 let _aiOpen     = false;
 let _aiMessages = [];
 
@@ -13,7 +14,11 @@ const AI_MODELS = {
 
 function initAIChat() {
   const panel = document.getElementById('ai-chat-panel');
-  if (panel) panel.style.pointerEvents = 'none';
+  if (panel) {
+    panel.style.pointerEvents = 'none';
+    panel.style.visibility = 'hidden';
+    panel.style.opacity = '0';
+  }
   const saved = _loadAISettings();
 
   // Re-detect provider from saved key — corrects stale/wrong saved provider silently
@@ -51,11 +56,29 @@ function initAIChat() {
 }
 
 function _loadAISettings() {
-  try { return JSON.parse(localStorage.getItem(AI_STORAGE_KEY) || '{}'); } catch(_) { return {}; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(AI_STORAGE_KEY) || '{}');
+    const migratedKey = saved.apiKey || '';
+    if (migratedKey) {
+      sessionStorage.setItem(AI_SESSION_KEY, migratedKey);
+      delete saved.apiKey;
+      localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(saved));
+    }
+    return { ...saved, apiKey: sessionStorage.getItem(AI_SESSION_KEY) || '' };
+  } catch (_) {
+    return { apiKey: sessionStorage.getItem(AI_SESSION_KEY) || '' };
+  }
 }
 
 function _saveAISettingsToStorage(settings) {
-  localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(settings));
+  const { apiKey = '', ...preferences } = settings;
+  localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(preferences));
+  if (apiKey) sessionStorage.setItem(AI_SESSION_KEY, apiKey);
+  else sessionStorage.removeItem(AI_SESSION_KEY);
+}
+
+function clearAISessionCredentials() {
+  sessionStorage.removeItem(AI_SESSION_KEY);
 }
 
 function toggleAIChat() {
@@ -66,6 +89,8 @@ function toggleAIChat() {
   if (_aiOpen) {
     panel.style.transform = 'translateY(0)';
     panel.style.pointerEvents = 'auto';
+    panel.style.visibility = 'visible';
+    panel.style.opacity = '1';
     if (btn) btn.style.display = 'none';
     _renderAIMessages();
     setTimeout(() => {
@@ -77,6 +102,8 @@ function toggleAIChat() {
   } else {
     panel.style.transform = 'translateY(calc(100% + 2px))';
     panel.style.pointerEvents = 'none';
+    panel.style.visibility = 'hidden';
+    panel.style.opacity = '0';
     if (btn) btn.style.display = '';
     const sp = document.getElementById('ai-settings-panel');
     if (sp) sp.style.display = 'none';

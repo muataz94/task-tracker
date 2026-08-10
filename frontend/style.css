@@ -53,8 +53,10 @@
 
   /* Layout */
   --sidebar-w: 220px;
-  --topbar-h:  56px;
-  --mobile-nav-h: 72px;
+  --topbar-content-h: 60px;
+  --topbar-h: calc(var(--topbar-content-h) + env(safe-area-inset-top));
+  --mobile-nav-content-h: 64px;
+  --mobile-nav-h: var(--mobile-nav-content-h);
 }
 
 .mobile-primary-nav {
@@ -2562,16 +2564,9 @@ img.emoji {
     box-shadow: -6px 0 40px rgba(0,0,0,0.45);
   }
 
-  /* Topbar: tighter */
-  #topbar { padding: 0 0.875rem; gap: 10px; }
-  #topbar-title { font-size: 14px; }
+  /* Topbar component visibility; shell geometry lives in mobile-v2.css. */
   #profile-name { display: none; }
   .profile-btn { padding: 4px 8px 4px 4px; }
-
-  /* Main: tighter padding */
-  #main {
-    padding: 0.875rem 1rem calc(var(--mobile-nav-h) + 24px + env(safe-area-inset-bottom));
-  }
 
   /* Dashboard */
   .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -2643,7 +2638,6 @@ img.emoji {
   .stat-card { padding: 0.625rem 0.75rem; gap: 8px; }
   .stat-value { font-size: 20px; }
   .stat-icon { width: 36px; height: 36px; }
-  #main { padding: 0.75rem 0.75rem calc(var(--mobile-nav-h) + 20px + env(safe-area-inset-bottom)); }
   .tab-header h2 { font-size: 15px; }
   .tab-header-icon { width: 34px; height: 34px; }
   .dashboard-greeting h2, .greeting-left h2 { font-size: 16px; }
@@ -4090,9 +4084,6 @@ h1.login-title {
 
 /* ── GLOBAL RESPONSIVE IMPROVEMENTS ── */
 @media (max-width: 768px) {
-  /* Main content padding */
-  #main { padding: 0.875rem 1rem; }
-
   /* Tab headers stack on mobile */
   .tab-header { flex-direction: column; align-items: flex-start !important; gap: 10px; }
   .tab-header-right { width: 100%; }
@@ -4121,7 +4112,6 @@ h1.login-title {
 }
 
 @media (max-width: 480px) {
-  #main { padding: 0.75rem; }
   .topbar { padding: 0 0.75rem; }
   #topbar-title { font-size: 14px; }
   .stat-card-value { font-size: 22px; }
@@ -5778,8 +5768,8 @@ body { overflow-x: hidden; }
    TOPBAR — PREMIUM UPGRADE
 ══════════════════════════════════════════════════════════════════ */
 #topbar {
-  height: 62px;
-  min-height: 62px;
+  height: var(--topbar-h);
+  min-height: var(--topbar-h);
   background: var(--glass-bg-strong);
   backdrop-filter: blur(32px) saturate(200%);
   -webkit-backdrop-filter: blur(32px) saturate(200%);

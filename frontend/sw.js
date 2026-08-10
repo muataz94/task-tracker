@@ -1,8 +1,8 @@
 // App-shell cache only — no data caching (all data goes through Apps Script
 // POST calls, which Service Workers can't meaningfully cache/replay here).
-const CACHE_NAME = 'tasktracker-shell-v3';
+const CACHE_NAME = 'tasktracker-shell-v4';
 const SHELL_FILES = [
-  './', './index.html', './style.css', './dashboard-v2.css',
+  './', './index.html', './style.css', './dashboard-v2.css', './mobile-v2.css',
   './i18n.js', './config.js', './cache.js', './api.js',
   './tables.js', './dashboard.js', './kanban.js', './chat.js',
   './quotations.js', './invoices.js', './vendors.js', './messaging.js',

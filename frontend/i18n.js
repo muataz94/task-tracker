@@ -61,6 +61,7 @@ const TRANSLATIONS = {
     save:             'Save',
     cancel:           'Cancel',
     search:           'Search...',
+    toggle_menu:      'Toggle menu',
     refresh:          'Refresh',
     view_all:         'View all →',
 
@@ -360,6 +361,7 @@ const TRANSLATIONS = {
     save:             'حفظ',
     cancel:           'إلغاء',
     search:           'بحث...',
+    toggle_menu:      'فتح أو إغلاق القائمة',
     refresh:          'تحديث',
     view_all:         'عرض الكل ←',
 
