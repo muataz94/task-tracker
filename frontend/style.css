@@ -81,6 +81,11 @@
   display: none;
 }
 
+html:not([data-auth-state="authenticated"]) #ai-chat-fab,
+html:not([data-auth-state="authenticated"]) #ai-chat-panel {
+  display: none !important;
+}
+
 .record-focus-target {
   outline: 2px solid var(--accent);
   outline-offset: -2px;

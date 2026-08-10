@@ -99,6 +99,6 @@ document.addEventListener('DOMContentLoaded', renderOfflineBanner);
 // Register the app-shell service worker (caches static files only — no data)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=6').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=7').catch(() => {});
   });
 }
