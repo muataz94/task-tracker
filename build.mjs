@@ -28,7 +28,7 @@ console.log('✓ sw.js copied');
 // Minify JS — keep top-level names intact (called from HTML/other scripts)
 const jsFiles = [
   'config.js', 'i18n.js', 'cache.js', 'api.js',
-  'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js', 'invoices.js', 'vendors.js',
+  'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'icons.js', 'quotations.js', 'invoices.js', 'vendors.js',
   'messaging.js', 'purchasereqs.js', 'ai-chat.js', 'notifications.js', 'budget.js', 'analytics.js', 'offline.js',
   'dashboard-v2.js', 'mobile-nav.js', 'mobile-v3.js', 'forms-v4.js'
 ];
@@ -44,7 +44,7 @@ for (const file of jsFiles) {
 }
 
 // Minify CSS
-const cssFiles = ['style.css', 'dashboard-v2.css', 'mobile-v2.css', 'mobile-v3.css'];
+const cssFiles = ['style.css', 'dashboard-v2.css', 'mobile-v2.css', 'mobile-v3.css', 'ai-v5.css'];
 for (const file of cssFiles) {
   const cssSrc = readFileSync(join(SRC, file), 'utf8');
   const cssResult = await postcss([cssnano({ preset: 'default' })]).process(cssSrc, { from: undefined });
@@ -53,7 +53,15 @@ for (const file of cssFiles) {
 }
 
 // Minify HTML (also minifies any inline <style>/<script> blocks)
-const htmlSrc = readFileSync(join(SRC, 'index.html'), 'utf8');
+const configuredGatewayUrl = String(process.env.TASK_TRACKER_AI_GATEWAY_URL || '').trim().replace(/\/+$/, '');
+if (configuredGatewayUrl) {
+  const gatewayUrl = new URL(configuredGatewayUrl);
+  if (gatewayUrl.protocol !== 'https:' || gatewayUrl.username || gatewayUrl.password || gatewayUrl.search || gatewayUrl.hash) {
+    throw new Error('TASK_TRACKER_AI_GATEWAY_URL must be a public HTTPS origin/path without credentials, query, or fragment');
+  }
+}
+const htmlSrc = readFileSync(join(SRC, 'index.html'), 'utf8')
+  .replace('__TASK_TRACKER_AI_GATEWAY_URL__', configuredGatewayUrl);
 const htmlResult = await minifyHTML(htmlSrc, {
   collapseWhitespace: true,
   collapseInlineTagWhitespace: false,

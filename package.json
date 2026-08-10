@@ -5,10 +5,13 @@
   "homepage": "https://muataz94.github.io/task-tracker",
   "scripts": {
     "build": "node build.mjs",
-    "lint": "eslint build.mjs frontend/ai-chat.js frontend/api.js frontend/forms-v4.js frontend/mobile-nav.js frontend/mobile-v3.js frontend/notifications.js playwright.config.js tests/**/*.js tests/**/*.mjs",
+    "lint": "eslint build.mjs frontend/ai-chat.js frontend/icons.js frontend/api.js frontend/forms-v4.js frontend/mobile-nav.js frontend/mobile-v3.js frontend/notifications.js worker/ai-gateway/src/index.js playwright.config.js tests/**/*.js tests/**/*.mjs",
+    "test:gateway": "node --test tests/gateway/*.test.js",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test",
-    "check": "npm run lint && npm run build && npm test",
+    "check": "npm run lint && npm run build && npm run test:gateway && npm test",
+    "gateway:check": "wrangler deploy --dry-run --config worker/ai-gateway/wrangler.jsonc",
+    "gateway:deploy": "wrangler deploy --config worker/ai-gateway/wrangler.jsonc",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
@@ -19,6 +22,7 @@
     "gh-pages": "^6.3.0",
     "html-minifier-terser": "^7.2.0",
     "postcss": "^8.5.26",
-    "terser": "^5.36.0"
+    "terser": "^5.36.0",
+    "wrangler": "^4.36.0"
   }
 }

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#060812" />
+  <meta name="task-tracker-ai-gateway" content="__TASK_TRACKER_AI_GATEWAY_URL__" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -29,6 +30,7 @@
   <link rel="stylesheet" href="dashboard-v2.css?v=3" />
   <link rel="stylesheet" href="mobile-v2.css?v=2" />
   <link rel="stylesheet" href="mobile-v3.css?v=1" />
+  <link rel="stylesheet" href="ai-v5.css?v=1" />
 </head>
 <body>
   <canvas id="particles-canvas" class="particles-canvas"></canvas>
@@ -419,12 +421,12 @@
           <div class="glass" style="border-radius:var(--r-md);padding:1rem;margin-bottom:1rem;">
             <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Quick Actions</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="quick-action-btn" onclick="navigateTo('purchasereqs');setTimeout(()=>showPRModal&&showPRModal(null),300)">📝 New PR</button>
-              <button class="quick-action-btn" onclick="navigateTo('pos')">📋 New PO</button>
-              <button class="quick-action-btn" onclick="navigateTo('invoices');setTimeout(()=>showInvoiceModal&&showInvoiceModal(null),300)">🧾 New Invoice</button>
-              <button class="quick-action-btn" onclick="navigateTo('vendors');setTimeout(()=>showVendorModal&&showVendorModal(null),300)">🏢 New Vendor</button>
-              <button class="quick-action-btn" onclick="showComposeModal&&showComposeModal({})">💬 Send Message</button>
-              <button class="quick-action-btn" onclick="navigateTo('quotations')">⚖️ New Comparison</button>
+              <button class="quick-action-btn" onclick="navigateTo('purchasereqs');setTimeout(()=>showPRModal&&showPRModal(null),300)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6"/></svg><span data-i18n="new_request">New request</span></button>
+              <button class="quick-action-btn" onclick="navigateTo('pos')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z"/><path d="M9 7h6M9 11h6"/></svg><span data-i18n="create_purchase_order">Create purchase order</span></button>
+              <button class="quick-action-btn" onclick="navigateTo('invoices');setTimeout(()=>showInvoiceModal&&showInvoiceModal(null),300)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg><span data-i18n="new_invoice">New Invoice</span></button>
+              <button class="quick-action-btn" onclick="navigateTo('vendors');setTimeout(()=>showVendorModal&&showVendorModal(null),300)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg><span data-i18n="add_vendor">Add vendor</span></button>
+              <button class="quick-action-btn" onclick="showComposeModal&&showComposeModal({})"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg><span data-i18n="send_message">Send message</span></button>
+              <button class="quick-action-btn" onclick="navigateTo('quotations')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M7 7l-4 7h8L7 7ZM17 7l-4 7h8l-4-7Z"/></svg><span data-i18n="new_comparison">New comparison</span></button>
             </div>
           </div>
 
@@ -1522,142 +1524,32 @@
     </nav>
   </div><!-- end #app -->
 
-  <!-- AI Chat Button + Panel -->
-  <button id="ai-chat-fab" onclick="toggleAIChat()" title="AI Assistant"
-    style="position:fixed;bottom:5rem;right:1.5rem;z-index:150;width:52px;height:52px;border-radius:50%;border:none;
-    background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 24px rgba(99,102,241,0.6),0 1px 4px rgba(0,0,0,0.3);transition:all 0.2s ease;">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M10.5 2.4a.55.55 0 011 0l.85 2.75a4.4 4.4 0 002.5 2.5l2.75.85a.55.55 0 010 1l-2.75.85a4.4 4.4 0 00-2.5 2.5l-.85 2.75a.55.55 0 01-1 0l-.85-2.75a4.4 4.4 0 00-2.5-2.5L4.4 9.55a.55.55 0 010-1l2.75-.85a4.4 4.4 0 002.5-2.5l.85-2.75z"/>
-      <path d="M18.5 14.8a.35.35 0 01.65 0l.5 1.6 1.6.5a.35.35 0 010 .65l-1.6.5-.5 1.6a.35.35 0 01-.65 0l-.5-1.6-1.6-.5a.35.35 0 010-.65l1.6-.5.5-1.6z"/>
-    </svg>
+  <!-- Provider-agnostic V5 assistant. Provider credentials live only in the gateway. -->
+  <button id="ai-chat-fab" class="ai-launcher" type="button" onclick="toggleAIChat()" aria-controls="ai-chat-panel" aria-expanded="false" data-i18n-aria-label="ai_open" aria-label="Open AI Assistant">
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.1 3.4a6 6 0 0 1-3.8 3.8L4 11.2l3.1 1a6 6 0 0 1 3.8 3.8l1.1 3.4 1.1-3.4a6 6 0 0 1 3.8-3.8l3.1-1-3.1-1a6 6 0 0 1-3.8-3.8L12 3Z"/><path d="m19 3-.4 1.2a2 2 0 0 1-1.3 1.3l-1.2.4 1.2.4a2 2 0 0 1 1.3 1.3L19 9l.4-1.2a2 2 0 0 1 1.3-1.3l1.2-.4-1.2-.4a2 2 0 0 1-1.3-1.3L19 3Z"/></svg>
   </button>
-
-  <!-- AI Chat Panel -->
-  <div id="ai-chat-panel" style="position:fixed;bottom:0;right:1rem;z-index:149;width:390px;
-    max-height:min(580px,calc(100vh - 5rem));
-    display:flex;flex-direction:column;border-radius:var(--r-lg) var(--r-lg) 0 0;
-    background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);
-    border:1px solid var(--border);border-bottom:none;
-    box-shadow:0 -12px 50px rgba(0,0,0,0.35);
-    transform:translateY(calc(100% + 2px));transition:transform 0.32s cubic-bezier(0.34,1.26,0.64,1);
-    overflow:hidden;">
-
-    <!-- Panel header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;flex-shrink:0;
-      border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.07));">
-      <div style="display:flex;align-items:center;gap:9px;">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);
-          display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 10px rgba(99,102,241,0.4);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-            <path d="M10.5 2.4a.55.55 0 011 0l.85 2.75a4.4 4.4 0 002.5 2.5l2.75.85a.55.55 0 010 1l-2.75.85a4.4 4.4 0 00-2.5 2.5l-.85 2.75a.55.55 0 01-1 0l-.85-2.75a4.4 4.4 0 00-2.5-2.5L4.4 9.55a.55.55 0 010-1l2.75-.85a4.4 4.4 0 002.5-2.5l.85-2.75z"/>
-            <path d="M18.5 14.8a.35.35 0 01.65 0l.5 1.6 1.6.5a.35.35 0 010 .65l-1.6.5-.5 1.6a.35.35 0 01-.65 0l-.5-1.6-1.6-.5a.35.35 0 010-.65l1.6-.5.5-1.6z"/>
-          </svg>
-        </div>
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em;">AI Assistant</div>
-          <div style="font-size:10px;color:var(--text-3);margin-top:1px;" id="ai-status-label">Configure API key to start</div>
-        </div>
+  <section id="ai-chat-panel" class="ai-sheet" role="dialog" aria-modal="false" aria-labelledby="ai-sheet-title" aria-hidden="true">
+    <div class="ai-sheet-handle" aria-hidden="true"></div>
+    <header class="ai-sheet-header">
+      <div class="ai-sheet-identity"><span class="ai-sheet-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.1 3.4a6 6 0 0 1-3.8 3.8L4 11.2l3.1 1a6 6 0 0 1 3.8 3.8l1.1 3.4 1.1-3.4a6 6 0 0 1 3.8-3.8l3.1-1-3.1-1a6 6 0 0 1-3.8-3.8L12 3Z"/></svg></span><span><strong id="ai-sheet-title" data-i18n="ai_assistant">AI Assistant</strong><small id="ai-status-label" data-i18n="ai_not_connected">Not connected</small></span></div>
+      <div class="ai-sheet-actions">
+        <button id="ai-settings-button" type="button" onclick="toggleAIChatSettings()" aria-controls="ai-settings-panel" aria-expanded="false" data-i18n-aria-label="ai_settings" aria-label="AI Settings"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
+        <button type="button" onclick="clearAIChat()" data-i18n-aria-label="ai_clear" aria-label="Clear chat"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
+        <button type="button" onclick="toggleAIChat(false)" data-i18n-aria-label="close" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <button onclick="toggleAIChatSettings()" title="Settings"
-          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
-          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
-          justify-content:center;transition:background 0.15s;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-          </svg>
-        </button>
-        <button onclick="clearAIChat()" title="Clear chat"
-          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
-          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
-          justify-content:center;transition:background 0.15s;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
-          </svg>
-        </button>
-        <button onclick="toggleAIChat()" title="Close"
-          style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-3);
-          width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;
-          justify-content:center;font-size:13px;transition:background 0.15s;">✕</button>
-      </div>
+    </header>
+    <div id="ai-settings-panel" class="ai-settings" hidden>
+      <div class="ai-settings-heading"><strong data-i18n="ai_settings">AI Settings</strong><span data-i18n="ai_gateway_managed">Credentials managed securely by the gateway</span></div>
+      <dl class="ai-provider-card"><div><dt data-i18n="ai_provider">AI Provider</dt><dd id="ai-detected-provider" data-i18n="ai_detected_automatically">Detected automatically</dd></div><div><dt data-i18n="ai_connection">Connection</dt><dd id="ai-connection-state" data-state="idle" data-i18n="ai_not_connected">Not connected</dd></div></dl>
+      <label class="ai-model-field"><span data-i18n="ai_model">Model</span><select id="ai-model" disabled><option data-i18n="ai_detect_first">Detect provider first</option></select></label>
+      <div class="ai-settings-actions"><button id="ai-test-connection" type="button" class="ai-button-secondary" onclick="testAIConnection()"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 11M5.5 15A7 7 0 0 0 18 17.5l2-4.5"/></svg><span data-i18n="ai_test_connection">Test connection</span></button><button type="button" class="btn-primary" onclick="saveAISettings()" data-i18n="save">Save</button></div>
     </div>
-
-    <!-- Settings panel (hidden by default, scrollable) -->
-    <div id="ai-settings-panel" style="display:none;overflow-y:auto;flex-shrink:0;max-height:260px;
-      padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(99,102,241,0.03);">
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">AI Settings</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-        <div class="form-group">
-          <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;">Provider</label>
-          <select id="ai-provider" class="pref-select" style="width:100%;margin-top:4px;font-size:12px;" onchange="onAIProviderChange()">
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="gemini">Google Gemini</option>
-            <option value="openrouter">OpenRouter</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;">Model</label>
-          <select id="ai-model" class="pref-select" style="width:100%;margin-top:4px;font-size:12px;">
-            <option value="gpt-4o">gpt-4o</option>
-            <option value="gpt-4">gpt-4</option>
-            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group" style="margin-bottom:10px;">
-        <label style="font-size:10px;font-weight:600;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px;">
-          API Key
-          <span id="ai-provider-badge" style="display:none;font-size:10px;background:rgba(16,185,129,0.15);color:#10b981;padding:1px 7px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;"></span>
-        </label>
-        <input type="password" id="ai-api-key" required placeholder="sk-… or sk-ant-… or AIza…"
-          oninput="onAIKeyInput(this)"
-          style="margin-top:4px;font-size:12px;font-family:monospace;" />
-        <div style="font-size:10px;color:var(--text-4);margin-top:3px;">Provider auto-detected from key prefix</div>
-      </div>
-      <button class="btn-primary" style="width:100%;font-size:12px;padding:7px;" onclick="saveAISettings()">Save Settings</button>
+    <div class="ai-quick-actions" aria-label="AI quick actions" data-i18n-aria-label="ai_quick_actions">
+      <button type="button" data-ai-quick-action="ai_prompt_overdue" data-i18n="ai_action_overdue">Overdue tasks</button><button type="button" data-ai-quick-action="ai_prompt_pr" data-i18n="ai_action_pr">PR summary</button><button type="button" data-ai-quick-action="ai_prompt_po" data-i18n="ai_action_po">PO risks</button><button type="button" data-ai-quick-action="ai_prompt_priorities" data-i18n="ai_action_priorities">Today's priorities</button><button type="button" data-ai-quick-action="ai_prompt_vendor" data-i18n="ai_action_vendor">Vendor follow-up</button>
     </div>
-
-    <!-- Search bar -->
-    <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-shrink:0;background:rgba(0,0,0,0.08);">
-      <div style="position:relative;flex:1;">
-        <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="ai-google-search" type="text" placeholder="Search with AI…"
-          style="width:100%;padding:6px 10px 6px 26px;font-size:12px;background:var(--glass-bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:Inter,sans-serif;"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();googleSearchFromAI();}" />
-      </div>
-      <button onclick="googleSearchFromAI()"
-        style="background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(99,102,241,0.3);
-        color:var(--accent);padding:6px 11px;border-radius:var(--r-sm);cursor:pointer;font-size:11px;font-weight:600;
-        font-family:Inter,sans-serif;white-space:nowrap;display:flex;align-items:center;gap:4px;">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Search
-      </button>
-    </div>
-
-    <!-- Chat messages -->
-    <div id="ai-messages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:140px;"></div>
-
-    <!-- Input area -->
-    <div style="padding:9px 12px;border-top:1px solid var(--border);display:flex;gap:7px;align-items:flex-end;flex-shrink:0;background:rgba(0,0,0,0.06);">
-      <textarea id="ai-input" rows="1" placeholder="Ask anything…"
-        style="flex:1;resize:none;padding:8px 11px;font-size:13px;line-height:1.45;border-radius:var(--r-md);
-        max-height:90px;overflow-y:auto;font-family:Inter,sans-serif;background:var(--glass-bg);
-        border:1px solid var(--border);color:var(--text-1);"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage();}"
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px'"></textarea>
-      <button onclick="sendAIMessage()" id="ai-send-btn"
-        style="width:34px;height:34px;border-radius:var(--r-md);border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);
-        color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-        box-shadow:0 2px 10px rgba(99,102,241,0.4);">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-  </div>
-
+    <div id="ai-messages" class="ai-messages" aria-live="polite"></div>
+    <div class="ai-composer"><label for="ai-input" class="sr-only" data-i18n="ai_message">Message the AI assistant</label><textarea id="ai-input" rows="1" data-i18n-placeholder="ai_ask_placeholder" placeholder="Ask about your workspace..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage();}"></textarea><button id="ai-send-btn" type="button" onclick="sendAIMessage()" disabled data-i18n-aria-label="ai_send" aria-label="Send message"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></svg></button><span id="ai-composer-status" role="status" data-i18n="ai_thinking">Thinking</span></div>
+  </section>
   <!-- ── PROFILE DROPDOWN ── -->
   <div id="profile-dropdown" class="hidden">
     <div class="profile-dropdown-header">
@@ -1707,12 +1599,13 @@
   <script src="dashboard.js"></script>
   <script src="kanban.js"></script>
   <script src="chat.js?v=6"></script>
+  <script src="icons.js?v=1"></script>
   <script src="quotations.js?v=2"></script>
   <script src="invoices.js?v=2"></script>
   <script src="vendors.js?v=2"></script>
   <script src="messaging.js?v=2"></script>
   <script src="purchasereqs.js?v=2"></script>
-  <script src="ai-chat.js"></script>
+  <script src="ai-chat.js?v=5"></script>
   <script src="notifications.js?v=3"></script>
   <script src="budget.js?v=2"></script>
   <script src="analytics.js"></script>
@@ -2087,7 +1980,7 @@
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('tt_theme', theme);
       const btn = document.getElementById('theme-toggle');
-      if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+      if (btn) btn.setAttribute('aria-pressed', String(theme === 'light'));
 
       const sidebarLogo = document.getElementById('sidebar-logo');
       const loginIcon   = document.getElementById('login-icon');

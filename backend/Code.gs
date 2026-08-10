@@ -29,6 +29,7 @@ function doPost(e) {
     if (!action || !allowRequestRate(user.email, action)) return respond({ error: 'Too many requests' });
     if (!authorizeRequest(user.email, action, body)) return respond({ error: 'Forbidden' });
     switch (action) {
+      case 'verifySession': return respond({ authenticated: true, email: user.email });
       case 'getAll':       return respond(sheet === 'Users' ? getUsersForRequester(user.email) : getAll(sheet));
       case 'getDashboard': return respond(getDashboard());
       case 'addRow':       return respond(addRow(sheet, validateRecordData(data), user.email));
@@ -129,7 +130,7 @@ function isAuthorized(email) {
 }
 
 const API_READ_ACTIONS = [
-  'getAll','getDashboard','getChat','bulkGet','getComparisons','getCompVendors',
+  'verifySession','getAll','getDashboard','getChat','bulkGet','getComparisons','getCompVendors',
   'getInvoices','getVendors','getVendorByName','getPRs','getPRLineItems',
   'getUserPermissions','getBudgets','checkBudget','getNotifications','globalSearch',
   'getVendorSpend','getInvoiceAging'
