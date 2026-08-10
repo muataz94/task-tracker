@@ -30,7 +30,7 @@ const jsFiles = [
   'config.js', 'i18n.js', 'cache.js', 'api.js',
   'tables.js', 'dashboard.js', 'kanban.js', 'chat.js', 'quotations.js', 'invoices.js', 'vendors.js',
   'messaging.js', 'purchasereqs.js', 'ai-chat.js', 'notifications.js', 'budget.js', 'analytics.js', 'offline.js',
-  'dashboard-v2.js', 'mobile-nav.js', 'mobile-v3.js'
+  'dashboard-v2.js', 'mobile-nav.js', 'mobile-v3.js', 'forms-v4.js'
 ];
 for (const file of jsFiles) {
   const src = readFileSync(join(SRC, file), 'utf8');

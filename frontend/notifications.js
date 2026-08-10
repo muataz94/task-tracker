@@ -208,10 +208,10 @@ async function loadNotifications(options = {}) {
 
   const profile = getNotificationProfile();
   const results = await Promise.allSettled([
-    callAPI('getNotifications', { email: profile.email || '' }),
+    cachedFetch('Notifications', () => callAPI('getNotifications', { email: profile.email || '' })),
     getDashboard(),
     getAll('POs'),
-    callAPI('getPRs'),
+    cachedFetch('PurchaseRequests', () => callAPI('getPRs')),
   ]);
   if (requestId !== notificationState.requestId) return;
 

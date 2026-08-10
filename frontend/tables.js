@@ -12,11 +12,11 @@ const SHEET_FIELDS = {
     { key: 'assignee',         label: 'Assignee',       type: 'datalist', sources: [['Tasks','assignee'], ['Users','name'], ['Users','email']], layout: 'half' },
     { key: 'due_date',         label: 'Due Date',       type: 'date',     layout: 'half' },
     { key: 'start_date',       label: 'Start Date',     type: 'date',     layout: 'half' },
-    { key: 'completion_pct',   label: 'Progress %',     type: 'number',   layout: 'half' },
+    { key: 'completion_pct',   label: 'Progress %',     type: 'number',   min: 0, max: 100, step: 1, layout: 'half' },
     { key: 'project',          label: 'Project',        type: 'datalist', sources: [['Tasks','project'], ['Milestones','project']], required: true, layout: 'half' },
     { key: 'category',         label: 'Category',       type: 'datalist', sources: [['Tasks','category']], layout: 'half' },
-    { key: 'estimated_hours',  label: 'Est. Hours',     type: 'number',   layout: 'half' },
-    { key: 'actual_hours',     label: 'Actual Hours',   type: 'number',   layout: 'half' },
+    { key: 'estimated_hours',  label: 'Est. Hours',     type: 'number',   min: 0, step: 0.25, layout: 'half' },
+    { key: 'actual_hours',     label: 'Actual Hours',   type: 'number',   min: 0, step: 0.25, layout: 'half' },
     { key: 'tags',             label: 'Tags',           type: 'text' },
     { key: 'recurring',        label: 'Recurring',      type: 'select',   options: ['none','daily','weekly','monthly'], layout: 'half' },
     { key: 'dependency_ids',   label: 'Blocked By (task titles, comma-separated)', type: 'datalist', sources: [['Tasks','title']], layout: 'half' },
@@ -29,9 +29,9 @@ const SHEET_FIELDS = {
     { key: 'item_description',  label: 'Description',       type: 'datalist', sources: [['POs','item_description']] },
     { key: 'category',          label: 'Category',          type: 'datalist', sources: [['POs','category'], ['Expenses','category']], layout: 'half' },
     { key: 'budget_category',   label: 'Budget Category',   type: 'datalist', sources: [['POs','budget_category']], layout: 'half' },
-    { key: 'quantity',          label: 'Quantity',          type: 'number',   layout: 'half' },
-    { key: 'unit_price',        label: 'Unit Price',        type: 'number',   layout: 'half' },
-    { key: 'total_value',       label: 'Total Value',       type: 'number',   layout: 'half' },
+    { key: 'quantity',          label: 'Quantity',          type: 'number',   min: 0, step: 1, layout: 'half' },
+    { key: 'unit_price',        label: 'Unit Price',        type: 'number',   min: 0, step: 0.01, layout: 'half' },
+    { key: 'total_value',       label: 'Total Value',       type: 'number',   min: 0, step: 0.01, layout: 'half' },
     { key: 'currency',          label: 'Currency',          type: 'select',   options: ['USD','IQD','EUR'], layout: 'half' },
     { key: 'status',            label: 'Status',            type: 'select',   options: ['draft','submitted','received','cancelled'], layout: 'half' },
     { key: 'approval_status',   label: 'Approval Status',   type: 'select',   options: ['pending','approved','rejected'], layout: 'half' },
@@ -53,13 +53,13 @@ const SHEET_FIELDS = {
     { key: 'owner',          label: 'Owner',      type: 'datalist', sources: [['Users','name'], ['Users','email'], ['Milestones','owner']] },
     { key: 'start_date',     label: 'Start Date', type: 'date' },
     { key: 'target_date',    label: 'Target Date',type: 'date' },
-    { key: 'completion_pct', label: 'Progress %', type: 'number' },
+    { key: 'completion_pct', label: 'Progress %', type: 'number', min: 0, max: 100, step: 1 },
     { key: 'status',         label: 'Status',     type: 'select',   options: ['not_started','in_progress','completed','blocked'] }
   ],
   Expenses: [
     { key: 'category',    label: 'Category',    type: 'datalist', sources: [['Expenses','category']],                                      required: true },
     { key: 'description', label: 'Description', type: 'datalist', sources: [['Expenses','description'], ['POs','item_description']] },
-    { key: 'amount',      label: 'Amount',      type: 'number',   required: true },
+    { key: 'amount',      label: 'Amount',      type: 'number',   required: true, min: 0, step: 0.01 },
     { key: 'currency',    label: 'Currency',    type: 'select',   options: ['USD','IQD','EUR'] },
     { key: 'date',        label: 'Date',        type: 'date' },
     { key: 'budget_line', label: 'Budget Line', type: 'datalist', sources: [['Expenses','budget_line']] },
@@ -447,7 +447,7 @@ function buildModalForm(sheetName, data) {
       const opts = f.options.map(o =>
         `<option value="${o}" ${String(val) === o ? 'selected' : ''}>${o.replace(/_/g,' ')}</option>`
       ).join('');
-      return `<div class="form-group">${lbl}<select name="${f.key}">${opts}</select></div>`;
+      return `<div class="form-group">${lbl}<select name="${f.key}" ${f.required ? 'required' : ''}>${opts}</select></div>`;
     }
     if (f.type === 'datalist') {
       const dlId   = 'dl-' + f.key + '-' + sheetName;
@@ -472,7 +472,13 @@ function buildModalForm(sheetName, data) {
     if (f.type === 'hidden') {
       return `<input type="hidden" name="${f.key}" value="${escapeAttr(val)}"/>`;
     }
-    return `<div class="form-group">${lbl}<input type="${f.type || 'text'}" name="${f.key}" value="${escapeAttr(val)}" ${f.required ? 'required' : ''} /></div>`;
+    const constraints = [
+      f.required ? 'required' : '',
+      f.min !== undefined ? `min="${f.min}"` : '',
+      f.max !== undefined ? `max="${f.max}"` : '',
+      f.step !== undefined ? `step="${f.step}"` : ''
+    ].filter(Boolean).join(' ');
+    return `<div class="form-group">${lbl}<input type="${f.type || 'text'}" name="${f.key}" value="${escapeAttr(val)}" ${constraints} /></div>`;
   }
 
   // Pair consecutive `layout:'half'` fields into two-column rows
@@ -500,6 +506,19 @@ async function saveModal() {
   const fields  = SHEET_FIELDS[currentSheet];
   const body    = document.getElementById('modal-body');
   const payload = {};
+
+  const dateRules = [];
+  const addDateRule = (startKey, endKey) => dateRules.push(() => {
+    const start = body.querySelector(`[name="${startKey}"]`);
+    const end = body.querySelector(`[name="${endKey}"]`);
+    return !start?.value || !end?.value || end.value >= start.value
+      ? { valid: true }
+      : { valid: false, control: end, message: t('form_date_order') };
+  });
+  if (currentSheet === 'Tasks') addDateRule('start_date', 'due_date');
+  if (currentSheet === 'POs') addDateRule('expected_delivery', 'actual_delivery');
+  if (currentSheet === 'Milestones') addDateRule('start_date', 'target_date');
+  if (typeof formV4Validate === 'function' && !formV4Validate(body, dateRules)) return;
 
   for (const f of fields) {
     const el = body.querySelector(`[name="${f.key}"]`);
@@ -543,8 +562,9 @@ async function saveModal() {
     }
     closeModal();
     renderTable(currentSheet);
+    showToast(t('form_saved'), 'success');
   } catch (e) {
-    showToast('Save failed: ' + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
   } finally {
     saveBtn.textContent = 'Save';
     saveBtn.disabled    = false;

@@ -203,7 +203,7 @@ async function showPRModal(id) {
           <button onclick="closePRModal()" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:30px;height:30px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:Inter,sans-serif;">✕</button>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>PR Number *</label><input id="pr-f-number" type="text" placeholder="e.g. PR-2026-001" value="${escapeHtml(pr.pr_number||'')}"/></div>
           <div class="form-group"><label>Status</label>
             <select id="pr-f-status" class="pref-select" style="width:100%;">
@@ -217,12 +217,12 @@ async function showPRModal(id) {
           <input id="pr-f-desc" type="text" placeholder="Brief description of what is needed" value="${escapeHtml(pr.description||'')}"/>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Requested By *</label><input id="pr-f-reqby" type="text" placeholder="Name" value="${escapeHtml(pr.requested_by||'')}"/></div>
           <div class="form-group"><label>Department</label><input id="pr-f-dept" type="text" placeholder="e.g. Finance" value="${escapeHtml(pr.department||'')}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid pr-form-grid-three" style="margin-bottom:12px;">
           <div class="form-group"><label>Priority</label>
             <select id="pr-f-priority" class="pref-select" style="width:100%;">
               ${PR_PRIORITIES.map(p=>`<option value="${p}" ${(pr.priority||'Medium')===p?'selected':''}>${p}</option>`).join('')}
@@ -236,7 +236,7 @@ async function showPRModal(id) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Budget Code</label><input id="pr-f-budget" type="text" value="${escapeHtml(pr.budget_code||'')}"/></div>
           <div class="form-group"><label>Delivery Location</label><input id="pr-f-location" type="text" value="${escapeHtml(pr.delivery_location||'')}"/></div>
         </div>
@@ -245,7 +245,7 @@ async function showPRModal(id) {
 
         ${['Submitted','Approved'].includes(pr.status) ? renderPRApprovalStages(pr) : ''}
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Approved By</label><input id="pr-f-approvedby" type="text" value="${escapeHtml(pr.approved_by||'')}"/></div>
           <div class="form-group"><label>Approval Date</label><input id="pr-f-approvaldate" type="date" value="${escapeHtml(pr.approval_date||'')}"/></div>
         </div>
@@ -434,6 +434,8 @@ function closePRModal() {
 
 async function submitPRForm() {
   const g = id => document.getElementById(id)?.value?.trim() || '';
+  const formRoot = document.getElementById('pr-modal-overlay');
+  if (typeof formV4Validate === 'function' && !formV4Validate(formRoot)) return;
   const number    = g('pr-f-number');
   const desc      = g('pr-f-desc');
   const requestedBy = g('pr-f-reqby');
@@ -521,7 +523,7 @@ async function submitPRForm() {
     closePRModal();
     renderPRTable();
   } catch(e) {
-    showToast('Error: ' + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = _editingPRId ? 'Save Changes' : 'Create Request'; }
   }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 
 const CLIENT_ID = '536004951636-66ltg9ksnvts6m90mftcl6fd99avbdcv.apps.googleusercontent.com';
 const PROFILE = {
@@ -20,6 +20,7 @@ function createTestToken(expiryOffsetSeconds = 3600) {
 
 test.beforeEach(async ({ page }) => {
   page.runtimeErrors = [];
+  page.apiRequests = [];
   page.on('pageerror', error => page.runtimeErrors.push(error.message));
 });
 
@@ -79,6 +80,7 @@ async function installMocks(page, {
           initialize(options) {
             window.__authMock.initializeCount += 1;
             window.__authMock.callback = options.callback;
+            window.__authMock.options = options;
           },
           renderButton(container) {
             if (container.querySelector('button')) return;
@@ -140,6 +142,7 @@ async function installMocks(page, {
     if (apiDelay) await new Promise(resolve => setTimeout(resolve, apiDelay));
     let request = {};
     try { request = JSON.parse(route.request().postData() || '{}'); } catch {}
+    page.apiRequests.push(request);
     if (failAllData && !(request.action === 'getAll' && request.sheet === 'Users')) {
       await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Test failure' }) });
       return;
@@ -271,6 +274,29 @@ test('unauthenticated startup resolves to the login screen without persisting a 
   await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
   await expect(page.locator('#app')).not.toHaveClass(/hidden/);
   expect(await page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('tt_session_id_token'))).toBeTruthy();
+});
+
+test('GIS uses current FedCM button options and restores a valid session token before prompting', async ({ page }) => {
+  await openAuthenticatedApp(page);
+  const authConfig = await page.evaluate(() => ({
+    useFedCM: window.__authMock.options.use_fedcm_for_button,
+    buttonAutoSelect: window.__authMock.options.button_auto_select,
+    hasDeprecatedPromptOption: Object.prototype.hasOwnProperty.call(window.__authMock.options, 'use_fedcm_for_prompt'),
+    promptCount: window.__authMock.promptCount,
+    sessionToken: Boolean(sessionStorage.getItem('tt_session_id_token')),
+  }));
+  expect(authConfig).toEqual({
+    useFedCM: true,
+    buttonAutoSelect: true,
+    hasDeprecatedPromptOption: false,
+    promptCount: 1,
+    sessionToken: true,
+  });
+
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
+  expect(await page.evaluate(() => window.__authMock.promptCount)).toBe(0);
 });
 
 test('mobile tabs keep their explicit order, route state, history, and safe layout', async ({ page }) => {
@@ -446,6 +472,103 @@ test('session restoration survives navigation and rapid reloads without duplicat
   expect(await page.evaluate(() => localStorage.getItem('tt_user_profile'))).toBeNull();
   expect(await page.evaluate(() => localStorage.getItem('tt_session'))).toBeNull();
   expect(await page.evaluate(() => sessionStorage.getItem('tt_ai_session_key'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('tt_session_id_token'))).toBeNull();
+});
+
+test('403 is a permission failure and does not trigger session refresh', async ({ page }) => {
+  await openAuthenticatedApp(page);
+  const promptsBefore = await page.evaluate(() => window.__authMock.promptCount);
+  await page.route('**/exec', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Forbidden' }),
+  }), { times: 1 });
+  const result = await page.evaluate(async () => {
+    try { await window.callAPI('deleteRow', { sheet: 'Tasks', id: 'task-late' }); }
+    catch (error) { return { code: error.code, message: error.message }; }
+    return null;
+  });
+  expect(result.code).toBe('AUTH_FORBIDDEN');
+  expect(await page.evaluate(() => window.__authMock.promptCount)).toBe(promptsBefore);
+  await expect(page.locator('html')).toHaveAttribute('data-auth-state', 'authenticated');
+});
+
+test('shared forms provide mobile sizing, associated labels, inline validation, and safe URLs', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+  await page.evaluate(() => window.openAddModal('Tasks'));
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
+  const title = page.locator('#modal-body [name="title"]');
+  await expect(title).toBeFocused();
+  const titleMetrics = await title.evaluate(control => ({
+    height: control.getBoundingClientRect().height,
+    fontSize: parseFloat(window.getComputedStyle(control).fontSize),
+    labelled: document.querySelector(`label[for="${control.id}"]`)?.textContent.includes('Title') || false,
+  }));
+  expect(titleMetrics.height).toBeGreaterThanOrEqual(46);
+  expect(titleMetrics.fontSize).toBeGreaterThanOrEqual(16);
+  expect(titleMetrics.labelled).toBe(true);
+
+  await page.locator('#modal-save').click();
+  await expect(title).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator(`#${await title.getAttribute('aria-describedby')}`)).toHaveAttribute('role', 'alert');
+  await title.fill('Preserved task title');
+  await page.locator('#modal-body [name="project"]').fill('Security rollout');
+  await page.locator('#modal-body [name="completion_pct"]').fill('101');
+  await page.locator('#modal-save').click();
+  await expect(page.locator('#modal-body [name="completion_pct"]')).toHaveAttribute('aria-invalid', 'true');
+  await expect(title).toHaveValue('Preserved task title');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modal-overlay')).toHaveClass(/hidden/);
+
+  await page.evaluate(() => window.showVendorModal(null));
+  await page.locator('#vnd-f-name').fill('Unsafe URL Vendor');
+  await page.locator('#vnd-f-email').fill('not-an-email');
+  await page.locator('#vnd-f-website').fill('javascript:alert(1)');
+  await page.evaluate(() => window.submitVendorForm());
+  await expect(page.locator('#vnd-f-email')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#vnd-f-website')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#vnd-f-name')).toHaveValue('Unsafe URL Vendor');
+  expect(await page.evaluate(() => ({
+    javascript: window.formV4SafeUrl('javascript:alert(1)'),
+    svgData: window.formV4SafeUrl('data:image/svg+xml;base64,PHN2Zz4=', { allowDataImage: true }),
+    https: window.formV4SafeUrl('https://example.com/file'),
+  }))).toEqual({ javascript: '', svgData: '', https: 'https://example.com/file' });
+  await page.evaluate(() => window.closeVendorModal());
+  await page.evaluate(() => window.toggleTheme());
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.evaluate(() => localStorage.setItem('tt_lang', 'ar'));
+  await page.reload();
+  await expect(page.locator('body')).toHaveClass(/rtl/);
+  await page.evaluate(() => window.openAddModal('Tasks'));
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  expect(await page.locator('#modal-body [name="title"]').evaluate(control => window.getComputedStyle(control).direction)).toBe('rtl');
+});
+
+test('startup defers secondary modules and deduplicates shared data requests', async ({ page }) => {
+  await openAuthenticatedApp(page);
+  await page.waitForTimeout(1800);
+  const counts = page.apiRequests.reduce((result, request) => {
+    const key = `${request.action}:${request.sheet || ''}`;
+    result[key] = (result[key] || 0) + 1;
+    return result;
+  }, {});
+  expect(counts['getDashboard:']).toBe(1);
+  expect(counts['getPRs:']).toBe(1);
+  expect(counts['getAll:Comparisons'] || 0).toBe(0);
+  expect(counts['getInvoices:'] || 0).toBe(0);
+  expect(counts['getVendors:'] || 0).toBe(0);
+});
+
+test('Apps Script source enforces permissions, rate limits, ownership, and generic errors', () => {
+  const source = readFileSync('backend/Code.gs', 'utf8');
+  expect(source).toContain('authorizeRequest(user.email, action, body)');
+  expect(source).toContain('allowRequestRate(user.email, action)');
+  expect(source).toContain("return respond({ error: 'Forbidden' })");
+  expect(source).toContain('requesterEmail');
+  expect(source).toContain("{ error: 'Request failed', code: 'SERVER_ERROR' }");
+  expect(source).toContain('validateRecordData(data)');
 });
 
 test('slow, invalid, expired, and unavailable automatic authentication resolve safely', async ({ page }) => {
@@ -585,6 +708,16 @@ test('captures the required Mobile V3 visual regression screens', async ({ page 
       await expect(page.locator(readySelector).first()).toBeVisible();
       await page.screenshot({ path: `artifacts/mobile-v3/${view}-${width}x${height}.png` });
     }
+    if (width === 390) {
+      await page.evaluate(() => window.openAddModal('Tasks'));
+      await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
+      await page.screenshot({ path: 'artifacts/mobile-v3/task-form-390x844.png' });
+      await page.evaluate(() => window.closeModal());
+      await page.evaluate(() => window.showVendorModal(null));
+      await expect(page.locator('#vnd-modal-overlay')).toBeVisible();
+      await page.screenshot({ path: 'artifacts/mobile-v3/vendor-form-390x844.png' });
+      await page.evaluate(() => window.closeVendorModal());
+    }
   }
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
@@ -698,7 +831,7 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
   const swResponse = await page.request.get(new URL('sw.js', page.url()).href);
   expect(swResponse.status()).toBe(200);
   const serviceWorker = await swResponse.text();
-  expect(serviceWorker).toContain("tasktracker-shell-v7");
+  expect(serviceWorker).toContain("tasktracker-shell-v8");
   expect(serviceWorker).not.toContain('tt_user_profile');
   expect(serviceWorker).not.toContain('API_URL');
 });

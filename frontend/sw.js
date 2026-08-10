@@ -1,15 +1,16 @@
 // App-shell cache only — no data caching (all data goes through Apps Script
 // POST calls, which Service Workers can't meaningfully cache/replay here).
-const CACHE_NAME = 'tasktracker-shell-v7';
+const CACHE_NAME = 'tasktracker-shell-v8';
 const SHELL_FILES = [
   './', './index.html', './manifest.webmanifest',
-  './style.css?v=10', './dashboard-v2.css?v=3', './mobile-v2.css?v=2', './mobile-v3.css?v=1',
-  './i18n.js', './config.js', './cache.js', './api.js?v=2',
-  './tables.js', './dashboard.js', './kanban.js', './chat.js',
-  './quotations.js', './invoices.js', './vendors.js', './messaging.js',
-  './purchasereqs.js', './ai-chat.js', './notifications.js',
-  './budget.js', './analytics.js', './offline.js?v=3', './dashboard-v2.js?v=3',
+  './style.css?v=11', './dashboard-v2.css?v=3', './mobile-v2.css?v=2', './mobile-v3.css?v=1',
+  './i18n.js?v=2', './config.js', './cache.js?v=2', './api.js?v=3',
+  './tables.js?v=2', './dashboard.js', './kanban.js', './chat.js?v=6',
+  './quotations.js?v=2', './invoices.js?v=2', './vendors.js?v=2', './messaging.js?v=2',
+  './purchasereqs.js?v=2', './ai-chat.js', './notifications.js?v=3',
+  './budget.js?v=2', './analytics.js', './offline.js?v=4', './dashboard-v2.js?v=3',
   './mobile-nav.js?v=3', './mobile-v3.js?v=1',
+  './forms-v4.js?v=1',
   './assets/icons/apple-touch-icon.png', './assets/icons/icon-192.png', './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-192.png', './assets/icons/icon-maskable-512.png',
 ];

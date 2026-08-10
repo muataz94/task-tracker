@@ -122,12 +122,12 @@ function showBudgetModal(id) {
           <datalist id="bdg-dept-list">${deptOptions.map(d=>`<option value="${escapeAttr(d)}"></option>`).join('')}</datalist>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div class="form-group"><label>Fiscal Year *</label><input id="bdg-f-year" type="text" placeholder="${new Date().getFullYear()}" value="${escapeHtml(b.fiscal_year||String(new Date().getFullYear()))}"/></div>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group"><label>Fiscal Year *</label><input id="bdg-f-year" type="number" min="2000" max="2100" step="1" required placeholder="${new Date().getFullYear()}" value="${escapeHtml(b.fiscal_year||String(new Date().getFullYear()))}"/></div>
           <div class="form-group"><label>Cost Center</label><input id="bdg-f-cc" type="text" placeholder="e.g. CC-100" value="${escapeHtml(b.cost_center||'')}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Total Budget *</label><input id="bdg-f-total" type="number" min="0" step="any" placeholder="0" value="${b.total_budget||''}"/></div>
           <div class="form-group"><label>Currency</label>
             <select id="bdg-f-currency" class="pref-select" style="width:100%;">${BUDGET_CURRENCIES.map(c=>`<option value="${c}" ${(b.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}</select>
@@ -152,6 +152,8 @@ function closeBudgetModal() {
 
 async function submitBudgetForm() {
   const g = id => document.getElementById(id)?.value?.trim() || '';
+  const formRoot = document.getElementById('budget-modal-overlay');
+  if (typeof formV4Validate === 'function' && !formV4Validate(formRoot)) return;
   const department = g('bdg-f-dept');
   const fiscalYear  = g('bdg-f-year');
   const totalBudget = g('bdg-f-total');
@@ -186,7 +188,7 @@ async function submitBudgetForm() {
     renderBudgetAlertBanner();
     renderBudgetGrid();
   } catch(e) {
-    showToast('Error: ' + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = _editingBudgetId ? 'Save Changes' : 'Create Budget'; }
   }
 }

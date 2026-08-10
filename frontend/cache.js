@@ -69,7 +69,7 @@ async function cachedFetch(key, fetchFn, onUpdate) {
   return request;
 }
 
-// Warm the cache after sign-in — 2 calls instead of 5
+// Warm only shared critical data after the current view has started rendering.
 // getDashboard returns tasks/milestones/expenses rows so we can warm those caches too
 function prefetchAll() {
   getDashboard().then(d => {
@@ -79,12 +79,4 @@ function prefetchAll() {
     if (d.expenses)   cacheSet('Expenses',   { rows: d.expenses });
   }).catch(() => {});
   getAll('POs').catch(() => {});
-  
-  // Prefetch quotation comparisons and vendors in parallel for instant data load
-  getAll('Comparisons').catch(() => {});
-  getAll('ComparisonVendors').catch(() => {});
-  cachedFetch('Invoices', () => callAPI('getInvoices')).catch(() => {});
-  cachedFetch('Vendors', () => callAPI('getVendors')).then(d => {
-    if (d && d.rows) window._allVendors = d.rows;
-  }).catch(() => {});
 }

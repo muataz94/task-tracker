@@ -46,10 +46,10 @@ function renderTopicTabs() {
 function initChat(email, name, avatar) {
   currentUserEmail  = email;
   currentUserName   = name;
-  currentUserAvatar = avatar;
+  currentUserAvatar = typeof formV4SafeUrl === 'function' ? formV4SafeUrl(avatar) : '';
 
   const avatarEl = document.getElementById('chat-avatar');
-  if (avatarEl) avatarEl.src = avatar || '';
+  if (avatarEl) avatarEl.src = currentUserAvatar;
 
   // Sync channel header to current topic
   const _topicInit = DEFAULT_TOPICS.find(t => t.id === currentTopic) || DEFAULT_TOPICS[0];
@@ -248,8 +248,11 @@ function getFileIcon(fileName) {
 
 function formatMessageContent(message, fileUrl, fileName, fileType) {
   let content;
-  if (message && message.startsWith('data:image')) {
-    content = `<div class="msg-image-wrap"><img src="${message}" class="msg-image" alt="image" /></div>`;
+  const safeInlineImage = typeof formV4SafeUrl === 'function'
+    ? formV4SafeUrl(message, { allowDataImage: true })
+    : '';
+  if (safeInlineImage && String(message).startsWith('data:image')) {
+    content = `<div class="msg-image-wrap"><img src="${escapeHtml(safeInlineImage)}" class="msg-image" alt="image" /></div>`;
   } else {
     content = escapeHtml(message || '').replace(/\n/g, '<br>');
     // Render @[Type:ID:Title] mention tags as clickable badges
@@ -257,21 +260,24 @@ function formatMessageContent(message, fileUrl, fileName, fileType) {
       return `<span class="mention-badge" data-type="${escapeHtml(type)}" data-id="${escapeHtml(id)}">@${escapeHtml(title || type)}</span>`;
     });
   }
-  if (fileUrl) {
+  const safeFileUrl = typeof formV4SafeUrl === 'function'
+    ? formV4SafeUrl(fileUrl, { allowDataImage: true })
+    : '';
+  if (safeFileUrl) {
     if (fileType && fileType.startsWith('image/')) {
       content += `
-        <div class="msg-image-wrap" onclick="openImageViewer('${fileUrl}', '${escapeHtml(fileName || '')}')">
-          <img src="${fileUrl}" class="msg-image" alt="${escapeHtml(fileName || 'image')}"
+        <button type="button" class="msg-image-wrap" data-view-url="${escapeHtml(safeFileUrl)}" data-view-name="${escapeHtml(fileName || '')}" onclick="openImageViewer(this.dataset.viewUrl, this.dataset.viewName)">
+          <img src="${escapeHtml(safeFileUrl)}" class="msg-image" alt="${escapeHtml(fileName || 'image')}"
             onerror="this.parentElement.innerHTML='<span class=msg-file-link>📎 ${escapeHtml(fileName || 'Image')}</span>'" />
           <div class="msg-image-overlay">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </div>
-        </div>`;
+        </button>`;
     } else {
       content += `
-        <a href="${fileUrl}" target="_blank" class="msg-file-link">
+        <a href="${escapeHtml(safeFileUrl)}" target="_blank" rel="noopener noreferrer" class="msg-file-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
@@ -296,8 +302,9 @@ function createMessageElement(msg, isGrouped = false) {
   wrapper.dataset.msgId   = msg.id;
   wrapper.dataset.msgText = msg.message || '';
 
-  const avatarHTML = msg.sender_avatar
-    ? `<img src="${msg.sender_avatar}" onerror="this.style.display='none'" />`
+  const senderAvatar = typeof formV4SafeUrl === 'function' ? formV4SafeUrl(msg.sender_avatar) : '';
+  const avatarHTML = senderAvatar
+    ? `<img src="${escapeHtml(senderAvatar)}" onerror="this.style.display='none'" />`
     : `<span>${initial}</span>`;
 
   const actionsHTML = isMe ? `

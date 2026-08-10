@@ -106,8 +106,9 @@ function vndStatusBg(s) {
 
 function renderVendorCard(v) {
   const initials = (v.vendor_name || '?').split(/\s+/).map(w => w[0]).join('').substring(0,2).toUpperCase();
-  const logoHtml = v.logo_url
-    ? `<img src="${escapeHtml(v.logo_url)}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:contain;background:rgba(255,255,255,0.08);border:1px solid var(--border);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div style="display:none;width:40px;height:40px;border-radius:var(--r-sm);background:rgba(167,139,250,0.18);align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#a78bfa;flex-shrink:0;">${initials}</div>`
+  const safeLogoUrl = typeof formV4SafeUrl === 'function' ? formV4SafeUrl(v.logo_url) : '';
+  const logoHtml = safeLogoUrl
+    ? `<img src="${escapeHtml(safeLogoUrl)}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:contain;background:rgba(255,255,255,0.08);border:1px solid var(--border);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div style="display:none;width:40px;height:40px;border-radius:var(--r-sm);background:rgba(167,139,250,0.18);align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#a78bfa;flex-shrink:0;">${initials}</div>`
     : `<div style="width:40px;height:40px;border-radius:var(--r-sm);background:rgba(167,139,250,0.18);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#a78bfa;flex-shrink:0;">${initials}</div>`;
 
   return `
@@ -360,7 +361,7 @@ function getVendorContactInfo(vendorName) {
 function renderVendorCell(vendorName) {
   const vendors = window._allVendors || [];
   const vendor  = vendors.find(v => v.vendor_name === vendorName);
-  const logoSrc = vendor ? (vendor.logo_url || null) : null;
+  const logoSrc = vendor && typeof formV4SafeUrl === 'function' ? formV4SafeUrl(vendor.logo_url) : null;
   if (logoSrc) {
     return `<div style="display:flex;align-items:center;gap:6px;">
       <img src="${escapeHtml(logoSrc)}" style="height:18px;width:auto;max-width:36px;object-fit:contain;border-radius:3px;background:rgba(255,255,255,0.06);border:1px solid var(--border);" onerror="this.style.display='none'"/>
@@ -418,7 +419,7 @@ function showVendorModal(id) {
           <button onclick="closeVendorModal()" style="background:var(--glass-bg);border:1px solid var(--border);color:var(--text-3);width:30px;height:30px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:Inter,sans-serif;">✕</button>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Vendor Name *</label><input id="vnd-f-name" type="text" placeholder="Company or person name" value="${escapeHtml(v.vendor_name||'')}"/></div>
           <div class="form-group"><label>Category</label>
             <select id="vnd-f-category" class="pref-select" style="width:100%;">
@@ -428,12 +429,12 @@ function showVendorModal(id) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Contact Person</label><input id="vnd-f-contact" type="text" placeholder="Contact name" value="${escapeHtml(v.contact_person||'')}"/></div>
           <div class="form-group"><label>Phone</label><input id="vnd-f-phone" type="tel" placeholder="+964…" value="${escapeHtml(v.phone||'')}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Email</label><input id="vnd-f-email" type="email" placeholder="vendor@example.com" value="${escapeHtml(v.email||'')}"/></div>
           <div class="form-group"><label>Website</label><input id="vnd-f-website" type="url" placeholder="https://…" value="${escapeHtml(v.website||'')}"/></div>
         </div>
@@ -442,7 +443,7 @@ function showVendorModal(id) {
           <label>Address</label><input id="vnd-f-address" type="text" placeholder="Full address" value="${escapeHtml(v.address||'')}"/>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Currency</label>
             <select id="vnd-f-currency" class="pref-select" style="width:100%;">
               ${VND_CURRENCIES.map(c=>`<option value="${c}" ${(v.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}
@@ -456,7 +457,7 @@ function showVendorModal(id) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Status</label>
             <select id="vnd-f-status" class="pref-select" style="width:100%;" onchange="toggleVndBlacklistReason(this.value)">
               ${VND_STATUSES.map(s=>`<option value="${s}" ${(v.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
@@ -513,6 +514,13 @@ function closeVendorModal() {
 
 async function submitVendorForm() {
   const g = id => document.getElementById(id)?.value?.trim();
+  const formRoot = document.getElementById('vnd-modal-overlay');
+  const statusControl = document.getElementById('vnd-f-status');
+  const blockedReason = document.getElementById('vnd-f-blacklist-reason');
+  const rules = [() => statusControl?.value !== 'Blocked' || blockedReason?.value.trim()
+    ? { valid: true }
+    : { valid: false, control: blockedReason, message: t('form_blocked_reason') }];
+  if (typeof formV4Validate === 'function' && !formV4Validate(formRoot, rules)) return;
   const name = g('vnd-f-name');
   if (!name) { showToast('Vendor name is required', 'error'); return; }
 
@@ -564,7 +572,7 @@ async function submitVendorForm() {
     // Rebuild vendor dropdowns in any currently-open invoice / PO modals
     _rebuildOpenVendorDropdowns();
   } catch(e) {
-    showToast('Error: ' + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = _editingVndId ? 'Save Changes' : 'Create Vendor'; }
   }
 }

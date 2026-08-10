@@ -753,6 +753,13 @@ function updateWinnerDisplay(scored) {
 // ── SAVE ──────────────────────────────────────────────
 
 async function saveCompForm() {
+  const formRoot = document.getElementById('quotations') || document;
+  const awardingDate = document.getElementById('qf-adate');
+  const requestDate = document.getElementById('qf-rdate');
+  const rules = [() => !requestDate?.value || !awardingDate?.value || awardingDate.value >= requestDate.value
+    ? { valid: true }
+    : { valid: false, control: awardingDate, message: t('form_date_order') }];
+  if (typeof formV4Validate === 'function' && !formV4Validate(formRoot, rules)) return;
   const desc = document.getElementById('qf-desc')?.value.trim();
   const pr   = document.getElementById('qf-pr')?.value.trim();
   if (!desc || !pr) { showToast(bl('Description and PR Number are required','الوصف ورقم الطلب مطلوبان'), 'info'); return; }
@@ -835,7 +842,7 @@ async function saveCompForm() {
     _compSignatures = [];
     renderCompList();
   } catch(e) {
-    showToast(bl('Save failed: ','فشل الحفظ: ') + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
     if (btn) { btn.textContent = _editingCompId ? bl('Update Comparison','تحديث المقارنة') : bl('Save Comparison','حفظ المقارنة'); btn.disabled = false; }
   }
 }
