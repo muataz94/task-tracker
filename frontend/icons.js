@@ -1,0 +1,36 @@
+const TASK_TRACKER_ICONS = Object.freeze({
+  'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/>',
+  'clipboard-list': '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h4"/>',
+  'layout-grid': '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+  'square-check': '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-5"/>',
+  building: '<path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h6"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  sparkles: '<path d="m12 3-1.1 3.4a6 6 0 0 1-3.8 3.8L4 11.2l3.1 1a6 6 0 0 1 3.8 3.8l1.1 3.4 1.1-3.4a6 6 0 0 1 3.8-3.8l3.1-1-3.1-1a6 6 0 0 1-3.8-3.8L12 3Z"/><path d="m19 3-.4 1.2a2 2 0 0 1-1.3 1.3l-1.2.4 1.2.4a2 2 0 0 1 1.3 1.3L19 9l.4-1.2a2 2 0 0 1 1.3-1.3l1.2-.4-1.2-.4a2 2 0 0 1-1.3-1.3L19 3Z"/>',
+  filter: '<path d="M3 5h18M6 12h12M10 19h4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/>',
+  refresh: '<path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 11M5.5 15A7 7 0 0 0 18 17.5l2-4.5"/>',
+  receipt: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
+  star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2l-5-4.9 6.9-1L12 2Z"/>',
+  inbox: '<path d="M4 4h16v16H4zM4 14h4l2 3h4l2-3h4"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  'more-horizontal': '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+});
+
+function taskTrackerIcon(name, { size = 24, className = '', label = '' } = {}) {
+  const body = TASK_TRACKER_ICONS[name] || TASK_TRACKER_ICONS.sparkles;
+  const aria = label
+    ? `role="img" aria-label="${String(label).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])}"`
+    : 'aria-hidden="true"';
+  return `<svg ${aria} class="tt-icon ${className}" width="${Number(size) || 24}" height="${Number(size) || 24}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+
+window.taskTrackerIcon = taskTrackerIcon;
+window.TASK_TRACKER_ICONS = TASK_TRACKER_ICONS;

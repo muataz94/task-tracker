@@ -112,12 +112,8 @@
     border-radius: var(--r-full);
     background: color-mix(in srgb, var(--mobile-v3-primary) 16%, transparent);
     box-shadow: 0 0 28px color-mix(in srgb, var(--mobile-v3-primary) 24%, transparent);
-    content: "✓";
+    content: "";
     color: var(--mobile-v3-primary);
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 68px;
-    text-align: center;
   }
 
   .dash-welcome-copy {
@@ -687,13 +683,16 @@
     top: 50%;
     width: 36px;
     height: 44px;
-    transform: translateY(-50%) rotate(90deg);
+    transform: translateY(-50%);
     border: 0;
     background: transparent;
     color: var(--mobile-v3-subtle);
     font: inherit;
-    letter-spacing: 1px;
   }
+
+  .mobile-v3-more svg,
+  .mobile-v3-chevron svg,
+  .mobile-v3-record-icon svg { display: block; }
 
   .mobile-v3-record-actions {
     display: grid;
@@ -774,6 +773,9 @@
   }
 
   .mobile-v3-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     color: var(--mobile-v3-warning);
     font-size: 11px;
     white-space: nowrap;
@@ -792,9 +794,7 @@
     text-align: center;
   }
 
-  .mobile-v3-empty > span {
-    font-size: 28px;
-  }
+  .mobile-v3-empty > span { color: var(--mobile-v3-primary); }
 
   .mobile-v3-empty strong {
     color: var(--text-2);
@@ -853,8 +853,6 @@
   .dash-welcome::before {
     width: 58px;
     height: 58px;
-    font-size: 26px;
-    line-height: 58px;
   }
 }
 

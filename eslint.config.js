@@ -75,6 +75,8 @@ export default [
       globals: {
         ...browserGlobals,
         Buffer: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
         URL: 'readonly',
         console: 'readonly',
         process: 'readonly',

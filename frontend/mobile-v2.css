@@ -372,35 +372,6 @@
     to { opacity: 1; transform: scale(1); }
   }
 
-  /* AI assistant: compact launcher and a contained mobile sheet. Targeted
-     important declarations neutralize legacy inline sizing only. */
-  #ai-chat-fab {
-    right: 12px !important;
-    bottom: calc(var(--mobile-nav-content-h) + env(safe-area-inset-bottom) + 12px) !important;
-    width: 48px !important;
-    height: 48px !important;
-  }
-
-  #ai-chat-panel {
-    inset-inline: 8px !important;
-    bottom: calc(var(--mobile-nav-content-h) + env(safe-area-inset-bottom)) !important;
-    width: calc(100% - 16px) !important;
-    max-width: none !important;
-    max-height: calc(100dvh - var(--topbar-h) - var(--mobile-nav-content-h) - env(safe-area-inset-bottom) - 8px) !important;
-    border-radius: var(--r-xl) var(--r-xl) 0 0 !important;
-    transition: transform 280ms var(--spring-smooth), opacity 150ms var(--spring-exit) !important;
-  }
-
-  body.notif-panel-open #ai-chat-fab,
-  body.sidebar-open #ai-chat-fab,
-  body:has(#modal-overlay:not(.hidden)) #ai-chat-fab,
-  body:has(#vnd-modal-overlay) #ai-chat-fab,
-  body:has(#pr-modal-overlay) #ai-chat-fab,
-  body:has(#inv-modal-overlay) #ai-chat-fab {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-  }
 
   /* One mobile modal pattern. Targeted important declarations override old
      inline and legacy modal values so actions remain above the home indicator. */

@@ -67,6 +67,7 @@ async function installMocks(page, {
   const data = empty ? { tasks: [], pos: [], milestones: [], prs: [], vendors: [] } : populatedData;
 
   await page.addInitScript(({ profile, credential, shouldAuthenticate, profileValue, canAutoAuthenticate, promptDelay }) => {
+    window.TASK_TRACKER_AI_GATEWAY_URL = 'https://task-tracker-ai-gateway.muataz94.workers.dev';
     window.Chart = class ChartMock {
       destroy() {}
       resize() {}
@@ -138,6 +139,19 @@ async function installMocks(page, {
     contentType: 'text/css',
     body: '',
   }));
+  await page.route('https://task-tracker-ai-gateway.muataz94.workers.dev/v1/**', async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    const provider = {
+      id: 'cloudflare-workers-ai',
+      label: 'Cloudflare Workers AI',
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
+    };
+    const response = pathname === '/v1/chat'
+      ? { message: { role: 'assistant', content: 'A safe test summary.' }, provider, fallback: null }
+      : { connected: true, provider, credentialState: 'managed', fallbackEnabled: false };
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(response) });
+  });
   await page.route('**/exec', async route => {
     if (apiDelay) await new Promise(resolve => setTimeout(resolve, apiDelay));
     let request = {};
@@ -453,14 +467,20 @@ test('session restoration survives navigation and rapid reloads without duplicat
   expect(restoredProfile.legacySession).toBe('legacy-session-placeholder');
 
   const aiCredentialStorage = await page.evaluate(() => {
-    window._saveAISettingsToStorage({ provider: 'openai', model: 'test-model', apiKey: 'test-session-key' });
+    localStorage.setItem('tt_ai_settings', JSON.stringify({ provider: 'openai', apiKey: 'legacy-key' }));
+    sessionStorage.setItem('tt_ai_session_key', 'legacy-session-key');
+    window.clearAISessionCredentials();
     return {
-      persisted: JSON.parse(localStorage.getItem('tt_ai_settings') || '{}'),
+      persisted: localStorage.getItem('tt_ai_settings'),
       sessionKey: sessionStorage.getItem('tt_ai_session_key'),
+      browserKeyField: document.getElementById('ai-api-key'),
+      registryAvailable: Boolean(window.AIProviderRegistry?.get),
     };
   });
-  expect(aiCredentialStorage.persisted).toEqual({ provider: 'openai', model: 'test-model' });
-  expect(aiCredentialStorage.sessionKey).toBe('test-session-key');
+  expect(aiCredentialStorage.persisted).toBeNull();
+  expect(aiCredentialStorage.sessionKey).toBeNull();
+  expect(aiCredentialStorage.browserKeyField).toBeNull();
+  expect(aiCredentialStorage.registryAvailable).toBe(true);
 
   const initialTheme = await page.locator('html').getAttribute('data-theme');
   await page.locator('#theme-toggle').click();
@@ -634,6 +654,87 @@ test('all routable modules, mobile global search, and the AI sheet open without 
   await expect(page.locator('#ai-chat-panel')).toBeHidden();
 });
 
+test('V5 AI launcher, SVG controls, provider detection, safe rendering, and mobile sheet work on every primary view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+
+  const tabs = page.locator('#mobile-primary-nav .mobile-tab');
+  await expect(tabs).toHaveCount(5);
+  for (let index = 0; index < 5; index += 1) {
+    const svg = tabs.nth(index).locator('svg');
+    await expect(svg).toHaveCount(1);
+    const geometry = await svg.evaluate(element => ({
+      viewBox: element.getAttribute('viewBox'),
+      width: element.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+    }));
+    expect(geometry.viewBox).toBe('0 0 24 24');
+    expect(geometry.width).toBeGreaterThan(0);
+    expect(geometry.height).toBeGreaterThan(0);
+  }
+
+  for (const view of ['dashboard', 'tasks', 'purchasereqs', 'pos', 'vendors']) {
+    await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+    await expect(page.locator('#ai-chat-fab')).toBeVisible();
+    await expect(page.locator('#ai-chat-fab svg')).toHaveCount(1);
+  }
+
+  await page.locator('#ai-chat-fab').click();
+  const panel = page.locator('#ai-chat-panel');
+  await expect(panel).toBeVisible();
+  const sheetGeometry = await panel.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { height: rect.height, bottom: rect.bottom, viewportHeight: window.innerHeight };
+  });
+  expect(sheetGeometry.height).toBeGreaterThanOrEqual(sheetGeometry.viewportHeight * 0.7);
+  expect(sheetGeometry.height).toBeLessThanOrEqual(sheetGeometry.viewportHeight * 0.9);
+  expect(sheetGeometry.bottom).toBeLessThanOrEqual(sheetGeometry.viewportHeight + 1);
+
+  await page.locator('#ai-settings-button').click();
+  await expect(page.locator('#ai-settings-panel')).toBeVisible();
+  await expect(page.locator('#ai-detected-provider')).toHaveText('Cloudflare Workers AI');
+  await expect(page.locator('#ai-connection-state')).toHaveText('Connected');
+  await expect(page.locator('#ai-api-key')).toHaveCount(0);
+  await expect(page.locator('#ai-model option')).toHaveCount(2);
+
+  await page.locator('#ai-input').fill('Summarize overdue tasks');
+  await expect(page.locator('#ai-send-btn')).toBeEnabled();
+  await page.locator('#ai-send-btn').click();
+  await expect(page.locator('.ai-message.is-assistant .ai-message-bubble')).toHaveText('A safe test summary.');
+  await expect(page.locator('.ai-provenance')).toContainText('Cloudflare Workers AI');
+});
+
+test('V5 AI never renders upstream errors or model output as trusted HTML', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+  let attempt = 0;
+  await page.route('https://task-tracker-ai-gateway.muataz94.workers.dev/v1/chat', route => {
+    attempt += 1;
+    if (attempt === 1) {
+      return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: { code: 'AI_AUTH_FAILED', message: 'missing Authorization header sk-secret', retryable: false } }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      message: { role: 'assistant', content: '<img src=x onerror="window.__aiXss=true"> Safe text' },
+      provider: { id: 'cloudflare-workers-ai', label: 'Cloudflare Workers AI', model: '@cf/test', models: ['@cf/test'] },
+      fallback: null,
+    }) });
+  });
+  await page.locator('#ai-chat-fab').click();
+  await page.locator('#ai-input').fill('First request');
+  await page.locator('#ai-send-btn').click();
+  const firstResponse = page.locator('.ai-message.is-assistant .ai-message-bubble').last();
+  await expect(firstResponse).toContainText('AI connection needs attention');
+  await expect(firstResponse).not.toContainText('Authorization');
+  await expect(firstResponse).not.toContainText('sk-secret');
+
+  await page.locator('#ai-input').fill('Second request');
+  await page.locator('#ai-send-btn').click();
+  const lastResponse = page.locator('.ai-message.is-assistant .ai-message-bubble').last();
+  await expect(lastResponse).toContainText('<img src=x');
+  await expect(lastResponse.locator('img')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__aiXss)).toBeUndefined();
+});
+
 test('mobile V3 filters, live cards, and create actions are wired to existing workflows', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openAuthenticatedApp(page);
@@ -709,6 +810,13 @@ test('captures the required Mobile V3 visual regression screens', async ({ page 
       await page.screenshot({ path: `artifacts/mobile-v3/${view}-${width}x${height}.png` });
     }
     if (width === 390) {
+      await page.evaluate(() => window.toggleAIChat(true));
+      await expect(page.locator('#ai-chat-panel')).toBeVisible();
+      await page.screenshot({ path: 'artifacts/mobile-v3/ai-panel-390x844.png' });
+      await page.evaluate(() => window.toggleAIChatSettings(true));
+      await expect(page.locator('#ai-settings-panel')).toBeVisible();
+      await page.screenshot({ path: 'artifacts/mobile-v3/ai-settings-390x844.png' });
+      await page.evaluate(() => window.toggleAIChat(false));
       await page.evaluate(() => window.openAddModal('Tasks'));
       await expect(page.locator('#modal-overlay')).not.toHaveClass(/hidden/);
       await page.screenshot({ path: 'artifacts/mobile-v3/task-form-390x844.png' });
@@ -833,7 +941,7 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
   const swResponse = await page.request.get(new URL('sw.js', page.url()).href);
   expect(swResponse.status()).toBe(200);
   const serviceWorker = await swResponse.text();
-  expect(serviceWorker).toContain("tasktracker-shell-v8");
+  expect(serviceWorker).toContain("tasktracker-shell-v9");
   expect(serviceWorker).not.toContain('tt_user_profile');
   expect(serviceWorker).not.toContain('API_URL');
 });

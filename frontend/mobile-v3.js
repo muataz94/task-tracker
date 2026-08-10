@@ -102,6 +102,10 @@ function mobileV3SummaryItem(labelKey, value, tone, filter = '') {
   </button>`;
 }
 
+function mobileV3Icon(name, size = 22) {
+  return typeof window.taskTrackerIcon === 'function' ? window.taskTrackerIcon(name, { size }) : '';
+}
+
 function mobileV3TaskRows() {
   const rows = typeof tableData !== 'undefined' ? (tableData.Tasks || []) : [];
   return rows.filter(row => typeof dashboardV2TableFilterMatches !== 'function' || dashboardV2TableFilterMatches('Tasks', row));
@@ -173,7 +177,7 @@ function mobileV3TaskCard(row) {
       <span class="mobile-v3-date ${mobileV3IsOverdue(row) ? 'is-danger' : ''}">${mobileV3Escape(mobileV3FormatDate(row.due_date))}</span>
       <span class="mobile-v3-status ${mobileV3StatusClass(status)}">${mobileV3Escape(mobileV3StatusLabel(status))}</span>
     </button>
-    <button type="button" class="mobile-v3-more" data-mobile-menu="${id}" aria-expanded="false" aria-label="${mobileV3Attr(mobileV3T('more_actions'))}">•••</button>
+    <button type="button" class="mobile-v3-more" data-mobile-menu="${id}" aria-expanded="false" aria-label="${mobileV3Attr(mobileV3T('more_actions'))}">${mobileV3Icon('more-horizontal')}</button>
     <div class="mobile-v3-record-actions" hidden>
       <button type="button" data-mobile-edit-sheet="Tasks" data-id="${id}">${mobileV3Escape(mobileV3T('edit'))}</button>
       <button type="button" data-mobile-log-task="${id}">${mobileV3Escape(mobileV3T('log_time'))}</button>
@@ -213,7 +217,7 @@ function mobileV3POCard(row) {
   const amount = row.total_value ?? row.amount;
   return `<article class="mobile-v3-record" data-record-id="${id}">
     <button type="button" class="mobile-v3-record-main mobile-v3-procurement-main" data-mobile-edit-sheet="POs" data-id="${id}">
-      <span class="mobile-v3-record-icon is-blue" aria-hidden="true">PO</span>
+      <span class="mobile-v3-record-icon is-blue" aria-hidden="true">${mobileV3Icon('receipt', 24)}</span>
       <span class="mobile-v3-record-copy">
         <span class="mobile-v3-record-id">${mobileV3Escape(row.po_number || row.id || mobileV3T('purchase_order'))}</span>
         <strong>${mobileV3Escape(row.item_description || row.supplier || mobileV3T('purchase_order'))}</strong>
@@ -221,7 +225,7 @@ function mobileV3POCard(row) {
         <span class="mobile-v3-date ${overdue ? 'is-danger' : ''}">${mobileV3Escape(mobileV3FormatDate(row.expected_delivery))}</span>
       </span>
       <span class="mobile-v3-record-side"><strong>${mobileV3Escape(mobileV3FormatMoney(amount, row.currency))}</strong><span class="mobile-v3-status ${mobileV3StatusClass(status)}">${mobileV3Escape(mobileV3StatusLabel(status))}</span></span>
-      <span class="mobile-v3-chevron" aria-hidden="true">›</span>
+      <span class="mobile-v3-chevron" aria-hidden="true">${mobileV3Icon('chevron-right', 22)}</span>
     </button>
   </article>`;
 }
@@ -260,7 +264,7 @@ function mobileV3PRCard(row) {
   const status = row.linked_po_ids ? 'ordered' : (row.status || 'draft');
   return `<article class="mobile-v3-record" data-record-id="${id}">
     <button type="button" class="mobile-v3-record-main mobile-v3-procurement-main" data-mobile-edit-pr="${id}">
-      <span class="mobile-v3-record-icon ${mobileV3StatusClass(status)}" aria-hidden="true">PR</span>
+      <span class="mobile-v3-record-icon ${mobileV3StatusClass(status)}" aria-hidden="true">${mobileV3Icon('clipboard-list', 24)}</span>
       <span class="mobile-v3-record-copy">
         <span class="mobile-v3-record-id">${mobileV3Escape(row.pr_number || row.id || mobileV3T('purchase_request'))}</span>
         <strong>${mobileV3Escape(row.description || mobileV3T('purchase_request'))}</strong>
@@ -268,7 +272,7 @@ function mobileV3PRCard(row) {
         <span class="mobile-v3-date">${mobileV3Escape(mobileV3FormatDate(row.required_by_date || row.created_at))}</span>
       </span>
       <span class="mobile-v3-record-side"><strong>${mobileV3Escape(mobileV3FormatMoney(row.total_estimated, row.currency))}</strong><span class="mobile-v3-status ${mobileV3StatusClass(status)}">${mobileV3Escape(mobileV3StatusLabel(status))}</span></span>
-      <span class="mobile-v3-chevron" aria-hidden="true">›</span>
+      <span class="mobile-v3-chevron" aria-hidden="true">${mobileV3Icon('chevron-right', 22)}</span>
     </button>
   </article>`;
 }
@@ -299,14 +303,14 @@ function mobileV3VendorCard(row) {
         <span>${mobileV3Escape(details || mobileV3T('vendor_details_unavailable'))}</span>
         <span>${mobileV3Escape(row.email || row.phone || mobileV3T('contact_not_set'))}</span>
       </span>
-      <span class="mobile-v3-record-side"><span class="mobile-v3-status ${mobileV3StatusClass(status)}">${mobileV3Escape(mobileV3StatusLabel(status))}</span>${Number(row.performance_score) > 0 ? `<span class="mobile-v3-score">★ ${mobileV3Escape(Number(row.performance_score).toFixed(1))}</span>` : ''}</span>
-      <span class="mobile-v3-chevron" aria-hidden="true">›</span>
+      <span class="mobile-v3-record-side"><span class="mobile-v3-status ${mobileV3StatusClass(status)}">${mobileV3Escape(mobileV3StatusLabel(status))}</span>${Number(row.performance_score) > 0 ? `<span class="mobile-v3-score">${mobileV3Icon('star', 13)} ${mobileV3Escape(Number(row.performance_score).toFixed(1))}</span>` : ''}</span>
+      <span class="mobile-v3-chevron" aria-hidden="true">${mobileV3Icon('chevron-right', 22)}</span>
     </button>
   </article>`;
 }
 
 function mobileV3Empty(key) {
-  return `<div class="mobile-v3-empty"><span aria-hidden="true">◇</span><strong>${mobileV3Escape(mobileV3T(key))}</strong><p>${mobileV3Escape(mobileV3T('adjust_filters_or_create'))}</p></div>`;
+  return `<div class="mobile-v3-empty"><span aria-hidden="true">${mobileV3Icon('inbox', 28)}</span><strong>${mobileV3Escape(mobileV3T(key))}</strong><p>${mobileV3Escape(mobileV3T('adjust_filters_or_create'))}</p></div>`;
 }
 
 function mobileV3SyncTaskFilterButtons() {

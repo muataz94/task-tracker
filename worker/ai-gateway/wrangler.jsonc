@@ -1,0 +1,30 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "task-tracker-ai-gateway",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-10",
+  "workers_dev": true,
+  "ai": {
+    "binding": "AI"
+  },
+  "ratelimits": [
+    {
+      "name": "AI_RATE_LIMITER",
+      "namespace_id": "20260810",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "AI_PROVIDER": "cloudflare-workers-ai",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "AI_ALLOWED_MODELS": "@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/meta/llama-3.1-8b-instruct-fp8,@cf/meta/llama-4-scout-17b-16e-instruct",
+    "ALLOWED_ORIGINS": "https://muataz94.github.io,http://127.0.0.1:4174,http://localhost:4174",
+    "TASK_TRACKER_API_URL": "https://script.google.com/macros/s/AKfycbzAR59ahF4_H3fRIz-ENjwG4052mqmuWDUUoWg1MSFHFRZOv_qUKyxqcaOeOZOAMtRH5g/exec"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
