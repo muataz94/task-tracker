@@ -1,6 +1,6 @@
 // App-shell cache only — no data caching (all data goes through Apps Script
 // POST calls, which Service Workers can't meaningfully cache/replay here).
-const CACHE_NAME = 'tasktracker-shell-v2';
+const CACHE_NAME = 'tasktracker-shell-v3';
 const SHELL_FILES = [
   './', './index.html', './style.css', './dashboard-v2.css',
   './i18n.js', './config.js', './cache.js', './api.js',
@@ -8,6 +8,7 @@ const SHELL_FILES = [
   './quotations.js', './invoices.js', './vendors.js', './messaging.js',
   './purchasereqs.js', './ai-chat.js', './notifications.js',
   './budget.js', './analytics.js', './offline.js', './dashboard-v2.js',
+  './mobile-nav.js',
 ];
 
 self.addEventListener('install', (event) => {
