@@ -782,6 +782,7 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
     capable: document.querySelector('meta[name="apple-mobile-web-app-capable"]')?.content,
     statusBar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content,
     themeColor: document.querySelector('meta[name="theme-color"]')?.content,
+    obsoleteEmojiStylesheet: Boolean(document.querySelector('link[href*="emoji-mart.css"]')),
   }));
   expect(metadata).toEqual({
     manifest: './manifest.webmanifest?v=1',
@@ -790,6 +791,7 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
     capable: 'yes',
     statusBar: 'black-translucent',
     themeColor: '#060812',
+    obsoleteEmojiStylesheet: false,
   });
 
   const manifestResponse = await page.request.get(new URL('manifest.webmanifest', page.url()).href);
