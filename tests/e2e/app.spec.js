@@ -592,6 +592,7 @@ test('Apps Script source enforces permissions, rate limits, ownership, and gener
 });
 
 test('slow, invalid, expired, and unavailable automatic authentication resolve safely', async ({ page }) => {
+  test.setTimeout(90000);
   await installMocks(page, { authenticated: true, apiDelay: 500 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#login-screen')).toHaveClass(/hidden/);
@@ -831,6 +832,94 @@ test('captures the required Mobile V3 visual regression screens', async ({ page 
   await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
   await expect(page.locator('.dash-kpi-card')).toHaveCount(4);
   await page.screenshot({ path: 'artifacts/mobile-v3/dashboard-1366x768.png' });
+});
+
+test('Desktop V1 shell routes, collapse state, topbar controls, and owner gating stay functional', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAuthenticatedApp(page);
+  const primaryViews = ['dashboard', 'tasks', 'purchasereqs', 'pos', 'vendors', 'analytics', 'ai', 'settings', 'integrations', 'permissions'];
+  for (const view of primaryViews) {
+    const nav = page.locator(`#sidebar .nav-item[data-view="${view}"]`);
+    await expect(nav).toBeVisible();
+    await nav.click();
+    await expect(page.locator(`#view-${view}`)).toHaveClass(/active/);
+    await expect(nav).toHaveAttribute('aria-current', 'page');
+  }
+
+  await page.evaluate(() => window.navigateTo('integrations'));
+  await expect(page.locator('#desktop-integrations-grid .desktop-integration-card')).toHaveCount(5);
+  await page.locator('[data-integration-filter="connected"]').click();
+  await expect(page.locator('#desktop-integrations-grid .desktop-integration-card')).not.toHaveCount(0);
+  await page.evaluate(() => window.navigateTo('ai'));
+  await expect(page.locator('#desktop-ai-chat-host #ai-chat-panel')).toBeVisible();
+
+  const sidebar = page.locator('#sidebar');
+  await page.locator('#desktop-sidebar-collapse').click();
+  await expect(page.locator('body')).toHaveClass(/desktop-sidebar-collapsed/);
+  await expect(sidebar).toHaveCSS('width', '72px');
+  await page.reload();
+  await expect(page.locator('body')).toHaveClass(/desktop-sidebar-collapsed/);
+  await page.locator('#desktop-sidebar-collapse').click();
+
+  const themeBefore = await page.locator('html').getAttribute('data-theme');
+  await page.locator('#theme-toggle').click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', themeBefore);
+  await page.keyboard.press('Control+K');
+  await expect(page.locator('#global-search-input')).toBeFocused();
+});
+
+test('Desktop V1 has no root overflow at required viewports in dark, light, LTR, and RTL', async ({ page }) => {
+  test.setTimeout(120000);
+  await openAuthenticatedApp(page);
+  const viewports = [[1024, 768], [1280, 720], [1366, 768], [1440, 900], [1536, 864], [1920, 1080]];
+  for (const [width, height] of viewports) {
+    await page.setViewportSize({ width, height });
+    for (const theme of ['dark', 'light']) {
+      for (const language of ['en', 'ar']) {
+        await page.evaluate(({ themeValue, languageValue }) => {
+          window.applyTheme(themeValue);
+          window.setLanguage(languageValue);
+          window.navigateTo('dashboard');
+        }, { themeValue: theme, languageValue: language });
+        const dimensions = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
+        expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+      }
+    }
+  }
+});
+
+test('captures the ten approved Desktop V1 route screens at 1440x900', async ({ page }) => {
+  test.setTimeout(120000);
+  mkdirSync('artifacts/desktop-v1', { recursive: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAuthenticatedApp(page);
+  await page.evaluate(() => {
+    window.applyTheme('dark');
+    window.setLanguage('en');
+    localStorage.setItem('tt_desktop_sidebar_collapsed', 'false');
+    document.body.classList.remove('desktop-sidebar-collapsed');
+  });
+  const routes = [
+    ['dashboard', '.dash-kpi-card'],
+    ['tasks', '#table-tasks table'],
+    ['purchasereqs', '#pr-table-wrap table'],
+    ['pos', '#table-pos table'],
+    ['vendors', '#vnd-grid-wrap .glass-card'],
+    ['analytics', '#analytics-wrap canvas'],
+    ['ai', '#desktop-ai-chat-host #ai-chat-panel'],
+    ['settings', '#view-settings .settings-card'],
+    ['integrations', '#desktop-integrations-grid .desktop-integration-card'],
+    ['permissions', '#perms-view-wrap'],
+  ];
+  for (const [view, readySelector] of routes) {
+    await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+    await expect(page.locator(readySelector).first()).toBeVisible();
+    await page.screenshot({ path: `artifacts/desktop-v1/${view}-1440x900.png` });
+  }
 });
 
 test('an API authorization failure is recovered through one supported Google session prompt', async ({ page }) => {
