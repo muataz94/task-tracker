@@ -17,6 +17,7 @@ async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) 
   }
 
   isLoading = true;
+  const requestToken = idToken;
 
   try {
     const res = await fetch(API_URL, {
@@ -57,6 +58,11 @@ async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) 
   } catch (err) {
     if (err.code === 'AUTH_FORBIDDEN') throw err;
     if (err.code === 'AUTH_EXPIRED') {
+      // A concurrent request may have completed the shared refresh while this
+      // response was in flight. Reuse that newer token instead of prompting again.
+      if (idToken && idToken !== requestToken && authRetryCount === 0) {
+        return callAPI(action, params, retryCount, authRetryCount + 1);
+      }
       idToken = null;
       const recovered = authRetryCount === 0 && typeof window.ensureFreshSession === 'function'
         ? await window.ensureFreshSession()
