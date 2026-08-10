@@ -26,16 +26,18 @@ function doPost(e) {
     if (!isAuthorized(user.email)) return respond({ error: 'Unauthorized' });
 
     const { action, sheet, data, id } = body;
+    if (!action || !allowRequestRate(user.email, action)) return respond({ error: 'Too many requests' });
+    if (!authorizeRequest(user.email, action, body)) return respond({ error: 'Forbidden' });
     switch (action) {
-      case 'getAll':       return respond(getAll(sheet));
+      case 'getAll':       return respond(sheet === 'Users' ? getUsersForRequester(user.email) : getAll(sheet));
       case 'getDashboard': return respond(getDashboard());
-      case 'addRow':       return respond(addRow(sheet, data, user.email));
-      case 'updateRow':    return respond(updateRow(sheet, id, data, user.email));
+      case 'addRow':       return respond(addRow(sheet, validateRecordData(data), user.email));
+      case 'updateRow':    return respond(updateRow(sheet, id, validateRecordData(data), user.email));
       case 'deleteRow':    return respond(deleteRow(sheet, id));
       case 'getChat':      return respond(getChat());
       case 'sendMessage':   return respond(sendMessage(data, user.email));
-      case 'editMessage':   return respond(editMessage(body.id, body.message));
-      case 'deleteMessage': return respond(deleteMessage(body.id));
+      case 'editMessage':   return respond(editMessage(body.id, body.message, user.email));
+      case 'deleteMessage': return respond(deleteMessage(body.id, user.email));
       case 'uploadFile':    return respond(uploadFileToDrive(body.fileData, body.fileName, body.fileType, user.email));
       case 'bulkGet':          return respond(bulkGet(body.sheets));
       case 'getComparisons':   return respond(getAll('Comparisons'));
@@ -61,9 +63,7 @@ function doPost(e) {
       case 'savePRLineItems':  return respond(savePRLineItems(body.pr_id, body.items));
       case 'updatePRLineQty':       return respond(updatePRLineQty(body.line_id, body.received_qty, body.linked_po_id));
       case 'getUserPermissions':    return respond(getUserPermissions(body.email));
-      case 'updateUserPermissions':
-        if (user.email.toLowerCase() !== OWNER_EMAIL.toLowerCase()) return respond({ error: 'Unauthorized' });
-        return respond(updateUserPermissions(body.email, body.permissions));
+      case 'updateUserPermissions': return respond(updateUserPermissions(body.email, body.permissions));
 
       case 'setupPhase1Columns': setupPhase1Columns(); return respond({ success: true });
 
@@ -78,7 +78,7 @@ function doPost(e) {
       case 'markNotifRead':     return respond(markNotifRead(body.id, user.email));
       case 'markAllNotifsRead': return respond(markAllNotifsRead(user.email));
 
-      case 'logAudit':    return respond(logAudit(body));
+      case 'logAudit':    return respond(logAudit(Object.assign({}, body, { user_email: user.email })));
       case 'getAuditLog': return respond(getAuditLog(body.sheet, body.record_id));
 
       case 'globalSearch': return respond(globalSearch(body.query));
@@ -92,7 +92,8 @@ function doPost(e) {
       default:                      return respond({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
-    return respond({ error: err.message });
+    console.error('Task Tracker API error', err && err.stack ? err.stack : err);
+    return respond({ error: 'Request failed', code: 'SERVER_ERROR' });
   }
 }
 
@@ -125,6 +126,93 @@ function isAuthorized(email) {
     const emails  = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat().map(String);
     return emails.some(e => e.trim().toLowerCase() === email.toLowerCase());
   } catch (e) { return false; }
+}
+
+const API_READ_ACTIONS = [
+  'getAll','getDashboard','getChat','bulkGet','getComparisons','getCompVendors',
+  'getInvoices','getVendors','getVendorByName','getPRs','getPRLineItems',
+  'getUserPermissions','getBudgets','checkBudget','getNotifications','globalSearch',
+  'getVendorSpend','getInvoiceAging'
+];
+const API_ALLOWED_SHEETS = [
+  'Tasks','POs','Milestones','Expenses','Comparisons','ComparisonVendors',
+  'Invoices','Vendors','PurchaseRequests','PurchaseRequestItems','Budgets','Users'
+];
+
+function authorizeRequest(email, action, body) {
+  const normalizedEmail = String(email || '').toLowerCase();
+  const isOwner = normalizedEmail === OWNER_EMAIL.toLowerCase();
+  if (isOwner) return true;
+
+  if (action === 'getAll' && !API_ALLOWED_SHEETS.includes(body.sheet)) return false;
+  if (action === 'bulkGet' && !(body.sheets || []).every(name => name !== 'Users' && API_ALLOWED_SHEETS.includes(name))) return false;
+  if (action === 'getUserPermissions') return !body.email || String(body.email).toLowerCase() === normalizedEmail;
+  if (action === 'getAuditLog' || action === 'updateUserPermissions' || action === 'setupPhase1Columns') return false;
+  if (API_READ_ACTIONS.includes(action)) return true;
+
+  const permissionInfo = getUserPermissions(email);
+  const permissions = permissionInfo.permissions || {};
+  const permissionForSheet = {
+    Tasks: 'can_edit_tasks', POs: 'can_edit_pos', Milestones: 'can_edit_tasks',
+    Expenses: 'can_edit_expenses', Comparisons: 'can_edit_quotations',
+    ComparisonVendors: 'can_edit_quotations', Invoices: 'can_edit_invoices',
+    Vendors: 'can_edit_vendors', PurchaseRequests: 'can_edit_prs',
+    PurchaseRequestItems: 'can_edit_prs', Budgets: 'can_edit_expenses'
+  };
+  const deletePermissionForSheet = {
+    Tasks: 'can_delete_tasks', POs: 'can_delete_pos', Expenses: 'can_delete_expenses'
+  };
+  const actionSheet = resolveActionSheet(action, body);
+  if (action.startsWith('delete')) {
+    const specificDelete = deletePermissionForSheet[actionSheet];
+    return specificDelete ? permissions[specificDelete] === true : permissions.can_delete === true;
+  }
+  if (actionSheet) {
+    if (actionSheet === 'Users' || !API_ALLOWED_SHEETS.includes(actionSheet)) return false;
+    const requiredPermission = permissionForSheet[actionSheet];
+    return !requiredPermission || permissions[requiredPermission] !== false;
+  }
+
+  return ['sendMessage','editMessage','deleteMessage','uploadFile','sendEmail',
+    'getNotifications','createNotif','markNotifRead','markAllNotifsRead',
+    'logAudit','saveUserTheme'].includes(action);
+}
+
+function resolveActionSheet(action, body) {
+  if (['addRow','updateRow','deleteRow'].includes(action)) return body.sheet;
+  if (/Comparison/.test(action)) return 'Comparisons';
+  if (/Invoice/.test(action)) return 'Invoices';
+  if (/Vendor/.test(action)) return 'Vendors';
+  if (/PR/.test(action)) return 'PurchaseRequests';
+  if (/Budget/.test(action)) return 'Budgets';
+  return '';
+}
+
+function allowRequestRate(email, action) {
+  const isRead = API_READ_ACTIONS.includes(action);
+  const limit = isRead ? 180 : 45;
+  const minute = Math.floor(Date.now() / 60000);
+  const digest = Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, String(email).toLowerCase()
+  )).slice(0, 18);
+  const key = 'rl:' + digest + ':' + action + ':' + minute;
+  const cache = CacheService.getScriptCache();
+  const count = Number(cache.get(key) || 0) + 1;
+  cache.put(key, String(count), 70);
+  return count <= limit;
+}
+
+function validateRecordData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid record');
+  const clean = {};
+  Object.keys(data).forEach(key => {
+    if (!/^[a-zA-Z0-9_]+$/.test(key)) throw new Error('Invalid field');
+    const value = data[key];
+    if (value !== null && typeof value === 'object') throw new Error('Invalid field value');
+    if (String(value == null ? '' : value).length > 10000) throw new Error('Field too long');
+    clean[key] = value;
+  });
+  return clean;
 }
 
 // ── BULK GET ─────────────────────────────────────────────────────
@@ -320,7 +408,7 @@ function sendMessage(data, senderEmail) {
   return { success: true, id, timestamp: now };
 }
 
-function editMessage(id, newMessage) {
+function editMessage(id, newMessage, requesterEmail) {
   const sheet = getSpreadsheet().getSheetByName('Chat');
   if (!sheet) return { error: 'Chat sheet not found' };
   const lastRow = sheet.getLastRow();
@@ -329,32 +417,46 @@ function editMessage(id, newMessage) {
   const headers = data[0];
   const idCol   = headers.indexOf('id');
   const msgCol  = headers.indexOf('message');
+  const senderCol = headers.indexOf('sender_email');
   const editCol = headers.indexOf('edited_at');
   const rowIdx  = data.findIndex((r, i) => i > 0 && r[idCol] === id);
   if (rowIdx === -1) return { error: 'Message not found' };
+  if (String(data[rowIdx][senderCol]).toLowerCase() !== String(requesterEmail).toLowerCase()) return { error: 'Forbidden' };
   sheet.getRange(rowIdx + 1, msgCol + 1).setValue(newMessage);
   if (editCol >= 0) sheet.getRange(rowIdx + 1, editCol + 1).setValue(new Date().toISOString());
   return { success: true };
 }
 
-function deleteMessage(id) {
+function deleteMessage(id, requesterEmail) {
   const sheet = getSpreadsheet().getSheetByName('Chat');
   if (!sheet) return { error: 'Chat sheet not found' };
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { error: 'Message not found' };
   const data   = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
   const idCol  = data[0].indexOf('id');
+  const senderCol = data[0].indexOf('sender_email');
   const rowIdx = data.findIndex((r, i) => i > 0 && r[idCol] === id);
   if (rowIdx === -1) return { error: 'Message not found' };
+  if (String(data[rowIdx][senderCol]).toLowerCase() !== String(requesterEmail).toLowerCase()) return { error: 'Forbidden' };
   sheet.deleteRow(rowIdx + 1);
   return { success: true };
 }
 
 function uploadFileToDrive(base64Data, fileName, mimeType, uploaderEmail) {
   try {
+    const allowedTypes = [
+      'image/png','image/jpeg','image/gif','image/webp','application/pdf','text/plain',
+      'text/csv','application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!allowedTypes.includes(String(mimeType || '').toLowerCase())) return { error: 'Unsupported file type' };
+    if (!base64Data || String(base64Data).length > 9500000) return { error: 'File is too large' };
+    const safeFileName = String(fileName || 'upload').replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180);
     const folder = getOrCreateFolder('TaskTrackerChat');
     const bytes  = Utilities.base64Decode(base64Data);
-    const blob   = Utilities.newBlob(bytes, mimeType, fileName);
+    if (bytes.length > 7000000) return { error: 'File is too large' };
+    const blob   = Utilities.newBlob(bytes, mimeType, safeFileName);
     const file   = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileId     = file.getId();
@@ -362,9 +464,10 @@ function uploadFileToDrive(base64Data, fileName, mimeType, uploaderEmail) {
     const directUrl  = mimeType.startsWith('image/')
       ? 'https://drive.google.com/uc?export=view&id=' + fileId
       : viewUrl;
-    return { success: true, url: directUrl, viewUrl, fileId, fileName };
+    return { success: true, url: directUrl, viewUrl, fileId, fileName: safeFileName };
   } catch(e) {
-    return { error: 'Upload failed: ' + e.message };
+    console.error('Upload failed', e);
+    return { error: 'Upload failed' };
   }
 }
 
@@ -720,13 +823,24 @@ function deleteVendor(id) {
 
 function sendEmailAction(data) {
   try {
-    const to      = data.to;
-    const subject = data.subject;
-    const body    = data.body;
+    const to      = String(data.to || '').trim();
+    const subject = String(data.subject || '').trim();
+    const body    = String(data.body || '');
     if (!to || !subject || !body) return { error: 'Missing to, subject, or body' };
-    MailApp.sendEmail({ to, subject, htmlBody: body.replace(/\n/g, '<br/>') });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { error: 'Invalid email address' };
+    if (subject.length > 200 || body.length > 20000) return { error: 'Message is too long' };
+    MailApp.sendEmail(to, subject, body);
     return { success: true };
-  } catch(e) { return { error: e.message }; }
+  } catch(e) { console.error('Email send failed', e); return { error: 'Email could not be sent' }; }
+}
+
+function getUsersForRequester(requesterEmail) {
+  const result = getAll('Users');
+  if (String(requesterEmail).toLowerCase() === OWNER_EMAIL.toLowerCase()) return result;
+  return { rows: (result.rows || []).map(user => {
+    if (String(user.email || '').toLowerCase() === String(requesterEmail).toLowerCase()) return user;
+    return { id: user.id || '', name: user.name || '', email: user.email || '' };
+  }) };
 }
 
 // ── PURCHASE REQUESTS ─────────────────────────────────────────────
@@ -1266,6 +1380,13 @@ function saveUserTheme(email, theme) {
 // ── RESPONSE ──────────────────────────────────────────────────────
 
 function respond(data) {
+  if (data && data.error) {
+    const safeError = /^(Unauthorized|Forbidden|Too many requests|Request failed|Invalid (record|field|field value|email address)|Field too long|Unsupported file type|File is too large|Message is too long|Email could not be sent|Upload failed|Missing to, subject, or body|Unknown action|Message not found|User not found|Line item not found)/.test(String(data.error));
+    if (!safeError) {
+      console.error('API operation error', data.error);
+      data = { error: 'Request failed', code: 'SERVER_ERROR' };
+    }
+  }
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);

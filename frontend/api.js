@@ -28,7 +28,9 @@ async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) 
 
     if (!res.ok) {
       const httpError = new Error('Server error: ' + res.status);
-      httpError.code = res.status === 401 ? 'AUTH_EXPIRED' : 'HTTP_ERROR';
+      httpError.code = res.status === 401
+        ? 'AUTH_EXPIRED'
+        : res.status === 403 ? 'AUTH_FORBIDDEN' : 'HTTP_ERROR';
       throw httpError;
     }
 
@@ -40,6 +42,12 @@ async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) 
       throw authError;
     }
 
+    if (data.error === 'Forbidden' || data.error === 'Not authorized') {
+      const authError = new Error(typeof t === 'function' ? t('auth_forbidden') : 'You do not have permission to perform this action.');
+      authError.code = 'AUTH_FORBIDDEN';
+      throw authError;
+    }
+
     if (data.error) {
       throw new Error(data.error);
     }
@@ -47,6 +55,7 @@ async function callAPI(action, params = {}, retryCount = 0, authRetryCount = 0) 
     return data;
 
   } catch (err) {
+    if (err.code === 'AUTH_FORBIDDEN') throw err;
     if (err.code === 'AUTH_EXPIRED') {
       idToken = null;
       const recovered = authRetryCount === 0 && typeof window.ensureFreshSession === 'function'

@@ -131,7 +131,8 @@ function onAIProviderChange() {
 
 function saveAISettings() {
   const apiKey = document.getElementById('ai-api-key')?.value?.trim() || '';
-  if (!apiKey) { showToast('API key is required', 'error'); return; }
+  const panel = document.getElementById('ai-settings-panel');
+  if (typeof window.formV4Validate === 'function' && !window.formV4Validate(panel)) return;
 
   // Auto-detect from key takes priority over dropdown selection
   const detected = _detectProviderFromKey(apiKey);

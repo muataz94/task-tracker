@@ -6,12 +6,17 @@ function openWhatsApp(phone, contextMessage) {
   if (clean.startsWith('0')) clean = '964' + clean.substring(1);
   if (!clean.match(/^\d{10,15}$/)) { showToast('Invalid phone number format', 'error'); return; }
   const msg = encodeURIComponent(contextMessage || '');
-  window.open('https://wa.me/' + clean + (msg ? '?text=' + msg : ''), '_blank');
+  window.open('https://wa.me/' + clean + (msg ? '?text=' + msg : ''), '_blank', 'noopener,noreferrer');
 }
 
 function openMailto(email, subject, body) {
-  if (!email) { showToast('No email address available', 'error'); return; }
-  window.open('mailto:' + email + '?subject=' + encodeURIComponent(subject||'') + '&body=' + encodeURIComponent(body||''), '_self');
+  const recipient = String(email || '').trim();
+  if (typeof formV4ValidEmail === 'function' && !formV4ValidEmail(recipient)) {
+    showToast(t('form_invalid_email'), 'error');
+    return false;
+  }
+  window.location.href = 'mailto:' + encodeURIComponent(recipient) + '?subject=' + encodeURIComponent(subject||'') + '&body=' + encodeURIComponent(body||'');
+  return true;
 }
 
 function _companyName() {
@@ -109,11 +114,11 @@ function showComposeModal(opts) {
       <div id="msg-email-section" style="display:none;">
         <div class="form-group" style="margin-bottom:12px;">
           <label>To (Email)</label>
-          <input id="msg-email-to" type="email" placeholder="recipient@example.com" value="${escapeHtml(email)}"/>
+          <input id="msg-email-to" type="email" required placeholder="recipient@example.com" value="${escapeHtml(email)}"/>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label>Subject</label>
-          <input id="msg-email-subject" type="text" value="${escapeHtml(defaultSubject)}"/>
+          <input id="msg-email-subject" type="text" required value="${escapeHtml(defaultSubject)}"/>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label>Message</label>
@@ -161,14 +166,14 @@ async function sendEmailFromModal() {
   const to      = document.getElementById('msg-email-to')?.value?.trim();
   const subject = document.getElementById('msg-email-subject')?.value?.trim();
   const body    = document.getElementById('msg-email-body')?.value?.trim();
-  if (!to)      { showToast('Recipient email is required', 'error'); return; }
-  if (!subject) { showToast('Subject is required', 'error'); return; }
+  const section = document.getElementById('msg-email-section');
+  if (typeof formV4Validate === 'function' && !formV4Validate(section)) return;
   try {
     await callAPI('sendEmail', { to, subject, body });
     showToast('Email sent ✓', 'success');
     closeMsgModal();
   } catch(e) {
-    showToast('Failed to send: ' + e.message + '. Try "Open in Mail Client" instead.', 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
   }
 }
 
@@ -176,8 +181,9 @@ function sendEmailViaMailto() {
   const to      = document.getElementById('msg-email-to')?.value?.trim();
   const subject = document.getElementById('msg-email-subject')?.value?.trim();
   const body    = document.getElementById('msg-email-body')?.value?.trim();
-  openMailto(to, subject, body);
-  closeMsgModal();
+  const section = document.getElementById('msg-email-section');
+  if (typeof formV4Validate === 'function' && !formV4Validate(section)) return;
+  if (openMailto(to, subject, body)) closeMsgModal();
 }
 
 function closeMsgModal() {

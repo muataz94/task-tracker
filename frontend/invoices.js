@@ -589,7 +589,7 @@ async function showInvoiceModal(id) {
           <select id="inv-linked-po" class="pref-select" style="width:100%;" onchange="onInvPOSelect(this)">${poOptions}</select>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Invoice Number *</label><input id="inv-f-number" type="text" placeholder="e.g. INV-2026-001" value="${escapeHtml(inv.invoice_number||'')}"/></div>
           <div class="form-group"><label>Vendor *</label>
             ${typeof getVendorOptionsHTML === 'function' ? `<select id="inv-f-vendor-select" class="pref-select" style="width:100%;" data-vendor-dropdown="true" onchange="onInvVendorSelect(this)">${getVendorOptionsHTML(inv.vendor||'')}</select>` : `<input id="inv-f-vendor-select" type="text" placeholder="Vendor name" value="${escapeHtml(inv.vendor||'')}"/>`}
@@ -597,19 +597,19 @@ async function showInvoiceModal(id) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Amount *</label><input id="inv-f-amount" type="number" min="0" step="any" placeholder="0" value="${inv.amount||''}" oninput="updateInvRemaining()"/></div>
           <div class="form-group"><label>Currency</label>
             <select id="inv-f-currency" class="pref-select" style="width:100%;">${INV_CURRENCIES.map(c=>`<option value="${c}" ${(inv.currency||'IQD')===c?'selected':''}>${c}</option>`).join('')}</select>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Invoice Date *</label><input id="inv-f-invdate" type="date" value="${invDateVal === '—' ? '' : invDateVal}"/></div>
           <div class="form-group"><label>Due Date *</label><input id="inv-f-duedate" type="date" value="${dueDateVal === '—' ? '' : dueDateVal}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Status</label>
             <select id="inv-f-status" class="pref-select" style="width:100%;">${INV_STATUSES.map(s=>`<option value="${s}" ${(inv.status||'Unpaid')===s?'selected':''}>${s}</option>`).join('')}</select>
           </div>
@@ -619,7 +619,7 @@ async function showInvoiceModal(id) {
         <!-- Partial payment section — appears immediately when Partially Paid is selected -->
         <div id="inv-partial-row" style="display:none;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.25);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
           <div style="font-size:11px;font-weight:600;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Partial Payment Details</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+          <div class="form-grid" style="align-items:end;">
             <div class="form-group" style="margin-bottom:0;">
               <label>Amount Paid *</label>
               <input id="inv-f-amountpaid" type="number" min="0" step="any" placeholder="Enter amount paid so far" value="${inv.amount_paid||''}" oninput="updateInvRemaining()" style="border-color:rgba(59,130,246,0.4);"/>
@@ -637,7 +637,7 @@ async function showInvoiceModal(id) {
 
         <div id="inv-payment-section" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:var(--r-md);padding:1rem;margin-bottom:12px;">
           <div style="font-size:11px;font-weight:600;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;" id="inv-payment-section-title">Payment Details</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-grid" style="margin-bottom:12px;">
             <div class="form-group"><label>Payment Date</label><input id="inv-f-paydate" type="date" value="${payDateVal === '—' ? '' : payDateVal}"/></div>
             <div class="form-group"><label>Payment Method</label>
               <select id="inv-f-paymethod" class="pref-select" style="width:100%;" onchange="toggleInvBankField(this.value)"><option value="">Select…</option>${INV_PAYMENT_METHODS.map(m=>`<option value="${m}" ${inv.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>
@@ -646,12 +646,12 @@ async function showInvoiceModal(id) {
           <div id="inv-f-bank-wrap" class="form-group" style="display:none;"><label>Bank / Account</label><input id="inv-f-bank" type="text" placeholder="Bank name or account reference" value="${escapeHtml(inv.bank_account||'')}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Approved By</label><input id="inv-f-approvedby" type="text" placeholder="Name" value="${escapeHtml(inv.approved_by||'')}"/></div>
           <div class="form-group"><label>Attachment URL</label><input id="inv-f-attach" type="url" placeholder="https://…" value="${escapeHtml(inv.attachment_url||'')}"/></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid" style="margin-bottom:12px;">
           <div class="form-group"><label>Recurring</label>
             <select id="inv-f-recurring" class="pref-select" style="width:100%;" onchange="toggleInvRecurringDay(this.value)">
               <option value="none" ${(inv.recurring||'none')==='none'?'selected':''}>None</option>
@@ -761,6 +761,20 @@ function closeInvoiceModal() {
 
 async function submitInvoiceForm() {
   const g  = id => document.getElementById(id)?.value?.trim();
+  const formRoot = document.getElementById('inv-modal-overlay');
+  const invoiceDate = document.getElementById('inv-f-invdate');
+  const dueDate = document.getElementById('inv-f-duedate');
+  const amountControl = document.getElementById('inv-f-amount');
+  const paidControl = document.getElementById('inv-f-amountpaid');
+  const rules = [
+    () => !invoiceDate?.value || !dueDate?.value || dueDate.value >= invoiceDate.value
+      ? { valid: true }
+      : { valid: false, control: dueDate, message: t('form_date_order') },
+    () => !paidControl?.value || Number(paidControl.value) <= Number(amountControl?.value || 0)
+      ? { valid: true }
+      : { valid: false, control: paidControl, message: t('form_amount_paid') }
+  ];
+  if (typeof formV4Validate === 'function' && !formV4Validate(formRoot, rules)) return;
   const number   = g('inv-f-number');
   const vendor   = g('inv-f-vendor');
   const amount   = g('inv-f-amount');
@@ -818,7 +832,7 @@ async function submitInvoiceForm() {
     updateInvoiceSidebarBadge();
     refreshInvoiceDashboard();
   } catch(e) {
-    showToast('Error: ' + e.message, 'error');
+    showToast(typeof formV4FriendlyError === 'function' ? formV4FriendlyError(e) : t('form_save_failed'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = _editingInvId ? 'Save Changes' : 'Create Invoice'; }
   }
 }
