@@ -158,6 +158,8 @@ function renderTable(sheetName) {
     return matchText && matchProject && matchFrom && matchTo && matchDashboard;
   });
 
+  if (typeof renderMobileV3Table === 'function') renderMobileV3Table(sheetName);
+
   if (!rows.length) {
     wrap.innerHTML = '<p class="empty">No records yet. Click + Add to create one.</p>';
     return;

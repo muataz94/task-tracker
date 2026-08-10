@@ -59,6 +59,7 @@ function dashboardV2Attr(value) {
 function dashboardV2Icon(name, size = 16) {
   const paths = {
     tasks: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-5"/>',
+    requests: '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>',
     alert: '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
     spend: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h2"/>',
     progress: '<path d="M4 19V9M10 19V5M16 19v-7M22 19V3"/>',
@@ -267,14 +268,14 @@ function dashboardV2SkeletonRows(count = 3) {
 function renderDashboardV2Loading() {
   const kpis = document.getElementById('dash-kpi-grid');
   if (kpis) {
-    kpis.innerHTML = Array.from({ length: 5 }, () => `
+    kpis.innerHTML = Array.from({ length: 4 }, () => `
       <div class="dash-skeleton-card" aria-hidden="true">
         <div class="dash-skeleton dash-skeleton-line"></div>
         <div class="dash-skeleton dash-skeleton-value"></div>
       </div>`).join('');
   }
   const pr = document.getElementById('dash-pr-content');
-  if (pr) pr.innerHTML = `<div class="dash-pr-grid">${Array.from({ length: 5 }, () => `<div class="dash-skeleton-card"></div>`).join('')}</div>`;
+  if (pr) pr.innerHTML = `<div class="dash-pr-grid">${Array.from({ length: 4 }, () => `<div class="dash-skeleton-card"></div>`).join('')}</div>`;
   [
     'dash-overdue-tasks-card',
     'dash-overdue-pos-card',
@@ -450,6 +451,13 @@ function dashboardV2Derive() {
   const overduePOs = pos.filter(po => dashboardV2IsPOOverdue(po, today));
   const spendPOs = pos.filter(dashboardV2IsSpendPO);
   const poCurrencies = dashboardV2GroupCurrency(spendPOs, dashboardV2POAmount);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const monthToDatePOs = spendPOs.filter(po => {
+    const date = dashboardV2LocalDate(po.created_at || po.order_date || po.date);
+    return !!(date && date >= monthStart && date < nextMonth);
+  });
+  const monthToDatePOCurrencies = dashboardV2GroupCurrency(monthToDatePOs, dashboardV2POAmount);
   const expenseCurrencies = dashboardV2GroupCurrency(expenses, row => row.amount);
   const progressValues = milestones
     .map(row => dashboardV2Number(row.completion_pct))
@@ -474,6 +482,8 @@ function dashboardV2Derive() {
     overduePOs,
     spendPOs,
     poCurrencies,
+    monthToDatePOs,
+    monthToDatePOCurrencies,
     expenseCurrencies,
     averageProgress,
     statuses,
@@ -498,12 +508,13 @@ function dashboardV2TaskStatuses(tasks, today) {
 }
 
 function dashboardV2PRSummary(prs) {
-  const groups = { total: prs.length, draft: 0, pending: 0, approved: 0, rejected: 0, other: 0 };
+  const groups = { total: prs.length, draft: 0, submitted: 0, approved: 0, ordered: 0, rejected: 0, other: 0 };
   prs.forEach(pr => {
     const status = dashboardV2NormalizeStatus(pr.status);
-    if (status === 'draft') groups.draft++;
-    else if (['pending', 'submitted', 'in_review', 'awaiting_approval'].includes(status)) groups.pending++;
-    else if (['approved', 'awarded', 'closed'].includes(status)) groups.approved++;
+    if (pr.linked_po_ids || ['ordered', 'closed'].includes(status)) groups.ordered++;
+    else if (status === 'draft') groups.draft++;
+    else if (['pending', 'submitted', 'in_review', 'awaiting_approval'].includes(status)) groups.submitted++;
+    else if (['approved', 'awarded'].includes(status)) groups.approved++;
     else if (['rejected', 'cancelled'].includes(status)) groups.rejected++;
     else groups.other++;
   });
@@ -611,8 +622,7 @@ function dashboardV2RenderKPIs() {
   const grid = document.getElementById('dash-kpi-grid');
   if (!grid) return;
   const derived = dashboardV2State.derived;
-  const poDisplay = dashboardV2CurrencyDisplay(derived.poCurrencies);
-  const expenseDisplay = dashboardV2CurrencyDisplay(derived.expenseCurrencies);
+  const monthToDateDisplay = dashboardV2CurrencyDisplay(derived.monthToDatePOCurrencies);
   const cards = [
     {
       key: 'open_tasks',
@@ -631,32 +641,22 @@ function dashboardV2RenderKPIs() {
       action: 'overdue-tasks'
     },
     {
-      key: 'po_spend',
-      value: poDisplay.value,
-      meta: poDisplay.meta,
-      title: poDisplay.title,
-      icon: 'spend',
+      key: 'purchase_requests',
+      value: derived.prSummary.total,
+      meta: `${derived.prSummary.submitted} ${dashboardV2T('submitted')}`,
+      icon: 'requests',
       color: 'var(--dash-violet)',
-      action: 'all-pos',
-      isText: Object.keys(derived.poCurrencies).length > 1
+      action: 'all-prs'
     },
     {
-      key: 'avg_progress',
-      value: derived.averageProgress == null ? '—' : `${derived.averageProgress}%`,
-      meta: dashboardV2T('dash_milestone_source'),
-      icon: 'progress',
+      key: 'po_spend_mtd',
+      value: monthToDateDisplay.value,
+      meta: dashboardV2T('month_to_date'),
+      title: monthToDateDisplay.title,
+      icon: 'spend',
       color: 'var(--dash-green)',
-      action: 'all-milestones'
-    },
-    {
-      key: 'total_expenses',
-      value: expenseDisplay.value,
-      meta: expenseDisplay.meta,
-      title: expenseDisplay.title,
-      icon: 'expenses',
-      color: 'var(--dash-amber)',
-      action: 'all-expenses',
-      isText: Object.keys(derived.expenseCurrencies).length > 1
+      action: 'all-pos',
+      isText: Object.keys(derived.monthToDatePOCurrencies).length > 1
     }
   ];
   grid.innerHTML = cards.map(card => `
@@ -685,11 +685,10 @@ function dashboardV2RenderPRSummary() {
     return;
   }
   const segments = [
-    ['total', 'total', 'var(--dash-blue)', 'all'],
     ['draft', 'draft', 'var(--dash-text-3)', 'Draft'],
-    ['pending', 'pending', 'var(--dash-amber)', 'Submitted'],
+    ['submitted', 'submitted', 'var(--dash-violet)', 'Submitted'],
     ['approved', 'approved', 'var(--dash-green)', 'Approved'],
-    ['rejected', 'rejected', 'var(--dash-red)', 'Rejected']
+    ['ordered', 'ordered', 'var(--dash-amber)', 'Closed']
   ];
   content.innerHTML = `<div class="dash-pr-grid">${segments.map(([key, labelKey, color, filter]) => `
     <button type="button" class="dash-pr-segment" style="--dash-segment-color:${color}"
@@ -1395,6 +1394,7 @@ function dashboardV2HandleAction(element) {
   const action = element.dataset.dashAction;
   if (action === 'open-tasks') dashboardV2NavigateTaskCategory('open');
   else if (action === 'overdue-tasks') dashboardV2NavigateTaskCategory('overdue');
+  else if (action === 'all-prs') dashboardV2Navigate('purchasereqs');
   else if (action === 'all-pos') dashboardV2Navigate('pos');
   else if (action === 'all-expenses') dashboardV2Navigate('expenses');
   else if (action === 'all-milestones') dashboardV2Navigate('milestones');

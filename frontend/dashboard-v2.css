@@ -217,7 +217,7 @@
 
 .dash-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -334,13 +334,43 @@
   white-space: nowrap;
 }
 
+.dash-heading-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dash-view-all {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--dash-radius-sm);
+  background: transparent;
+  color: var(--dash-violet);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.dash-view-all:hover,
+.dash-view-all:focus-visible {
+  background: var(--dash-panel-hover);
+  color: var(--dash-text-1);
+}
+
 .dash-pr-content {
   min-height: 72px;
 }
 
 .dash-pr-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1088,7 +1118,7 @@
   }
 
   .dash-kpi-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .dash-analytics-grid {

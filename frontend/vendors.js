@@ -73,6 +73,7 @@ function renderVendorGrid() {
 
   const cntEl = document.getElementById('vnd-row-count');
   if (cntEl) cntEl.textContent = rows.length + ' of ' + _allVendors.length;
+  if (typeof renderMobileV3Vendors === 'function') renderMobileV3Vendors();
 
   if (!rows.length) {
     wrap.innerHTML = `

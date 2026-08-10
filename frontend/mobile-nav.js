@@ -44,7 +44,8 @@ function focusNavigationRecord(recordId) {
     const escapedId = typeof CSS !== 'undefined' && CSS.escape
       ? CSS.escape(String(recordId))
       : String(recordId).replace(/["\\]/g, '\\$&');
-    const row = document.querySelector(`[data-record-id="${escapedId}"]`);
+    const row = Array.from(document.querySelectorAll(`[data-record-id="${escapedId}"]`))
+      .find(element => element.getClientRects().length > 0);
     if (row) {
       window.clearInterval(focusTimer);
       row.classList.add('record-focus-target');

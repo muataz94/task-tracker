@@ -107,6 +107,7 @@ function renderPRTable() {
 
   const countEl = document.getElementById('pr-row-count');
   if (countEl) countEl.textContent = rows.length + ' result' + (rows.length !== 1 ? 's' : '');
+  if (typeof renderMobileV3PRs === 'function') renderMobileV3PRs();
 
   if (!rows.length) {
     wrap.innerHTML = `<div style="padding:3rem;text-align:center;color:var(--text-3);">
