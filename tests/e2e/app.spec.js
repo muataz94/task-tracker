@@ -643,6 +643,7 @@ test('all routable modules, mobile global search, and the AI sheet open without 
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
+  await page.locator('#mobile-search-toggle').click();
   await page.locator('#global-search-input').fill('late');
   await expect(page.locator('.dash-search-result').first()).toBeVisible();
   await page.locator('.dash-search-result').first().click();
@@ -756,7 +757,7 @@ test('mobile V3 filters, live cards, and create actions are wired to existing wo
 
   await page.locator('[data-mobile-view="tasks"]').click();
   await expect(page.locator('#mobile-v3-tasks')).toBeVisible();
-  await expect(page.locator('#mobile-v3-task-summary .mobile-v3-summary-item')).toHaveCount(4);
+  await expect(page.locator('#mobile-v3-task-summary .mobile-v3-summary-item')).toHaveCount(5);
   await expect(page.locator('#mobile-v3-task-list .mobile-v3-record')).toHaveCount(4);
   await page.locator('[data-mobile-task-filter="overdue"]').click();
   await expect(page.locator('#mobile-v3-task-list .mobile-v3-record')).toHaveCount(1);
@@ -832,6 +833,122 @@ test('captures the required Mobile V3 visual regression screens', async ({ page 
   await page.evaluate(() => window.navigateTo('dashboard', { forceReload: true }));
   await expect(page.locator('.dash-kpi-card')).toHaveCount(4);
   await page.screenshot({ path: 'artifacts/mobile-v3/dashboard-1366x768.png' });
+});
+
+test('Mobile V4 exposes the ten approved destinations and functional shared controls', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+
+  await expect(page.locator('#mobile-search-toggle')).toBeVisible();
+  await expect(page.locator('#theme-toggle')).toBeVisible();
+  await expect(page.locator('#notif-bell-btn')).toBeVisible();
+  await page.evaluate(() => window.navigateTo('tasks', { forceReload: true }));
+  await expect(page.locator('#mobile-v3-task-list .mobile-v3-record').first()).toBeVisible();
+  await page.locator('#mobile-search-toggle').click();
+  await expect(page.locator('#global-search-input')).toBeFocused();
+  await page.locator('#global-search-input').fill('late');
+  await expect(page.locator('#global-search-results')).toContainText('Late task');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/mobile-search-open/);
+
+  await page.locator('#mobile-menu-btn').click();
+  for (const view of ['analytics', 'ai', 'settings', 'integrations', 'permissions']) {
+    await expect(page.locator(`#sidebar .nav-item[data-view="${view}"]`)).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#sidebar')).not.toHaveClass(/open/);
+  await expect(page.locator('#mobile-menu-btn')).toBeFocused();
+
+  const destinations = [
+    ['dashboard', '.dash-kpi-card'],
+    ['tasks', '#mobile-v3-task-summary .mobile-v3-summary-item'],
+    ['purchasereqs', '#mobile-v3-pr-summary .mobile-v3-summary-item'],
+    ['pos', '#mobile-v3-po-summary .mobile-v3-summary-item'],
+    ['vendors', '#mobile-v4-vendor-summary .mobile-v3-summary-item'],
+    ['analytics', '#view-analytics .mobile-v4-kpi'],
+    ['ai', '#view-ai #ai-chat-panel'],
+    ['settings', '#view-settings .mobile-v4-appearance'],
+    ['integrations', '#desktop-integrations-grid .desktop-integration-card'],
+    ['permissions', '#perms-view-wrap .empty-state, #perms-view-wrap .perm-user-card'],
+  ];
+  for (const [view, selector] of destinations) {
+    await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+    await expect(page.locator(`#view-${view}`)).toHaveClass(/active/);
+    await expect(page.locator(selector).first()).toBeVisible();
+    await expect(page.locator('#topbar-title')).toHaveText(view === 'purchasereqs' ? 'Purchase Requests' : {
+      dashboard: 'Dashboard',
+      tasks: 'Tasks',
+      pos: 'Purchase Orders',
+      vendors: 'Vendors',
+      analytics: 'Analytics',
+      ai: 'AI Assistant',
+      settings: 'Settings',
+      integrations: 'Integrations',
+      permissions: 'Users & Roles',
+    }[view]);
+  }
+
+  await page.evaluate(() => window.navigateTo('settings'));
+  await page.locator('[data-mobile-theme="light"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('[data-mobile-theme="light"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('[data-mobile-theme="dark"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('Mobile V4 ten-route shell stays within every required viewport in LTR and RTL', async ({ page }) => {
+  test.setTimeout(120000);
+  await openAuthenticatedApp(page);
+  const sizes = [[375, 812], [390, 844], [393, 852], [414, 896], [430, 932], [360, 800], [412, 915], [768, 1024]];
+  const views = ['dashboard', 'tasks', 'purchasereqs', 'pos', 'vendors', 'analytics', 'ai', 'settings', 'integrations', 'permissions'];
+  for (const direction of ['ltr', 'rtl']) {
+    await page.evaluate(dir => {
+      document.documentElement.dir = dir;
+      document.body.classList.toggle('rtl', dir === 'rtl');
+    }, direction);
+    for (const [width, height] of sizes) {
+      await page.setViewportSize({ width, height });
+      for (const view of views) {
+        await page.evaluate(target => window.navigateTo(target), view);
+        const geometry = await page.evaluate(() => {
+          const active = document.querySelector('.view.active').getBoundingClientRect();
+          return {
+            documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: document.documentElement.clientWidth,
+            activeLeft: active.left,
+            activeRight: active.right,
+          };
+        });
+        expect(geometry.documentWidth, `${direction} ${view} ${width}x${height} document width`).toBeLessThanOrEqual(width + 1);
+        expect(geometry.activeLeft, `${direction} ${view} ${width}x${height} left edge`).toBeGreaterThanOrEqual(-1);
+        expect(geometry.activeRight, `${direction} ${view} ${width}x${height} right edge`).toBeLessThanOrEqual(width + 1);
+      }
+    }
+  }
+});
+
+test('captures all ten approved Mobile V4 route screens', async ({ page }) => {
+  test.setTimeout(120000);
+  mkdirSync('artifacts/mobile-v4', { recursive: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAuthenticatedApp(page);
+  const screens = [
+    ['01-dashboard', 'dashboard', '.dash-kpi-card'],
+    ['02-tasks', 'tasks', '#mobile-v3-task-list .mobile-v3-record'],
+    ['03-purchase-requests', 'purchasereqs', '#mobile-v3-pr-list .mobile-v3-record'],
+    ['04-purchase-orders', 'pos', '#mobile-v3-po-list .mobile-v3-record'],
+    ['05-vendors', 'vendors', '#mobile-v3-vendor-list .mobile-v3-record'],
+    ['06-analytics', 'analytics', '#view-analytics .mobile-v4-kpi'],
+    ['07-ai-assistant', 'ai', '#view-ai #ai-chat-panel'],
+    ['08-settings', 'settings', '#view-settings .mobile-v4-appearance'],
+    ['09-integrations', 'integrations', '#desktop-integrations-grid .desktop-integration-card'],
+    ['10-users-and-roles', 'permissions', '#perms-view-wrap .empty-state, #perms-view-wrap .perm-user-card'],
+  ];
+  for (const [name, view, readySelector] of screens) {
+    await page.evaluate(target => window.navigateTo(target, { forceReload: true }), view);
+    await expect(page.locator(readySelector).first()).toBeVisible();
+    await page.screenshot({ path: `artifacts/mobile-v4/${name}-390x844.png` });
+  }
 });
 
 test('Desktop V1 shell routes, collapse state, topbar controls, and owner gating stay functional', async ({ page }) => {
@@ -1030,7 +1147,9 @@ test('PWA metadata and iPhone install assets load from repository-relative paths
   const swResponse = await page.request.get(new URL('sw.js', page.url()).href);
   expect(swResponse.status()).toBe(200);
   const serviceWorker = await swResponse.text();
-  expect(serviceWorker).toContain("tasktracker-shell-v9");
+  expect(serviceWorker).toContain("tasktracker-shell-v10");
+  expect(serviceWorker).toContain('./mobile-v4.css?v=1');
+  expect(serviceWorker).toContain('./mobile-v4.js?v=1');
   expect(serviceWorker).not.toContain('tt_user_profile');
   expect(serviceWorker).not.toContain('API_URL');
 });
