@@ -21,6 +21,9 @@ const taskTrackerGlobals = {
   cacheGet: 'readonly',
   cachedFetch: 'readonly',
   currentView: 'readonly',
+  confirmDelete: 'readonly',
+  dashboardV2Can: 'readonly',
+  dashboardV2TableFilterMatches: 'readonly',
   escapeAttr: 'readonly',
   escapeHtml: 'readonly',
   focusNavigationRecord: 'readonly',
@@ -29,10 +32,18 @@ const taskTrackerGlobals = {
   getCompanyName: 'readonly',
   handleSessionExpired: 'readonly',
   idToken: 'writable',
+  logTaskTime: 'readonly',
   navigateTo: 'readonly',
+  openAddModal: 'readonly',
+  openEditModal: 'readonly',
   queueOfflineWrite: 'readonly',
   showToast: 'readonly',
+  showPRModal: 'readonly',
+  showVendorModal: 'readonly',
   t: 'readonly',
+  tableData: 'readonly',
+  _allPRs: 'readonly',
+  _allVendors: 'readonly',
 };
 
 export default [
@@ -40,7 +51,7 @@ export default [
     ignores: ['dist/**', 'node_modules/**', '.claude/worktrees/**'],
   },
   {
-    files: ['frontend/ai-chat.js', 'frontend/api.js', 'frontend/mobile-nav.js', 'frontend/notifications.js'],
+    files: ['frontend/ai-chat.js', 'frontend/api.js', 'frontend/mobile-nav.js', 'frontend/mobile-v3.js', 'frontend/notifications.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'script',
